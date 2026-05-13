@@ -1,0 +1,6 @@
+sqlc generate
+
+# 3. จัดระเบียบ go.mod
+go mod tidy
+
+swag init -g cmd/main.go

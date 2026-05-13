@@ -1,0 +1,43 @@
+basePath: /api/v1
+definitions:
+  create.Request:
+    properties:
+      email:
+        type: string
+      name:
+        minLength: 2
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: This is a sample server for Bidkan Clean Architecture.
+  title: Bidkan Backend API
+  version: "1.0"
+paths:
+  /users:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user with email, name, and password
+      parameters:
+      - description: User creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/create.Request'
+      produces:
+      - application/json
+      responses: {}
+      summary: Create a new user
+      tags:
+      - Users
+swagger: "2.0"

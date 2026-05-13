@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # 1. กล่องฐานข้อมูล PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: bidkan-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. กล่องตัวกลาง MQTT (Mosquitto)
+  mqtt:
+    image: eclipse-mosquitto:latest
+    container_name: bidkan-mqtt
+    restart: always
+    ports:
+      - "1883:1883" # พอร์ตสำหรับให้ ESP32 คุยด้วย
+      - "9001:9001" # พอร์ตสำหรับ WebSockets (เผื่อใช้หน้าเว็บ)
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+  # 3. กล่องสมองกล Go Backend (API & MQTT Listener)
+  backend:
+    build: .
+    container_name: bidkan-backend
+    restart: always
+    ports:
+      - "8080:8080" # พอร์ต API ที่จะให้แอปมือถือเรียกใช้
+    depends_on:
+      db:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+    environment:
+      # ใช้ DATABASE_URL ให้ตรงกับโค้ด Go และดึงค่าจาก .env มาประกอบ
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
+      - MQTT_BROKER=tcp://mqtt:1883
+      - PORT=${PORT}
+
+volumes:
+  pgdata:
