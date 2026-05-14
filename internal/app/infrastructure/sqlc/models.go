@@ -10,6 +10,28 @@ import (
 	"github.com/google/uuid"
 )
 
+type Bike struct {
+	ID            string
+	HardwareID    string
+	Lat           float64
+	Lon           float64
+	BatteryLevel  int32
+	Status        string
+	CurrentRideID uuid.NullUUID
+	LastHeartbeat time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+type BikeLocation struct {
+	ID        uuid.UUID
+	BikeID    string
+	Lat       float64
+	Lon       float64
+	Battery   int32
+	CreatedAt time.Time
+}
+
 type User struct {
 	ID        uuid.UUID
 	Email     string

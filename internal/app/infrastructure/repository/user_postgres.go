@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 
-	"bidkan/internal/app/domain/entity"
-	"bidkan/internal/app/domain/repository"
-	db "bidkan/internal/app/infrastructure/sqlc"
+	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
+	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
+	db "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/sqlc"
 )
 
 type userPostgresRepository struct {

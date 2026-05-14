@@ -1,8 +1,8 @@
 package mqtt
 
 import (
-	"bidkan/internal/app/domain/entity"
-	"bidkan/internal/app/usecase/bike/tracking"
+	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/tracking"
 	"context"
 	"encoding/json"
 	"fmt"

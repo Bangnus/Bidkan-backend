@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"bidkan/internal/app/domain/entity"
+	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 )
 
 type UserRepository interface {

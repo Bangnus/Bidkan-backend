@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"bidkan/internal/app/domain/entity"
-	"bidkan/internal/app/domain/repository"
+	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
+	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"

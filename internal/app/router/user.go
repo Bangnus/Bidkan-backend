@@ -1,7 +1,7 @@
 package router
 
 import (
-	"bidkan/internal/app/usecase/user/create"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/create"
 
 	"github.com/gofiber/fiber/v2"
 )

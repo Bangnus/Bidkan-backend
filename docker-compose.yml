@@ -51,7 +51,22 @@ services:
       # ใช้ DATABASE_URL ให้ตรงกับโค้ด Go และดึงค่าจาก .env มาประกอบ
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
       - MQTT_BROKER=tcp://mqtt:1883
+      - REDIS_URL=redis:6379
       - PORT=${PORT}
+
+  # 4. Redis สำหรับ Caching พิกัดล่าสุดแบบเร็วๆ
+  redis:
+    image: redis:7-alpine
+    container_name: bidkan-redis
+    ports:
+      - "6379:6379"
+  # 5. MQTTX Web UI สำหรับทดสอบผ่านเบราว์เซอร์
+  mqttx:
+    image: emqx/mqttx-web
+    container_name: bidkan-mqttx-web
+    ports:
+      - "8081:80"
+    restart: always
 
 volumes:
   pgdata:

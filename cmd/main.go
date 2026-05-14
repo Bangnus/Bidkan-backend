@@ -4,14 +4,14 @@ import (
 	"log"
 	"os"
 
-	"bidkan/internal/app/infrastructure/database"
-	"bidkan/internal/app/infrastructure/mqtt"
-	"bidkan/internal/app/infrastructure/repository"
-	"bidkan/internal/app/router"
-	"bidkan/internal/app/usecase/bike/tracking"
-	"bidkan/internal/app/usecase/user/create"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/database"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/repository"
+	"github.com/Bangnus/Bidkan-backend/internal/app/router"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/tracking"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/create"
 
-	_ "bidkan/docs" // ให้โหลดไฟล์ docs ที่จะถูกสร้างขึ้น
+	_ "github.com/Bangnus/Bidkan-backend/docs" // ให้โหลดไฟล์ docs ที่จะถูกสร้างขึ้น
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -39,8 +39,18 @@ func main() {
 	createService := create.NewService(userRepo)
 	createHandler := create.NewHandler(createService)
 
+	// --- Redis Setup ---
+	redisAddr := os.Getenv("REDIS_URL")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+	rdb := database.NewRedisClient(redisAddr)
+	bikeCache := repository.NewBikeRedisRepository(rdb)
+	// ------------------
+
 	// --- MQTT Setup ---
-	trackingService := tracking.NewService()
+	bikeRepo := repository.NewBikePostgresRepository(db)
+	trackingService := tracking.NewService(bikeRepo, bikeCache) // เพิ่ม bikeCache เข้าไป
 	mqttBroker := os.Getenv("MQTT_BROKER")
 	if mqttBroker == "" {
 		mqttBroker = "tcp://localhost:1883"
