@@ -13,45 +13,68 @@ import (
 )
 
 const createUser = `-- name: CreateUser :exec
-INSERT INTO users (id, email, name, password, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO users (id, phone_number, full_name, password, wallet_balance, role, status, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type CreateUserParams struct {
-	ID        uuid.UUID
-	Email     string
-	Name      string
-	Password  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID            uuid.UUID
+	PhoneNumber   string
+	FullName      string
+	Password      string
+	WalletBalance string
+	Role          string
+	Status        string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 	_, err := q.db.ExecContext(ctx, createUser,
 		arg.ID,
-		arg.Email,
-		arg.Name,
+		arg.PhoneNumber,
+		arg.FullName,
 		arg.Password,
+		arg.WalletBalance,
+		arg.Role,
+		arg.Status,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
 	return err
 }
 
-const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, name, password, created_at, updated_at FROM users WHERE email = $1
+const getUserByPhone = `-- name: GetUserByPhone :one
+SELECT id, phone_number, full_name, password, wallet_balance, role, status, created_at, updated_at FROM users WHERE phone_number = $1
 `
 
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
+func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByPhone, phoneNumber)
 	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.Email,
-		&i.Name,
+		&i.PhoneNumber,
+		&i.FullName,
 		&i.Password,
+		&i.WalletBalance,
+		&i.Role,
+		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const updateUserStatus = `-- name: UpdateUserStatus :exec
+UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2
+`
+
+type UpdateUserStatusParams struct {
+	Status string
+	ID     uuid.UUID
+}
+
+func (q *Queries) UpdateUserStatus(ctx context.Context, arg UpdateUserStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserStatus, arg.Status, arg.ID)
+	return err
 }

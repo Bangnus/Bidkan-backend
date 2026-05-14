@@ -23,16 +23,19 @@ func NewUserPostgresRepository(conn *sql.DB) repository.UserRepository {
 func (r *userPostgresRepository) Create(ctx context.Context, user *entity.User) error {
 	return r.queries.CreateUser(ctx, db.CreateUserParams{
 		ID:        user.ID,
-		Email:     user.Email,
-		Name:      user.Name,
-		Password:  user.Password,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
+		PhoneNumber: user.PhoneNumber,
+		FullName:    user.FullName,
+		Password:    user.Password,
+		WalletBalance: user.WalletBalance,
+		Role:        user.Role,
+		Status:      user.Status,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
 	})
 }
 
-func (r *userPostgresRepository) GetByEmail(ctx context.Context, email string) (*entity.User, error) {
-	row, err := r.queries.GetUserByEmail(ctx, email)
+func (r *userPostgresRepository) GetByPhone(ctx context.Context, phone string) (*entity.User, error) {
+	row, err := r.queries.GetUserByPhone(ctx, phone)
 	if err != nil {
 		return nil, err // sql.ErrNoRows ถ้าไม่เจอ
 	}
@@ -40,10 +43,13 @@ func (r *userPostgresRepository) GetByEmail(ctx context.Context, email string) (
 	// Map จาก sqlc model → domain entity
 	return &entity.User{
 		ID:        row.ID,
-		Email:     row.Email,
-		Name:      row.Name,
-		Password:  row.Password,
-		CreatedAt: row.CreatedAt,
-		UpdatedAt: row.UpdatedAt,
+		PhoneNumber: row.PhoneNumber,
+		FullName:    row.FullName,
+		Password:    row.Password,
+		WalletBalance: row.WalletBalance,
+		Role:        row.Role,
+		Status:      row.Status,
+		CreatedAt:   row.CreatedAt,
+		UpdatedAt:   row.UpdatedAt,
 	}, nil
 }

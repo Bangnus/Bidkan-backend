@@ -5,9 +5,11 @@
 package sqlc
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
 
 type Bike struct {
@@ -32,11 +34,62 @@ type BikeLocation struct {
 	CreatedAt time.Time
 }
 
+type Report struct {
+	ID         uuid.UUID
+	BikeID     string
+	ReportedBy uuid.UUID
+	IssueType  string
+	Status     string
+	ResolvedBy uuid.NullUUID
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+type Ride struct {
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	BikeID     string
+	StartTime  time.Time
+	EndTime    sql.NullTime
+	StartLat   float64
+	StartLon   float64
+	EndLat     sql.NullFloat64
+	EndLon     sql.NullFloat64
+	DistanceKm sql.NullFloat64
+	TotalFare  sql.NullString
+	Status     string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+type Transaction struct {
+	ID          uuid.UUID
+	UserID      uuid.UUID
+	Amount      string
+	Type        string
+	ReferenceID uuid.NullUUID
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 type User struct {
+	ID            uuid.UUID
+	PhoneNumber   string
+	FullName      string
+	Password      string
+	WalletBalance string
+	Role          string
+	Status        string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+type Zone struct {
 	ID        uuid.UUID
-	Email     string
 	Name      string
-	Password  string
+	Type      string
+	Boundary  pqtype.NullRawMessage
+	Radius    sql.NullFloat64
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

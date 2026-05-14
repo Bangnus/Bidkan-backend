@@ -14,16 +14,21 @@ import (
 
 // Request Data (รับมาจาก Client)
 type Request struct {
-	Email    string `json:"email" validate:"required,email"`
-	Name     string `json:"name" validate:"required,min=2"`
+	PhoneNumber    string `json:"phone_number" validate:"required,min=10"`
+	FullName     string `json:"full_name" validate:"required,min=2"`
 	Password string `json:"password" validate:"required,min=6"`
 }
 
 // Response Data (ส่งกลับให้ Client - ห้ามส่ง Password กลับเด็ดขาด)
 type Response struct {
-	ID    string `json:"id"`
-	Email string `json:"email"`
-	Name  string `json:"name"`
+	ID            string    `json:"id"`
+	PhoneNumber   string    `json:"phone_number"`
+	FullName      string    `json:"full_name"`
+	WalletBalance string    `json:"wallet_balance"`
+	Role          string    `json:"role"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // Interface สำหรับ Mock ในการทำ Unit Test
@@ -41,9 +46,9 @@ func NewService(userRepo repository.UserRepository) Service {
 
 func (s *service) CreateUser(ctx context.Context, req Request) (*Response, error) {
 	// 1. ตรวจสอบว่าอีเมลซ้ำหรือไม่
-	existing, _ := s.userRepo.GetByEmail(ctx, req.Email)
+	existing, _ := s.userRepo.GetByPhone(ctx, req.PhoneNumber)
 	if existing != nil {
-		return nil, errors.New("email already registered")
+		return nil, errors.New("phone number already registered")
 	}
 
 	// 2. เข้ารหัสผ่านด้วย Bcrypt (Cost 12)
@@ -56,9 +61,12 @@ func (s *service) CreateUser(ctx context.Context, req Request) (*Response, error
 	now := time.Now()
 	user := &entity.User{
 		ID:        uuid.New(),
-		Email:     req.Email,
-		Name:      req.Name,
+		PhoneNumber:    req.PhoneNumber,
+		FullName:     req.FullName,
 		Password:  string(hashedPassword),
+		WalletBalance: "0.00",
+		Role:        "user",
+		Status:      "active",
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -71,7 +79,12 @@ func (s *service) CreateUser(ctx context.Context, req Request) (*Response, error
 	// 5. คืนค่า Response ออกไป
 	return &Response{
 		ID:    user.ID.String(),
-		Email: user.Email,
-		Name:  user.Name,
+		PhoneNumber: user.PhoneNumber,
+		FullName:  user.FullName,
+		WalletBalance: user.WalletBalance,
+		Role: user.Role,
+		Status: user.Status,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
 	}, nil
 }

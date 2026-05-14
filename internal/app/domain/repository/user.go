@@ -8,5 +8,5 @@ import (
 
 type UserRepository interface {
 	Create(ctx context.Context, user *entity.User) error
-	GetByEmail(ctx context.Context, email string) (*entity.User, error)
+	GetByPhone(ctx context.Context, phone string) (*entity.User, error)
 }

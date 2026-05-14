@@ -6,6 +6,9 @@ import (
 )
 
 type BikeRepository interface {
-	SaveLocation(ctx context.Context, data entity.BikeData) error
+	Create(ctx context.Context, bikeID string, hardwareID string, status string) error
+	GetByID(ctx context.Context, id string) (*entity.BikeData, error)
+	ListAll(ctx context.Context) ([]entity.BikeData, error)
 	UpdateStatus(ctx context.Context, data entity.BikeData) error
+	SaveLocation(ctx context.Context, data entity.BikeData) error
 }
