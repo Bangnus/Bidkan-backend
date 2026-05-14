@@ -5,8 +5,10 @@ import (
 	"os"
 
 	"bidkan/internal/app/infrastructure/database"
+	"bidkan/internal/app/infrastructure/mqtt"
 	"bidkan/internal/app/infrastructure/repository"
 	"bidkan/internal/app/router"
+	"bidkan/internal/app/usecase/bike/tracking"
 	"bidkan/internal/app/usecase/user/create"
 
 	_ "bidkan/docs" // ให้โหลดไฟล์ docs ที่จะถูกสร้างขึ้น
@@ -36,6 +38,18 @@ func main() {
 	userRepo := repository.NewUserPostgresRepository(db)
 	createService := create.NewService(userRepo)
 	createHandler := create.NewHandler(createService)
+
+	// --- MQTT Setup ---
+	trackingService := tracking.NewService()
+	mqttBroker := os.Getenv("MQTT_BROKER")
+	if mqttBroker == "" {
+		mqttBroker = "tcp://localhost:1883"
+	}
+	mqttSub := mqtt.NewSubscriber(mqttBroker, "bidkan_backend_main", trackingService)
+	if err := mqttSub.Start(); err != nil {
+		log.Fatalf("Failed to start MQTT: %v", err)
+	}
+	// ------------------
 
 	// 3. สร้าง Fiber App
 	app := fiber.New()
