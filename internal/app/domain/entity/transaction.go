@@ -11,7 +11,9 @@ type Transaction struct {
 	UserID      uuid.UUID
 	Amount      string
 	Type        string
+	Status      string
 	ReferenceID uuid.NullUUID
+	GatewayRef  *string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }

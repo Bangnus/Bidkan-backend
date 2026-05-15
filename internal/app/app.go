@@ -3,6 +3,7 @@ package app
 import (
 	"database/sql"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/repository"
 	
@@ -11,6 +12,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/logout"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/me"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/rank"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/update_profile"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify_firebase"
 	
@@ -26,6 +28,11 @@ import (
 	zoneList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/zone/list"
 	zoneCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/zone/create"
 
+	// Wallet & Payment
+	"github.com/Bangnus/Bidkan-backend/pkg/payment"
+	walletTopup "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/topup"
+	walletWebhook "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/webhook"
+
 	// Config
 	configUsecase "github.com/Bangnus/Bidkan-backend/internal/app/usecase/config"
 )
@@ -36,8 +43,13 @@ type Container struct {
 	VerifyFirebaseHandler verify_firebase.Handler
 	LoginHandler          login.Handler
 	MeHandler             me.Handler
+	RankHandler           rank.Handler
 	UpdateProfileHandler  update_profile.Handler
 	LogoutHandler         logout.Handler
+
+	// Wallet
+	TopupHandler          walletTopup.Handler
+	WebhookHandler        walletWebhook.Handler
 
 	// Bike
 	CreateBikeHandler     bikeCreate.Handler
@@ -55,13 +67,19 @@ type Container struct {
 	ConfigHandler         configUsecase.Handler
 }
 
-func NewContainer(db *sql.DB, firebaseProvider service.SmsProvider) *Container {
+func NewContainer(db *sql.DB, rdb *redis.Client, firebaseProvider service.SmsProvider) *Container {
 	// --- Repositories ---
 	userRepo := repository.NewUserPostgresRepository(db)
 	bikeRepo := repository.NewBikePostgresRepository(db)
 	rideRepo := repository.NewRidePostgresRepository(db)
-	zoneRepo := repository.NewZoneRepository(db) // ตรวจสอบชื่อฟังก์ชันใน repository/zone_postgres.go
+	zoneRepo := repository.NewZoneRepository(db)
 	configRepo := repository.NewConfigRepository(db)
+	txRepo := repository.NewTransactionPostgresRepository(db)
+	spendingRepo := repository.NewUserMonthlySpendingRepository(db)
+
+	// --- Cache (Redis) ---
+	rankCacheRepo := repository.NewUserRankRedisRepository(rdb)
+	configCacheRepo := repository.NewConfigRedisRepository(rdb)
 
 	// --- Services ---
 	// User
@@ -69,7 +87,15 @@ func NewContainer(db *sql.DB, firebaseProvider service.SmsProvider) *Container {
 	verifyFirebaseService := verify_firebase.NewService(userRepo, firebaseProvider)
 	loginService := login.NewService(userRepo)
 	meService := me.NewService(userRepo)
+	rankService := rank.NewService(spendingRepo, rankCacheRepo)
 	updateProfileService := update_profile.NewService(userRepo)
+
+	// Payment
+	paySvc := payment.NewPaySolutionsService()
+
+	// Wallet
+	topupService := walletTopup.NewService(txRepo, userRepo, paySvc)
+	webhookService := walletWebhook.NewService(txRepo, userRepo)
 
 	// Bike
 	bikeCreateService := bikeCreate.NewService(bikeRepo)
@@ -77,7 +103,7 @@ func NewContainer(db *sql.DB, firebaseProvider service.SmsProvider) *Container {
 
 	// Ride
 	rideStartService := rideStart.NewService(rideRepo, userRepo, bikeRepo)
-	rideEndService := rideEnd.NewService(rideRepo, userRepo, bikeRepo, zoneRepo, configRepo)
+	rideEndService := rideEnd.NewService(rideRepo, userRepo, bikeRepo, zoneRepo, configRepo, spendingRepo, rankCacheRepo, configCacheRepo)
 
 	// Zone
 	zoneListService := zoneList.NewService(zoneRepo)
@@ -92,9 +118,15 @@ func NewContainer(db *sql.DB, firebaseProvider service.SmsProvider) *Container {
 		VerifyFirebaseHandler: verify_firebase.NewHandler(verifyFirebaseService),
 		LoginHandler:          login.NewHandler(loginService),
 		MeHandler:             me.NewHandler(meService),
+		RankHandler:           rank.NewHandler(rankService),
 		UpdateProfileHandler:  update_profile.NewHandler(updateProfileService),
 		LogoutHandler:         logout.NewHandler(),
 
+		// Wallet
+		TopupHandler:          walletTopup.NewHandler(topupService),
+		WebhookHandler:        walletWebhook.NewHandler(webhookService),
+
+		// Bike
 		CreateBikeHandler:     bikeCreate.NewHandler(bikeCreateService),
 
 		ListBikeHandler:       bikeList.NewHandler(bikeListService),

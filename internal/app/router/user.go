@@ -6,6 +6,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/logout"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/me"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/rank"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/update_profile"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify_firebase"
 
@@ -20,6 +21,7 @@ func SetupUserRoutes(
 	verifyFirebaseHandler verify_firebase.Handler,
 	updateProfileHandler update_profile.Handler,
 	logoutHandler logout.Handler,
+	rankHandler rank.Handler,
 ) {
 	api := app.Group("/api")
 	v1 := api.Group("/v1")
@@ -32,6 +34,7 @@ func SetupUserRoutes(
 	// Protected Routes (ต้องใช้ Token)
 	userGroup := v1.Group("/users", middleware.AuthMiddleware())
 	userGroup.Get("/me", meHandler.Handle)
+	userGroup.Get("/rank", rankHandler.Handle)
 	userGroup.Patch("/profile/image", updateProfileHandler.Handle)
 	userGroup.Post("/logout", logoutHandler.Handle)
 }

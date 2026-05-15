@@ -1,16 +1,20 @@
 basePath: /api
 definitions:
+  config.Request:
+    properties:
+      key:
+        type: string
+      value:
+        type: string
+    required:
+    - key
+    - value
+    type: object
   end.Request:
     properties:
-      lat:
-        type: number
-      lon:
-        type: number
       user_id:
         type: string
     required:
-    - lat
-    - lon
     - user_id
     type: object
   entity.BikeData:
@@ -70,6 +74,31 @@ definitions:
       userID:
         type: string
     type: object
+  entity.Zone:
+    properties:
+      boundary:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      radius:
+        format: float64
+        type: number
+      type:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  geo.Point:
+    properties:
+      lat:
+        type: number
+      lon:
+        type: number
+    type: object
   internal_app_usecase_bike_create.Request:
     properties:
       bike_id:
@@ -100,6 +129,25 @@ definitions:
     - password
     - phone_number
     - username
+    type: object
+  internal_app_usecase_zone_create.Request:
+    properties:
+      boundary:
+        description: ขอบเขต Polygon
+        items:
+          $ref: '#/definitions/geo.Point'
+        type: array
+      name:
+        type: string
+      radius:
+        description: ถ้าระบุ Radius จะใช้เป็นวงกลม (ใช้พิกัดแรกใน Boundary เป็นจุดศูนย์กลาง)
+        type: number
+      type:
+        description: '"P" หรือ "Area"'
+        type: string
+    required:
+    - name
+    - type
     type: object
   login.Request:
     properties:
@@ -133,6 +181,19 @@ definitions:
       username:
         type: string
     type: object
+  rank.Response:
+    properties:
+      current_discount:
+        type: number
+      current_rank:
+        type: string
+      next_rank_threshold:
+        type: number
+      progress_percentage:
+        type: number
+      total_spent_4_months:
+        type: number
+    type: object
   start.Request:
     properties:
       bike_id:
@@ -142,6 +203,29 @@ definitions:
     required:
     - bike_id
     - user_id
+    type: object
+  topup.Request:
+    properties:
+      amount:
+        type: number
+    required:
+    - amount
+    type: object
+  topup.Response:
+    properties:
+      amount:
+        type: number
+      qr_code_url:
+        type: string
+      transaction_id:
+        type: string
+    type: object
+  update_profile.Request:
+    properties:
+      image_url:
+        type: string
+    required:
+    - image_url
     type: object
   verify_firebase.Request:
     properties:
@@ -209,6 +293,49 @@ paths:
       summary: List Available Bikes
       tags:
       - Bikes
+  /v1/configs:
+    post:
+      consumes:
+      - application/json
+      description: Set a global configuration value (e.g. parking_penalty_fee).
+      parameters:
+      - description: Config request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/config.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Set System Config (Admin)
+      tags:
+      - Configs
+  /v1/configs/{key}:
+    get:
+      description: Get a global configuration value by key.
+      parameters:
+      - description: Config Key
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get System Config
+      tags:
+      - Configs
   /v1/rides/end:
     post:
       consumes:
@@ -318,6 +445,23 @@ paths:
       summary: Login User
       tags:
       - Users
+  /v1/users/logout:
+    post:
+      description: Logout the current user by instructing the client to clear the
+        JWT token.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Logout User
+      tags:
+      - Users
   /v1/users/me:
     get:
       consumes:
@@ -338,6 +482,46 @@ paths:
       security:
       - BearerAuth: []
       summary: Get My Profile
+      tags:
+      - Users
+  /v1/users/profile/image:
+    patch:
+      consumes:
+      - application/json
+      description: Update the profile image URL for the current user.
+      parameters:
+      - description: Update profile image request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/update_profile.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Profile Image
+      tags:
+      - Users
+  /v1/users/rank:
+    get:
+      description: Get current rank and spending progress for the last 4 months.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rank.Response'
+      security:
+      - BearerAuth: []
+      summary: Get User Rank
       tags:
       - Users
   /v1/users/verify/firebase:
@@ -369,6 +553,83 @@ paths:
       summary: Verify Firebase Token and Activate User
       tags:
       - Users
+  /v1/wallet/topup:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new top-up transaction and returns a PromptPay QR code.
+      parameters:
+      - description: Topup Request (Amount)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/topup.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/topup.Response'
+      security:
+      - BearerAuth: []
+      summary: Request Wallet Top-up
+      tags:
+      - Wallet
+  /v1/wallet/webhook/paysolutions:
+    post:
+      consumes:
+      - application/json
+      description: Receives payment status updates from PaySolutions server.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: PaySolutions Webhook Callback
+      tags:
+      - Wallet
+  /v1/zones:
+    get:
+      description: Get a list of all service areas and parking zones.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/entity.Zone'
+            type: array
+      summary: List All Zones
+      tags:
+      - Zones
+    post:
+      consumes:
+      - application/json
+      description: Create a new Parking Zone (P) or Riding Area (Area).
+      parameters:
+      - description: Zone creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_app_usecase_zone_create.Request'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create New Zone (Admin)
+      tags:
+      - Zones
 securityDefinitions:
   BearerAuth:
     description: Type 'Bearer ' followed by your JWT token.

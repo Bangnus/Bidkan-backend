@@ -7,16 +7,15 @@ package sqlc
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 const createTransaction = `-- name: CreateTransaction :exec
-INSERT INTO transactions (
-    id, user_id, amount, type, reference_id, created_at, updated_at
-) VALUES (
-    $1, $2, $3, $4, $5, NOW(), NOW()
-)
+INSERT INTO transactions (id, user_id, amount, type, status, reference_id, gateway_ref, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
 `
 
 type CreateTransactionParams struct {
@@ -24,7 +23,9 @@ type CreateTransactionParams struct {
 	UserID      uuid.UUID
 	Amount      string
 	Type        string
+	Status      string
 	ReferenceID uuid.NullUUID
+	GatewayRef  sql.NullString
 }
 
 func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) error {
@@ -33,61 +34,68 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 		arg.UserID,
 		arg.Amount,
 		arg.Type,
+		arg.Status,
 		arg.ReferenceID,
+		arg.GatewayRef,
 	)
 	return err
 }
 
-const getTransaction = `-- name: GetTransaction :one
-SELECT id, user_id, amount, type, reference_id, created_at, updated_at FROM transactions WHERE id = $1
+const getTotalSpendingInWindow = `-- name: GetTotalSpendingInWindow :one
+SELECT COALESCE(SUM(ABS(amount)), 0)::TEXT
+FROM transactions
+WHERE user_id = $1 
+  AND type = 'fare_deduction' 
+  AND status = 'completed'
+  AND created_at >= $2
 `
 
-func (q *Queries) GetTransaction(ctx context.Context, id uuid.UUID) (Transaction, error) {
-	row := q.db.QueryRowContext(ctx, getTransaction, id)
+type GetTotalSpendingInWindowParams struct {
+	UserID    uuid.UUID
+	CreatedAt time.Time
+}
+
+func (q *Queries) GetTotalSpendingInWindow(ctx context.Context, arg GetTotalSpendingInWindowParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, getTotalSpendingInWindow, arg.UserID, arg.CreatedAt)
+	var column_1 string
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const getTransactionByID = `-- name: GetTransactionByID :one
+SELECT id, user_id, amount, type, status, reference_id, gateway_ref, created_at, updated_at FROM transactions WHERE id = $1
+`
+
+func (q *Queries) GetTransactionByID(ctx context.Context, id uuid.UUID) (Transaction, error) {
+	row := q.db.QueryRowContext(ctx, getTransactionByID, id)
 	var i Transaction
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Amount,
 		&i.Type,
+		&i.Status,
 		&i.ReferenceID,
+		&i.GatewayRef,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const listTransactionsByUser = `-- name: ListTransactionsByUser :many
-SELECT id, user_id, amount, type, reference_id, created_at, updated_at FROM transactions WHERE user_id = $1 ORDER BY created_at DESC
+const updateTransactionStatus = `-- name: UpdateTransactionStatus :exec
+UPDATE transactions
+SET status = $2, gateway_ref = COALESCE($3, gateway_ref), updated_at = NOW()
+WHERE id = $1
 `
 
-func (q *Queries) ListTransactionsByUser(ctx context.Context, userID uuid.UUID) ([]Transaction, error) {
-	rows, err := q.db.QueryContext(ctx, listTransactionsByUser, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Transaction
-	for rows.Next() {
-		var i Transaction
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.Amount,
-			&i.Type,
-			&i.ReferenceID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+type UpdateTransactionStatusParams struct {
+	ID         uuid.UUID
+	Status     string
+	GatewayRef sql.NullString
+}
+
+func (q *Queries) UpdateTransactionStatus(ctx context.Context, arg UpdateTransactionStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateTransactionStatus, arg.ID, arg.Status, arg.GatewayRef)
+	return err
 }

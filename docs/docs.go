@@ -94,6 +94,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/configs": {
+            "post": {
+                "description": "Set a global configuration value (e.g. parking_penalty_fee).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Configs"
+                ],
+                "summary": "Set System Config (Admin)",
+                "parameters": [
+                    {
+                        "description": "Config request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/config.Request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/configs/{key}": {
+            "get": {
+                "description": "Get a global configuration value by key.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Configs"
+                ],
+                "summary": "Get System Config",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Config Key",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/rides/end": {
             "post": {
                 "security": [
@@ -262,6 +327,32 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/users/logout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Logout the current user by instructing the client to clear the JWT token.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Logout User",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/users/me": {
             "get": {
                 "security": [
@@ -292,6 +383,71 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/users/profile/image": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update the profile image URL for the current user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Update Profile Image",
+                "parameters": [
+                    {
+                        "description": "Update profile image request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/update_profile.Request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/users/rank": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get current rank and spending progress for the last 4 months.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get User Rank",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rank.Response"
                         }
                     }
                 }
@@ -338,23 +494,149 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/v1/wallet/topup": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new top-up transaction and returns a PromptPay QR code.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wallet"
+                ],
+                "summary": "Request Wallet Top-up",
+                "parameters": [
+                    {
+                        "description": "Topup Request (Amount)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/topup.Request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/topup.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/wallet/webhook/paysolutions": {
+            "post": {
+                "description": "Receives payment status updates from PaySolutions server.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wallet"
+                ],
+                "summary": "PaySolutions Webhook Callback",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/zones": {
+            "get": {
+                "description": "Get a list of all service areas and parking zones.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Zones"
+                ],
+                "summary": "List All Zones",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/entity.Zone"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new Parking Zone (P) or Riding Area (Area).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Zones"
+                ],
+                "summary": "Create New Zone (Admin)",
+                "parameters": [
+                    {
+                        "description": "Zone creation request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_app_usecase_zone_create.Request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "config.Request": {
+            "type": "object",
+            "required": [
+                "key",
+                "value"
+            ],
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "end.Request": {
             "type": "object",
             "required": [
-                "lat",
-                "lon",
                 "user_id"
             ],
             "properties": {
-                "lat": {
-                    "type": "number"
-                },
-                "lon": {
-                    "type": "number"
-                },
                 "user_id": {
                     "type": "string"
                 }
@@ -444,6 +726,44 @@ const docTemplate = `{
                 }
             }
         },
+        "entity.Zone": {
+            "type": "object",
+            "properties": {
+                "boundary": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "radius": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "geo.Point": {
+            "type": "object",
+            "properties": {
+                "lat": {
+                    "type": "number"
+                },
+                "lon": {
+                    "type": "number"
+                }
+            }
+        },
         "internal_app_usecase_bike_create.Request": {
             "type": "object",
             "required": [
@@ -484,6 +804,33 @@ const docTemplate = `{
                     "type": "string",
                     "minLength": 2,
                     "example": "somchai_jaidee"
+                }
+            }
+        },
+        "internal_app_usecase_zone_create.Request": {
+            "type": "object",
+            "required": [
+                "name",
+                "type"
+            ],
+            "properties": {
+                "boundary": {
+                    "description": "ขอบเขต Polygon",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/geo.Point"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "radius": {
+                    "description": "ถ้าระบุ Radius จะใช้เป็นวงกลม (ใช้พิกัดแรกใน Boundary เป็นจุดศูนย์กลาง)",
+                    "type": "number"
+                },
+                "type": {
+                    "description": "\"P\" หรือ \"Area\"",
+                    "type": "string"
                 }
             }
         },
@@ -535,6 +882,26 @@ const docTemplate = `{
                 }
             }
         },
+        "rank.Response": {
+            "type": "object",
+            "properties": {
+                "current_discount": {
+                    "type": "number"
+                },
+                "current_rank": {
+                    "type": "string"
+                },
+                "next_rank_threshold": {
+                    "type": "number"
+                },
+                "progress_percentage": {
+                    "type": "number"
+                },
+                "total_spent_4_months": {
+                    "type": "number"
+                }
+            }
+        },
         "start.Request": {
             "type": "object",
             "required": [
@@ -546,6 +913,42 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "topup.Request": {
+            "type": "object",
+            "required": [
+                "amount"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number"
+                }
+            }
+        },
+        "topup.Response": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "qr_code_url": {
+                    "type": "string"
+                },
+                "transaction_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "update_profile.Request": {
+            "type": "object",
+            "required": [
+                "image_url"
+            ],
+            "properties": {
+                "image_url": {
                     "type": "string"
                 }
             }

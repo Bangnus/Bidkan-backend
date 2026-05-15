@@ -29,15 +29,30 @@ type service struct {
 	bikeRepo   repository.BikeRepository
 	zoneRepo   repository.ZoneRepository
 	configRepo repository.ConfigRepository
+	spendingRepo repository.UserMonthlySpendingRepository
+	rankCache    repository.UserRankCacheRepository
+	configCache  repository.ConfigCacheRepository
 }
 
-func NewService(rideRepo repository.RideRepository, userRepo repository.UserRepository, bikeRepo repository.BikeRepository, zoneRepo repository.ZoneRepository, configRepo repository.ConfigRepository) Service {
+func NewService(
+	rideRepo repository.RideRepository,
+	userRepo repository.UserRepository,
+	bikeRepo repository.BikeRepository,
+	zoneRepo repository.ZoneRepository,
+	configRepo repository.ConfigRepository,
+	spendingRepo repository.UserMonthlySpendingRepository,
+	rankCache repository.UserRankCacheRepository,
+	configCache repository.ConfigCacheRepository,
+) Service {
 	return &service{
-		rideRepo:   rideRepo,
-		userRepo:   userRepo,
-		bikeRepo:   bikeRepo,
-		zoneRepo:   zoneRepo,
-		configRepo: configRepo,
+		rideRepo:     rideRepo,
+		userRepo:     userRepo,
+		bikeRepo:     bikeRepo,
+		zoneRepo:     zoneRepo,
+		configRepo:   configRepo,
+		spendingRepo: spendingRepo,
+		rankCache:    rankCache,
+		configCache:  configCache,
 	}
 }
 
@@ -59,8 +74,32 @@ func (s *service) End(ctx context.Context, req Request) (*entity.Ride, error) {
 	duration := now.Sub(ride.StartTime)
 	seconds := duration.Seconds()
 
-	// 3. คำนวณค่าเช่าปกติ (นาทีละ 2 บาท => วินาทีละ 2/60 บาท)
-	fareAmount := seconds * (2.0 / 60.0)
+	// 3. คำนวณราคาตาม Rank (Real-time จากตารางสรุปยอด)
+	// นับยอดสะสมย้อนหลัง 4 เดือน
+	since := now.AddDate(0, -3, 0)
+	sinceYM, _ := strconv.Atoi(since.Format("200601"))
+
+	totalSpent, _ := s.spendingRepo.GetTotalInWindow(ctx, req.UserID, sinceYM)
+
+	// กำหนดอัตราค่าบริการพื้นฐาน และส่วนลดตาม Rank
+	baseRate := 2.0 // บาทต่อนาที
+	discount := 0.0
+
+	if totalSpent > 2500 {
+		// Gold Rank
+		discount = 1.0 // ลด 1 บาท
+	} else if totalSpent > 800 {
+		// Silver Rank
+		discount = 0.5 // ลด 0.5 บาท
+	}
+
+	effectiveRate := baseRate - discount
+	if effectiveRate < 0 {
+		effectiveRate = 0
+	}
+
+	// คำนวณค่าเช่า (วินาทีละ effectiveRate/60 บาท)
+	fareAmount := seconds * (effectiveRate / 60.0)
 
 	// 4. ตรวจสอบว่าจอดในโซน P หรือไม่ (Geofencing) อ้างอิงจากพิกัดรถจักรยาน
 	inParkingZone := false
@@ -87,9 +126,17 @@ func (s *service) End(ctx context.Context, req Request) (*entity.Ride, error) {
 		}
 	}
 
-	// 5. คิดค่าปรับถ้าจอดนอกโซน P
+	// 5. คิดค่าปรับถ้าจอดนอกโซน P (ลองดึงจาก Cache ก่อน)
 	if !inParkingZone {
-		penaltyStr, err := s.configRepo.GetConfig(ctx, "parking_penalty_fee")
+		penaltyStr, err := s.configCache.GetConfigCache(ctx, "parking_penalty_fee")
+		if err != nil {
+			// ถ้าไม่มีใน Cache ให้ดึงจาก DB แล้วเก็บลง Cache (1ชั่วโมง)
+			penaltyStr, err = s.configRepo.GetConfig(ctx, "parking_penalty_fee")
+			if err == nil {
+				_ = s.configCache.SetConfigCache(ctx, "parking_penalty_fee", penaltyStr, 1*time.Hour)
+			}
+		}
+
 		penaltyFee := 50.0 // ค่าเริ่มต้นถ้าไม่พบการตั้งค่า
 		if err == nil {
 			if p, err := strconv.ParseFloat(penaltyStr, 64); err == nil {
@@ -129,6 +176,13 @@ func (s *service) End(ctx context.Context, req Request) (*entity.Ride, error) {
 	bike.Status = "available"
 	bike.CurrentRideID = nil
 	_ = s.bikeRepo.UpdateStatus(ctx, *bike)
+
+	// 10. อัปเดตตารางสรุปยอดรายเดือนเพื่อความรวดเร็วในการคำนวณครั้งถัดไป
+	currentYM, _ := strconv.Atoi(now.Format("200601"))
+	_ = s.spendingRepo.AddSpending(ctx, req.UserID, currentYM, fareAmount)
+
+	// 11. ลบ Cache ของ Rank เพื่อให้การเปิดดูครั้งหน้าคำนวณใหม่ (เพราะยอดเงินเปลี่ยนแล้ว)
+	_ = s.rankCache.DeleteRankCache(ctx, req.UserID.String())
 
 	return s.rideRepo.GetByID(ctx, ride.ID)
 }

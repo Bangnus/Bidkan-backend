@@ -74,7 +74,9 @@ type Transaction struct {
 	UserID      uuid.UUID
 	Amount      string
 	Type        string
+	Status      string
 	ReferenceID uuid.NullUUID
+	GatewayRef  sql.NullString
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -90,6 +92,13 @@ type User struct {
 	ImageUrl      sql.NullString
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+}
+
+type UserMonthlySpending struct {
+	UserID    uuid.UUID
+	YearMonth int32
+	Amount    string
+	UpdatedAt time.Time
 }
 
 type Zone struct {

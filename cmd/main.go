@@ -64,7 +64,7 @@ func main() {
 	}
 
 	// 3. Dependency Injection Container (ย้าย Logic การสร้าง Service ไปไว้ที่นี่)
-	container := app.NewContainer(db, firebaseProvider)
+	container := app.NewContainer(db, rdb, firebaseProvider)
 
 	// 4. Setup MQTT (แยกส่วนการทำงาน)
 	bikeRepo := repository.NewBikePostgresRepository(db)
@@ -94,11 +94,13 @@ func main() {
 		container.VerifyFirebaseHandler,
 		container.UpdateProfileHandler,
 		container.LogoutHandler,
+		container.RankHandler,
 	)
 	router.SetupBikeRoutes(server, container.CreateBikeHandler, container.ListBikeHandler)
 	router.SetupRideRoutes(server, container.StartRideHandler, container.EndRideHandler)
 	router.SetupZoneRoutes(server, container.ListZoneHandler, container.CreateZoneHandler)
 	router.SetupConfigRoutes(server, container.ConfigHandler)
+	router.SetupWalletRoutes(server, container.TopupHandler, container.WebhookHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
