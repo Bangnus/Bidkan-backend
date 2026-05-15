@@ -7,6 +7,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
 	db "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/sqlc"
+	"github.com/google/uuid"
 )
 
 type userPostgresRepository struct {
@@ -22,15 +23,15 @@ func NewUserPostgresRepository(conn *sql.DB) repository.UserRepository {
 
 func (r *userPostgresRepository) Create(ctx context.Context, user *entity.User) error {
 	return r.queries.CreateUser(ctx, db.CreateUserParams{
-		ID:        user.ID,
-		PhoneNumber: user.PhoneNumber,
-		FullName:    user.FullName,
-		Password:    user.Password,
+		ID:            user.ID,
+		PhoneNumber:   user.PhoneNumber,
+		Username:      user.Username,
+		Password:      user.Password,
 		WalletBalance: user.WalletBalance,
-		Role:        user.Role,
-		Status:      user.Status,
-		CreatedAt:   user.CreatedAt,
-		UpdatedAt:   user.UpdatedAt,
+		Role:          user.Role,
+		Status:        user.Status,
+		CreatedAt:     user.CreatedAt,
+		UpdatedAt:     user.UpdatedAt,
 	})
 }
 
@@ -42,14 +43,21 @@ func (r *userPostgresRepository) GetByPhone(ctx context.Context, phone string) (
 
 	// Map จาก sqlc model → domain entity
 	return &entity.User{
-		ID:        row.ID,
-		PhoneNumber: row.PhoneNumber,
-		FullName:    row.FullName,
-		Password:    row.Password,
+		ID:            row.ID,
+		PhoneNumber:   row.PhoneNumber,
+		Username:      row.Username,
+		Password:      row.Password,
 		WalletBalance: row.WalletBalance,
-		Role:        row.Role,
-		Status:      row.Status,
-		CreatedAt:   row.CreatedAt,
-		UpdatedAt:   row.UpdatedAt,
+		Role:          row.Role,
+		Status:        row.Status,
+		CreatedAt:     row.CreatedAt,
+		UpdatedAt:     row.UpdatedAt,
 	}, nil
+}
+
+func (r *userPostgresRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
+	return r.queries.UpdateUserStatus(ctx, db.UpdateUserStatusParams{
+		ID:     id,
+		Status: status,
+	})
 }

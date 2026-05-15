@@ -10,6 +10,8 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/router"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/tracking"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/create"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/otp"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify"
 
 	_ "github.com/Bangnus/Bidkan-backend/docs" // ให้โหลดไฟล์ docs ที่จะถูกสร้างขึ้น
 
@@ -22,22 +24,16 @@ import (
 // @version 1.0
 // @description This is a sample server for Bidkan Clean Architecture.
 // @host localhost:8080
-// @BasePath /api/v1
+// @BasePath /api
 
 func main() {
-	// 1. ต่อ Database (อ่าน DSN จาก Environment Variable)
+	// 1. ต่อ Database
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		dsn = "host=localhost port=5432 user=postgres password=yourpassword dbname=bidkan_db sslmode=disable"
 	}
 	db := database.NewPostgresDB(dsn)
-	defer db.Close() // ปิด connection เมื่อโปรแกรมดับ
-
-	// 2. Dependency Injection (ต่อจิ๊กซอว์จากล่างขึ้นบน)
-	// สร้าง Repo -> ส่งให้ Service -> ส่งให้ Handler
-	userRepo := repository.NewUserPostgresRepository(db)
-	createService := create.NewService(userRepo)
-	createHandler := create.NewHandler(createService)
+	defer db.Close()
 
 	// --- Redis Setup ---
 	redisAddr := os.Getenv("REDIS_URL")
@@ -46,11 +42,29 @@ func main() {
 	}
 	rdb := database.NewRedisClient(redisAddr)
 	bikeCache := repository.NewBikeRedisRepository(rdb)
+	otpRepo := repository.NewOtpRedisRepository(rdb)
+	// ------------------
+
+	// 2. Dependency Injection
+	// --- User Setup ---
+	userRepo := repository.NewUserPostgresRepository(db)
+	
+	// OTP
+	otpService := otp.NewService(otpRepo)
+	otpHandler := otp.NewHandler(otpService)
+	
+	// Create User
+	createService := create.NewService(userRepo, otpRepo)
+	createHandler := create.NewHandler(createService)
+	
+	// Verify User
+	verifyService := verify.NewService(userRepo, otpRepo)
+	verifyHandler := verify.NewHandler(verifyService)
 	// ------------------
 
 	// --- MQTT Setup ---
 	bikeRepo := repository.NewBikePostgresRepository(db)
-	trackingService := tracking.NewService(bikeRepo, bikeCache) // เพิ่ม bikeCache เข้าไป
+	trackingService := tracking.NewService(bikeRepo, bikeCache)
 	mqttBroker := os.Getenv("MQTT_BROKER")
 	if mqttBroker == "" {
 		mqttBroker = "tcp://localhost:1883"
@@ -63,11 +77,11 @@ func main() {
 
 	// 3. สร้าง Fiber App
 	app := fiber.New()
-	app.Use(logger.New()) // แสดง Log ใน Terminal
+	app.Use(logger.New())
 
 	// 4. ตั้งค่า Routes
-	app.Get("/swagger/*", swagger.HandlerDefault) // default: http://localhost:8080/swagger/index.html
-	router.SetupUserRoutes(app, createHandler)
+	app.Get("/swagger/*", swagger.HandlerDefault)
+	router.SetupUserRoutes(app, createHandler, otpHandler, verifyHandler)
 
 	// 5. เปิด Server
 	port := os.Getenv("PORT")

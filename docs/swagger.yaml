@@ -1,19 +1,45 @@
-basePath: /api/v1
+basePath: /api
 definitions:
   create.Request:
     properties:
-      email:
-        type: string
-      name:
-        minLength: 2
-        type: string
       password:
+        example: password123
         minLength: 6
         type: string
+      phone_number:
+        example: "0812345678"
+        minLength: 10
+        type: string
+      username:
+        example: somchai_jaidee
+        minLength: 2
+        type: string
     required:
-    - email
-    - name
     - password
+    - phone_number
+    - username
+    type: object
+  otp.Request:
+    properties:
+      phone_number:
+        example: "0812345678"
+        minLength: 10
+        type: string
+    required:
+    - phone_number
+    type: object
+  verify.Request:
+    properties:
+      otp:
+        example: "123456"
+        type: string
+      phone_number:
+        example: "0812345678"
+        minLength: 10
+        type: string
+    required:
+    - otp
+    - phone_number
     type: object
 host: localhost:8080
 info:
@@ -22,11 +48,12 @@ info:
   title: Bidkan Backend API
   version: "1.0"
 paths:
-  /users:
+  /v1/users:
     post:
       consumes:
       - application/json
-      description: Register a new user with email, name, and password
+      description: Register a new user with phone number, username, and password.
+        After success, an OTP will be sent.
       parameters:
       - description: User creation request
         in: body
@@ -36,8 +63,79 @@ paths:
           $ref: '#/definitions/create.Request'
       produces:
       - application/json
-      responses: {}
-      summary: Create a new user
+      responses:
+        "201":
+          description: User created pending, OTP sent
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request or validation failed
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create a new user (and send OTP)
+      tags:
+      - Users
+  /v1/users/otp:
+    post:
+      consumes:
+      - application/json
+      description: Send OTP to phone number
+      parameters:
+      - description: OTP request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/otp.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OTP sent successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Request OTP
+      tags:
+      - Users
+  /v1/users/verify:
+    post:
+      consumes:
+      - application/json
+      description: Verify the OTP sent to user's phone to activate their account.
+      parameters:
+      - description: Verification request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/verify.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User activated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid OTP or request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Verify OTP and Activate User
       tags:
       - Users
 swagger: "2.0"

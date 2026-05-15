@@ -2,7 +2,10 @@ package create
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
+	"fmt"
+	"io"
 	"time"
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
@@ -12,18 +15,18 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Request Data (รับมาจาก Client)
+// Request Data (รับมาจาก Client - ตัด OTP ออกเพราะจะส่งให้ทีหลัง)
 type Request struct {
-	PhoneNumber    string `json:"phone_number" validate:"required,min=10"`
-	FullName     string `json:"full_name" validate:"required,min=2"`
-	Password string `json:"password" validate:"required,min=6"`
+	PhoneNumber string `json:"phone_number" validate:"required,min=10" example:"0812345678"`
+	Username    string `json:"username" validate:"required,min=2" example:"somchai_jaidee"`
+	Password    string `json:"password" validate:"required,min=6" example:"password123"`
 }
 
-// Response Data (ส่งกลับให้ Client - ห้ามส่ง Password กลับเด็ดขาด)
+// Response Data
 type Response struct {
 	ID            string    `json:"id"`
 	PhoneNumber   string    `json:"phone_number"`
-	FullName      string    `json:"full_name"`
+	Username      string    `json:"username"`
 	WalletBalance string    `json:"wallet_balance"`
 	Role          string    `json:"role"`
 	Status        string    `json:"status"`
@@ -31,44 +34,47 @@ type Response struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
-// Interface สำหรับ Mock ในการทำ Unit Test
 type Service interface {
 	CreateUser(ctx context.Context, req Request) (*Response, error)
 }
 
 type service struct {
 	userRepo repository.UserRepository
+	otpRepo  repository.OtpRepository
 }
 
-func NewService(userRepo repository.UserRepository) Service {
-	return &service{userRepo: userRepo}
+func NewService(userRepo repository.UserRepository, otpRepo repository.OtpRepository) Service {
+	return &service{
+		userRepo: userRepo,
+		otpRepo:  otpRepo,
+	}
 }
 
 func (s *service) CreateUser(ctx context.Context, req Request) (*Response, error) {
-	// 1. ตรวจสอบว่าอีเมลซ้ำหรือไม่
+	// 1. ตรวจสอบว่าเบอร์โทรซ้ำหรือไม่
 	existing, _ := s.userRepo.GetByPhone(ctx, req.PhoneNumber)
 	if existing != nil {
 		return nil, errors.New("phone number already registered")
 	}
 
-	// 2. เข้ารหัสผ่านด้วย Bcrypt (Cost 12)
+	// 2. เข้ารหัสผ่านด้วย Bcrypt
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
 	if err != nil {
 		return nil, errors.New("failed to hash password")
 	}
 
-	// 3. เตรียมข้อมูล Entity
+	// 3. เตรียมข้อมูล Entity (สถานะเป็น pending เพื่อรอการยืนยัน OTP)
 	now := time.Now()
 	user := &entity.User{
-		ID:        uuid.New(),
-		PhoneNumber:    req.PhoneNumber,
-		FullName:     req.FullName,
-		Password:  string(hashedPassword),
+		ID:            uuid.New(),
+		PhoneNumber:   req.PhoneNumber,
+		Username:      req.Username,
+		Password:      string(hashedPassword),
 		WalletBalance: "0.00",
-		Role:        "user",
-		Status:      "active",
-		CreatedAt: now,
-		UpdatedAt: now,
+		Role:          "user",
+		Status:        "pending",
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 
 	// 4. บันทึกลงฐานข้อมูล
@@ -76,15 +82,38 @@ func (s *service) CreateUser(ctx context.Context, req Request) (*Response, error
 		return nil, errors.New("failed to create user in database")
 	}
 
-	// 5. คืนค่า Response ออกไป
+	// 5. เจนรหัส OTP และบันทึกลง Redis เพื่อส่งให้ผู้ใช้
+	otpCode := generateRandomOTP(6)
+	err = s.otpRepo.SaveOTP(ctx, user.PhoneNumber, otpCode, 5*time.Minute)
+	if err != nil {
+		return nil, errors.New("user created but failed to send OTP")
+	}
+
+	// 6. TODO: ส่ง SMS Gateway จริง
+	fmt.Printf(" [SMS Gateway] Sending OTP %s to %s for user activation\n", otpCode, user.PhoneNumber)
+
 	return &Response{
-		ID:    user.ID.String(),
-		PhoneNumber: user.PhoneNumber,
-		FullName:  user.FullName,
+		ID:            user.ID.String(),
+		PhoneNumber:   user.PhoneNumber,
+		Username:      user.Username,
 		WalletBalance: user.WalletBalance,
-		Role: user.Role,
-		Status: user.Status,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
+		Role:          user.Role,
+		Status:        user.Status,
+		CreatedAt:     user.CreatedAt,
+		UpdatedAt:     user.UpdatedAt,
 	}, nil
+}
+
+// ฟังก์ชันช่วยสุ่มตัวเลข OTP
+func generateRandomOTP(length int) string {
+	table := [...]byte{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'}
+	b := make([]byte, length)
+	n, err := io.ReadAtLeast(rand.Reader, b, length)
+	if n != length || err != nil {
+		return "123456"
+	}
+	for i := 0; i < len(b); i++ {
+		b[i] = table[int(b[i])%len(table)]
+	}
+	return string(b)
 }

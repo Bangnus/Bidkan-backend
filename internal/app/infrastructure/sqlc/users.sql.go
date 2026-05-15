@@ -13,14 +13,14 @@ import (
 )
 
 const createUser = `-- name: CreateUser :exec
-INSERT INTO users (id, phone_number, full_name, password, wallet_balance, role, status, created_at, updated_at)
+INSERT INTO users (id, phone_number, username, password, wallet_balance, role, status, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type CreateUserParams struct {
 	ID            uuid.UUID
 	PhoneNumber   string
-	FullName      string
+	Username      string
 	Password      string
 	WalletBalance string
 	Role          string
@@ -33,7 +33,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 	_, err := q.db.ExecContext(ctx, createUser,
 		arg.ID,
 		arg.PhoneNumber,
-		arg.FullName,
+		arg.Username,
 		arg.Password,
 		arg.WalletBalance,
 		arg.Role,
@@ -45,7 +45,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, phone_number, full_name, password, wallet_balance, role, status, created_at, updated_at FROM users WHERE phone_number = $1
+SELECT id, phone_number, username, password, wallet_balance, role, status, created_at, updated_at FROM users WHERE phone_number = $1
 `
 
 func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User, error) {
@@ -54,7 +54,7 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User,
 	err := row.Scan(
 		&i.ID,
 		&i.PhoneNumber,
-		&i.FullName,
+		&i.Username,
 		&i.Password,
 		&i.WalletBalance,
 		&i.Role,

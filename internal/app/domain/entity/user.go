@@ -9,7 +9,7 @@ import (
 type User struct {
 	ID        uuid.UUID
 	PhoneNumber string
-	FullName    string
+	Username    string
 	Password    string
 	WalletBalance string
 	Role        string
