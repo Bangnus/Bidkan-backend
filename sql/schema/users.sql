@@ -6,6 +6,7 @@ CREATE TABLE users (
     wallet_balance DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     role           VARCHAR(10) NOT NULL DEFAULT 'user',
     status         VARCHAR(20) NOT NULL DEFAULT 'pending', 
+    image_url      VARCHAR(255),
     created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at     TIMESTAMP NOT NULL DEFAULT NOW()
 );

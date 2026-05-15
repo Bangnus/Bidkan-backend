@@ -1,0 +1,5 @@
+CREATE TABLE configs (
+    key VARCHAR(255) PRIMARY KEY,
+    value VARCHAR(255) NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);

@@ -10,4 +10,5 @@ type ZoneRepository interface {
     Create(ctx context.Context, zone *entity.Zone) error
     GetByID(ctx context.Context, id uuid.UUID) (*entity.Zone, error)
     ListAll(ctx context.Context) ([]entity.Zone, error)
+    ListByType(ctx context.Context, zoneType string) ([]entity.Zone, error)
 }

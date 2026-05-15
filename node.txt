@@ -4,3 +4,5 @@ sqlc generate
 go mod tidy
 
 swag init -g cmd/main.go
+
+http://localhost:8080/swagger/index.html#/

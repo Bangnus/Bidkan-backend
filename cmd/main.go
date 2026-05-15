@@ -4,23 +4,20 @@ import (
 	"log"
 	"os"
 
+	"github.com/Bangnus/Bidkan-backend/internal/app"
+	domainService "github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/database"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/repository"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/sms"
 	"github.com/Bangnus/Bidkan-backend/internal/app/router"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/tracking"
-	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/create"
-	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/login"
-	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/me"
-	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/otp"
-	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify"
 
-	_ "github.com/Bangnus/Bidkan-backend/docs" // ให้โหลดไฟล์ docs ที่จะถูกสร้างขึ้น
+	_ "github.com/Bangnus/Bidkan-backend/docs" 
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/swagger" // fiber-swagger middleware
+	"github.com/gofiber/swagger"
 )
 
 // @title Bidkan Backend API
@@ -29,60 +26,49 @@ import (
 // @host localhost:8080
 // @BasePath /api
 
-// @securityDefinitions.http bearer
-// @name BearerAuth
-// @description Paste your JWT token ONLY (The 'Bearer ' prefix will be added automatically)
+// @securityDefinitions.apiKey BearerAuth
+// @in header
+// @name Authorization
+// @description Type 'Bearer ' followed by your JWT token.
 
 func main() {
-	// 1. ต่อ Database
+	// 1. Setup Infrastructure (Database, Redis)
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		dsn = "host=localhost port=5432 user=postgres password=yourpassword dbname=bidkan_db sslmode=disable"
+		dsn = "host=localhost port=5433 user=postgres password=bidkan12345 dbname=bidkan_db sslmode=disable"
 	}
 	db := database.NewPostgresDB(dsn)
 	defer db.Close()
 
-	// --- Redis Setup ---
 	redisAddr := os.Getenv("REDIS_URL")
 	if redisAddr == "" {
 		redisAddr = "localhost:6379"
 	}
 	rdb := database.NewRedisClient(redisAddr)
-	bikeCache := repository.NewBikeRedisRepository(rdb)
-	otpRepo := repository.NewOtpRedisRepository(rdb)
-	// ------------------
-
-	// 2. Dependency Injection
-	// --- SMS Setup (เลือกสลับสายตรงนี้ได้เลย) ---
-	smsProvider := sms.NewConsoleSmsProvider() // ตอนนี้ใช้แบบ Console (ฟรี)
-	// smsProvider := sms.NewFirebaseSmsProvider(os.Getenv("FIREBASE_KEY")) // เปลี่ยนมาใช้ตัวนี้เมื่อพร้อม
 	
-	// --- User Setup ---
-	userRepo := repository.NewUserPostgresRepository(db)
-	
-	// OTP
-	otpService := otp.NewService(otpRepo, smsProvider)
-	otpHandler := otp.NewHandler(otpService)
-	
-	// Create User
-	createService := create.NewService(userRepo, otpRepo, smsProvider)
-	createHandler := create.NewHandler(createService)
-	
-	// Verify User
-	verifyService := verify.NewService(userRepo, otpRepo)
-	verifyHandler := verify.NewHandler(verifyService)
+	// 2. Setup External Services (Firebase)
+	var firebaseProvider domainService.SmsProvider
+	firebaseKey := "configs/bidkan-service-account.json"
+	if _, err := os.Stat(firebaseKey); err == nil {
+		p, err := sms.NewFirebaseSmsProvider(firebaseKey)
+		if err != nil {
+			log.Printf("⚠️ Warning: Failed to init Firebase: %v", err)
+			firebaseProvider = sms.NewConsoleSmsProvider()
+		} else {
+			firebaseProvider = p
+			log.Println("✅ Firebase Admin SDK initialized successfully")
+		}
+	} else {
+		log.Println("ℹ️ Firebase key not found. Using Console Provider (Dev Mode)")
+		firebaseProvider = sms.NewConsoleSmsProvider()
+	}
 
-	// Login User
-	loginService := login.NewService(userRepo)
-	loginHandler := login.NewHandler(loginService)
+	// 3. Dependency Injection Container (ย้าย Logic การสร้าง Service ไปไว้ที่นี่)
+	container := app.NewContainer(db, firebaseProvider)
 
-	// Me Profile (Protected)
-	meService := me.NewService(userRepo)
-	meHandler := me.NewHandler(meService)
-	// ------------------
-
-	// --- MQTT Setup ---
+	// 4. Setup MQTT (แยกส่วนการทำงาน)
 	bikeRepo := repository.NewBikePostgresRepository(db)
+	bikeCache := repository.NewBikeRedisRepository(rdb)
 	trackingService := tracking.NewService(bikeRepo, bikeCache)
 	mqttBroker := os.Getenv("MQTT_BROKER")
 	if mqttBroker == "" {
@@ -92,21 +78,32 @@ func main() {
 	if err := mqttSub.Start(); err != nil {
 		log.Fatalf("Failed to start MQTT: %v", err)
 	}
-	// ------------------
 
-	// 3. สร้าง Fiber App
-	app := fiber.New()
-	app.Use(logger.New())
+	// 5. Start Fiber Server
+	server := fiber.New()
+	server.Use(logger.New())
 
-	// 4. ตั้งค่า Routes
-	app.Get("/swagger/*", swagger.HandlerDefault)
-	router.SetupUserRoutes(app, createHandler, otpHandler, verifyHandler, loginHandler, meHandler)
+	server.Get("/swagger/*", swagger.HandlerDefault)
+	
+	// Setup Modules
+	router.SetupUserRoutes(
+		server, 
+		container.CreateUserHandler, 
+		container.LoginHandler, 
+		container.MeHandler, 
+		container.VerifyFirebaseHandler,
+		container.UpdateProfileHandler,
+		container.LogoutHandler,
+	)
+	router.SetupBikeRoutes(server, container.CreateBikeHandler, container.ListBikeHandler)
+	router.SetupRideRoutes(server, container.StartRideHandler, container.EndRideHandler)
+	router.SetupZoneRoutes(server, container.ListZoneHandler, container.CreateZoneHandler)
+	router.SetupConfigRoutes(server, container.ConfigHandler)
 
-	// 5. เปิด Server
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "3000"
+		port = "8080"
 	}
 	log.Printf("🚀 Server is running on port %s", port)
-	log.Fatal(app.Listen(":" + port))
+	log.Fatal(server.Listen(":" + port))
 }

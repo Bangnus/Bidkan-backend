@@ -6,6 +6,7 @@ CREATE TABLE bikes (
     lon              DOUBLE PRECISION NOT NULL DEFAULT 0,
     battery_level    INT NOT NULL DEFAULT 0,
     status           VARCHAR(20) NOT NULL DEFAULT 'available', -- available, in_use, maintenance, low_battery
+    image_url        TEXT NULL, -- รูปภาพจักรยานจาก Bucket
     current_ride_id  UUID NULL, -- ID การเช่าปัจจุบัน
     last_heartbeat   TIMESTAMP NOT NULL DEFAULT NOW(),
     created_at       TIMESTAMP NOT NULL DEFAULT NOW(),

@@ -22,6 +22,8 @@ go.work
 .idea/
 *.swp
 *.swo
+# Firebase Secrets
+configs/*.json
 
 # Environment variables
 .env

@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,7 +46,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, phone_number, username, password, wallet_balance, role, status, created_at, updated_at FROM users WHERE id = $1
+SELECT id, phone_number, username, password, wallet_balance, role, status, image_url, created_at, updated_at FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -59,6 +60,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.WalletBalance,
 		&i.Role,
 		&i.Status,
+		&i.ImageUrl,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -66,7 +68,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, phone_number, username, password, wallet_balance, role, status, created_at, updated_at FROM users WHERE phone_number = $1
+SELECT id, phone_number, username, password, wallet_balance, role, status, image_url, created_at, updated_at FROM users WHERE phone_number = $1
 `
 
 func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User, error) {
@@ -80,6 +82,7 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User,
 		&i.WalletBalance,
 		&i.Role,
 		&i.Status,
+		&i.ImageUrl,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -87,7 +90,7 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User,
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, phone_number, username, password, wallet_balance, role, status, created_at, updated_at FROM users WHERE username = $1
+SELECT id, phone_number, username, password, wallet_balance, role, status, image_url, created_at, updated_at FROM users WHERE username = $1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -101,10 +104,39 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.WalletBalance,
 		&i.Role,
 		&i.Status,
+		&i.ImageUrl,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const updateUserBalance = `-- name: UpdateUserBalance :exec
+UPDATE users SET wallet_balance = $1, updated_at = NOW() WHERE id = $2
+`
+
+type UpdateUserBalanceParams struct {
+	WalletBalance string
+	ID            uuid.UUID
+}
+
+func (q *Queries) UpdateUserBalance(ctx context.Context, arg UpdateUserBalanceParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserBalance, arg.WalletBalance, arg.ID)
+	return err
+}
+
+const updateUserProfileImage = `-- name: UpdateUserProfileImage :exec
+UPDATE users SET image_url = $1, updated_at = NOW() WHERE id = $2
+`
+
+type UpdateUserProfileImageParams struct {
+	ImageUrl sql.NullString
+	ID       uuid.UUID
+}
+
+func (q *Queries) UpdateUserProfileImage(ctx context.Context, arg UpdateUserProfileImageParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserProfileImage, arg.ImageUrl, arg.ID)
+	return err
 }
 
 const updateUserStatus = `-- name: UpdateUserStatus :exec

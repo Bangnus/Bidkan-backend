@@ -6,23 +6,24 @@ import (
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
-	db "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/sqlc"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/sqlc"
 	"github.com/google/uuid"
 )
 
 type userPostgresRepository struct {
-	queries *db.Queries
+	db      *sql.DB
+	queries *sqlc.Queries
 }
 
-// คืนค่าเป็น Interface เพื่อให้ Service เรียกใช้ได้โดยไม่รู้ว่าเป็น DB อะไร
-func NewUserPostgresRepository(conn *sql.DB) repository.UserRepository {
+func NewUserPostgresRepository(db *sql.DB) repository.UserRepository {
 	return &userPostgresRepository{
-		queries: db.New(conn),
+		db:      db,
+		queries: sqlc.New(db),
 	}
 }
 
 func (r *userPostgresRepository) Create(ctx context.Context, user *entity.User) error {
-	return r.queries.CreateUser(ctx, db.CreateUserParams{
+	return r.queries.CreateUser(ctx, sqlc.CreateUserParams{
 		ID:            user.ID,
 		PhoneNumber:   user.PhoneNumber,
 		Username:      user.Username,
@@ -35,67 +36,62 @@ func (r *userPostgresRepository) Create(ctx context.Context, user *entity.User) 
 	})
 }
 
-func (r *userPostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*entity.User, error) {
-	row, err := r.queries.GetUserByID(ctx, id)
+func (r *userPostgresRepository) GetByPhone(ctx context.Context, phone string) (*entity.User, error) {
+	u, err := r.queries.GetUserByPhone(ctx, phone)
 	if err != nil {
 		return nil, err
 	}
-
-	return &entity.User{
-		ID:            row.ID,
-		PhoneNumber:   row.PhoneNumber,
-		Username:      row.Username,
-		Password:      row.Password,
-		WalletBalance: row.WalletBalance,
-		Role:          row.Role,
-		Status:        row.Status,
-		CreatedAt:     row.CreatedAt,
-		UpdatedAt:     row.UpdatedAt,
-	}, nil
+	return r.mapUser(u), nil
 }
 
-func (r *userPostgresRepository) GetByPhone(ctx context.Context, phone string) (*entity.User, error) {
-	row, err := r.queries.GetUserByPhone(ctx, phone)
+func (r *userPostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*entity.User, error) {
+	u, err := r.queries.GetUserByID(ctx, id)
 	if err != nil {
-		return nil, err // sql.ErrNoRows ถ้าไม่เจอ
+		return nil, err
 	}
-
-	// Map จาก sqlc model → domain entity
-	return &entity.User{
-		ID:            row.ID,
-		PhoneNumber:   row.PhoneNumber,
-		Username:      row.Username,
-		Password:      row.Password,
-		WalletBalance: row.WalletBalance,
-		Role:          row.Role,
-		Status:        row.Status,
-		CreatedAt:     row.CreatedAt,
-		UpdatedAt:     row.UpdatedAt,
-	}, nil
+	return r.mapUser(u), nil
 }
 
 func (r *userPostgresRepository) GetByUsername(ctx context.Context, username string) (*entity.User, error) {
-	row, err := r.queries.GetUserByUsername(ctx, username)
+	u, err := r.queries.GetUserByUsername(ctx, username)
 	if err != nil {
 		return nil, err
 	}
-
-	return &entity.User{
-		ID:            row.ID,
-		PhoneNumber:   row.PhoneNumber,
-		Username:      row.Username,
-		Password:      row.Password,
-		WalletBalance: row.WalletBalance,
-		Role:          row.Role,
-		Status:        row.Status,
-		CreatedAt:     row.CreatedAt,
-		UpdatedAt:     row.UpdatedAt,
-	}, nil
+	return r.mapUser(u), nil
 }
 
 func (r *userPostgresRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
-	return r.queries.UpdateUserStatus(ctx, db.UpdateUserStatusParams{
-		ID:     id,
+	return r.queries.UpdateUserStatus(ctx, sqlc.UpdateUserStatusParams{
 		Status: status,
+		ID:     id,
 	})
+}
+
+func (r *userPostgresRepository) UpdateBalance(ctx context.Context, id uuid.UUID, newBalance string) error {
+	return r.queries.UpdateUserBalance(ctx, sqlc.UpdateUserBalanceParams{
+		WalletBalance: newBalance,
+		ID:            id,
+	})
+}
+
+func (r *userPostgresRepository) UpdateProfileImage(ctx context.Context, id uuid.UUID, imageURL string) error {
+	return r.queries.UpdateUserProfileImage(ctx, sqlc.UpdateUserProfileImageParams{
+		ImageUrl: sql.NullString{String: imageURL, Valid: imageURL != ""},
+		ID:       id,
+	})
+}
+
+func (r *userPostgresRepository) mapUser(u sqlc.User) *entity.User {
+	return &entity.User{
+		ID:            u.ID,
+		PhoneNumber:   u.PhoneNumber,
+		Username:      u.Username,
+		Password:      u.Password,
+		WalletBalance: u.WalletBalance,
+		Role:          u.Role,
+		Status:        u.Status,
+		ImageURL:      u.ImageUrl.String,
+		CreatedAt:     u.CreatedAt,
+		UpdatedAt:     u.UpdatedAt,
+	}
 }

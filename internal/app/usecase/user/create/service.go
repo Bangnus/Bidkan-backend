@@ -2,14 +2,11 @@ package create
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
-	"io"
 	"time"
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
-	domainService "github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -40,15 +37,11 @@ type Service interface {
 
 type service struct {
 	userRepo    repository.UserRepository
-	otpRepo     repository.OtpRepository
-	smsProvider domainService.SmsProvider
 }
 
-func NewService(userRepo repository.UserRepository, otpRepo repository.OtpRepository, smsProvider domainService.SmsProvider) Service {
+func NewService(userRepo repository.UserRepository) Service {
 	return &service{
 		userRepo:    userRepo,
-		otpRepo:     otpRepo,
-		smsProvider: smsProvider,
 	}
 }
 
@@ -65,7 +58,7 @@ func (s *service) CreateUser(ctx context.Context, req Request) (*Response, error
 		return nil, errors.New("failed to hash password")
 	}
 
-	// 3. เตรียมข้อมูล Entity (สถานะเป็น pending)
+	// 3. เตรียมข้อมูล Entity (สถานะเป็น pending เพื่อรอการยืนยันจาก Firebase)
 	now := time.Now()
 	user := &entity.User{
 		ID:            uuid.New(),
@@ -84,15 +77,7 @@ func (s *service) CreateUser(ctx context.Context, req Request) (*Response, error
 		return nil, errors.New("failed to create user in database")
 	}
 
-	// 5. เจนรหัส OTP และบันทึกลง Redis
-	otpCode := generateRandomOTP(6)
-	err = s.otpRepo.SaveOTP(ctx, user.PhoneNumber, otpCode, 5*time.Minute)
-	if err != nil {
-		return nil, errors.New("user created but failed to send OTP")
-	}
-
-	// 6. ส่ง SMS ผ่าน Provider
-	_ = s.smsProvider.SendOTP(ctx, user.PhoneNumber, otpCode)
+	// ไม่ต้องส่ง OTP เองแล้ว ให้ Frontend จัดการผ่าน Firebase SDK
 
 	return &Response{
 		ID:            user.ID.String(),
@@ -104,17 +89,4 @@ func (s *service) CreateUser(ctx context.Context, req Request) (*Response, error
 		CreatedAt:     user.CreatedAt,
 		UpdatedAt:     user.UpdatedAt,
 	}, nil
-}
-
-func generateRandomOTP(length int) string {
-	table := [...]byte{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'}
-	b := make([]byte, length)
-	n, err := io.ReadAtLeast(rand.Reader, b, length)
-	if n != length || err != nil {
-		return "123456"
-	}
-	for i := 0; i < len(b); i++ {
-		b[i] = table[int(b[i])%len(table)]
-	}
-	return string(b)
 }

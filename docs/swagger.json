@@ -9,6 +9,163 @@
     "host": "localhost:8080",
     "basePath": "/api",
     "paths": {
+        "/v1/bikes": {
+            "get": {
+                "description": "Get a list of all bikes in the system.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Bikes"
+                ],
+                "summary": "List All Bikes (Admin)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/entity.BikeData"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new bike to the system.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Bikes"
+                ],
+                "summary": "Create New Bike (Admin)",
+                "parameters": [
+                    {
+                        "description": "Bike creation request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_app_usecase_bike_create.Request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/bikes/available": {
+            "get": {
+                "description": "Get a list of bikes that are available for rent.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Bikes"
+                ],
+                "summary": "List Available Bikes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/entity.BikeData"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/rides/end": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Stop the current ride and calculate fare.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Rides"
+                ],
+                "summary": "End Ride (Return Bike)",
+                "parameters": [
+                    {
+                        "description": "End ride request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/end.Request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/entity.Ride"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/rides/start": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Start a new ride by scanning a bike QR code.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Rides"
+                ],
+                "summary": "Start Ride (Rent Bike)",
+                "parameters": [
+                    {
+                        "description": "Start ride request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/start.Request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/entity.Ride"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/users": {
             "post": {
                 "description": "Register a new user with phone number, username, and password. After success, an OTP will be sent.",
@@ -29,7 +186,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/create.Request"
+                            "$ref": "#/definitions/internal_app_usecase_user_create.Request"
                         }
                     }
                 ],
@@ -134,9 +291,9 @@
                 }
             }
         },
-        "/v1/users/otp": {
+        "/v1/users/verify/firebase": {
             "post": {
-                "description": "Send OTP to phone number",
+                "description": "Verify the idToken received from Firebase on Frontend to activate the user account.",
                 "consumes": [
                     "application/json"
                 ],
@@ -146,57 +303,15 @@
                 "tags": [
                     "Users"
                 ],
-                "summary": "Request OTP",
+                "summary": "Verify Firebase Token and Activate User",
                 "parameters": [
                     {
-                        "description": "OTP request",
+                        "description": "Firebase verification request",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/otp.Request"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OTP sent successfully",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/users/verify": {
-            "post": {
-                "description": "Verify the account using ONLY the OTP code received.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Users"
-                ],
-                "summary": "Verify OTP and Activate User",
-                "parameters": [
-                    {
-                        "description": "Verification request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/verify.Request"
+                            "$ref": "#/definitions/verify_firebase.Request"
                         }
                     }
                 ],
@@ -209,7 +324,7 @@
                         }
                     },
                     "400": {
-                        "description": "Invalid OTP or request",
+                        "description": "Invalid token or request",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -220,7 +335,128 @@
         }
     },
     "definitions": {
-        "create.Request": {
+        "end.Request": {
+            "type": "object",
+            "required": [
+                "lat",
+                "lon",
+                "user_id"
+            ],
+            "properties": {
+                "lat": {
+                    "type": "number"
+                },
+                "lon": {
+                    "type": "number"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "entity.BikeData": {
+            "type": "object",
+            "properties": {
+                "battery": {
+                    "type": "integer"
+                },
+                "bike_id": {
+                    "type": "string"
+                },
+                "current_ride_id": {
+                    "type": "string"
+                },
+                "hardware_id": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "last_heartbeat": {
+                    "type": "string"
+                },
+                "lat": {
+                    "type": "number"
+                },
+                "lon": {
+                    "type": "number"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "entity.Ride": {
+            "type": "object",
+            "properties": {
+                "bikeID": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "distanceKm": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "endLat": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "endLon": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "endTime": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "startLat": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "startLon": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "startTime": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "totalFare": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userID": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_app_usecase_bike_create.Request": {
+            "type": "object",
+            "required": [
+                "bike_id",
+                "hardware_id"
+            ],
+            "properties": {
+                "bike_id": {
+                    "type": "string"
+                },
+                "hardware_id": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_app_usecase_user_create.Request": {
             "type": "object",
             "required": [
                 "password",
@@ -293,35 +529,36 @@
                 }
             }
         },
-        "otp.Request": {
+        "start.Request": {
             "type": "object",
             "required": [
-                "phone_number"
+                "bike_id",
+                "user_id"
             ],
             "properties": {
-                "phone_number": {
-                    "type": "string",
-                    "minLength": 10,
-                    "example": "0812345678"
+                "bike_id": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
                 }
             }
         },
-        "verify.Request": {
+        "verify_firebase.Request": {
             "type": "object",
             "required": [
-                "otp"
+                "id_token"
             ],
             "properties": {
-                "otp": {
-                    "type": "string",
-                    "example": "123456"
+                "id_token": {
+                    "type": "string"
                 }
             }
         }
     },
     "securityDefinitions": {
         "BearerAuth": {
-            "description": "Type \"Bearer \" followed by your JWT token. (Example: Bearer eyJhbG...)",
+            "description": "Type 'Bearer ' followed by your JWT token.",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"

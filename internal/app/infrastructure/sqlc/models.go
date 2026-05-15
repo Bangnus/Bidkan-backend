@@ -19,6 +19,7 @@ type Bike struct {
 	Lon           float64
 	BatteryLevel  int32
 	Status        string
+	ImageUrl      sql.NullString
 	CurrentRideID uuid.NullUUID
 	LastHeartbeat time.Time
 	CreatedAt     time.Time
@@ -32,6 +33,12 @@ type BikeLocation struct {
 	Lon       float64
 	Battery   int32
 	CreatedAt time.Time
+}
+
+type Config struct {
+	Key       string
+	Value     string
+	UpdatedAt time.Time
 }
 
 type Report struct {
@@ -80,6 +87,7 @@ type User struct {
 	WalletBalance string
 	Role          string
 	Status        string
+	ImageUrl      sql.NullString
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }

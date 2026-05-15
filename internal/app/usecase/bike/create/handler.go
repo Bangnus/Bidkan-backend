@@ -1,4 +1,4 @@
-package verify
+package create
 
 import (
 	"github.com/go-playground/validator/v10"
@@ -19,31 +19,27 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary Verify OTP and Activate User
-// @Description Verify the account using ONLY the OTP code received.
-// @Tags Users
+// @Summary Create New Bike (Admin)
+// @Description Add a new bike to the system.
+// @Tags Bikes
 // @Accept json
 // @Produce json
-// @Param request body Request true "Verification request"
-// @Success 200 {object} map[string]interface{} "User activated successfully"
-// @Failure 400 {object} map[string]interface{} "Invalid OTP or request"
-// @Router /v1/users/verify [post]
+// @Param request body Request true "Bike creation request"
+// @Success 201 {object} map[string]interface{}
+// @Router /v1/bikes [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	var req Request
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid JSON format"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid JSON"})
 	}
 
 	if err := validate.Struct(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	if err := h.service.VerifyOTP(c.Context(), req); err != nil {
+	if err := h.service.Create(c.Context(), req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "User activated successfully. You can now login.",
-	})
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "Bike created successfully"})
 }

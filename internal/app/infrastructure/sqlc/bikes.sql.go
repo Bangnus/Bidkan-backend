@@ -7,24 +7,31 @@ package sqlc
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 const createBike = `-- name: CreateBike :exec
-INSERT INTO bikes (id, hardware_id, status)
-VALUES ($1, $2, $3)
+INSERT INTO bikes (id, hardware_id, status, image_url)
+VALUES ($1, $2, $3, $4)
 `
 
 type CreateBikeParams struct {
 	ID         string
 	HardwareID string
 	Status     string
+	ImageUrl   sql.NullString
 }
 
 func (q *Queries) CreateBike(ctx context.Context, arg CreateBikeParams) error {
-	_, err := q.db.ExecContext(ctx, createBike, arg.ID, arg.HardwareID, arg.Status)
+	_, err := q.db.ExecContext(ctx, createBike,
+		arg.ID,
+		arg.HardwareID,
+		arg.Status,
+		arg.ImageUrl,
+	)
 	return err
 }
 
@@ -55,7 +62,7 @@ func (q *Queries) CreateBikeLocation(ctx context.Context, arg CreateBikeLocation
 }
 
 const getBike = `-- name: GetBike :one
-SELECT id, hardware_id, lat, lon, battery_level, status, current_ride_id, last_heartbeat, created_at, updated_at FROM bikes WHERE id = $1
+SELECT id, hardware_id, lat, lon, battery_level, status, image_url, current_ride_id, last_heartbeat, created_at, updated_at FROM bikes WHERE id = $1
 `
 
 func (q *Queries) GetBike(ctx context.Context, id string) (Bike, error) {
@@ -68,6 +75,7 @@ func (q *Queries) GetBike(ctx context.Context, id string) (Bike, error) {
 		&i.Lon,
 		&i.BatteryLevel,
 		&i.Status,
+		&i.ImageUrl,
 		&i.CurrentRideID,
 		&i.LastHeartbeat,
 		&i.CreatedAt,
@@ -77,7 +85,7 @@ func (q *Queries) GetBike(ctx context.Context, id string) (Bike, error) {
 }
 
 const listAllBikes = `-- name: ListAllBikes :many
-SELECT id, hardware_id, lat, lon, battery_level, status, current_ride_id, last_heartbeat, created_at, updated_at FROM bikes ORDER BY id
+SELECT id, hardware_id, lat, lon, battery_level, status, image_url, current_ride_id, last_heartbeat, created_at, updated_at FROM bikes ORDER BY id
 `
 
 func (q *Queries) ListAllBikes(ctx context.Context) ([]Bike, error) {
@@ -96,6 +104,7 @@ func (q *Queries) ListAllBikes(ctx context.Context) ([]Bike, error) {
 			&i.Lon,
 			&i.BatteryLevel,
 			&i.Status,
+			&i.ImageUrl,
 			&i.CurrentRideID,
 			&i.LastHeartbeat,
 			&i.CreatedAt,
@@ -112,6 +121,67 @@ func (q *Queries) ListAllBikes(ctx context.Context) ([]Bike, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const listAvailableBikes = `-- name: ListAvailableBikes :many
+SELECT id, hardware_id, lat, lon, battery_level, status, image_url, current_ride_id, last_heartbeat, created_at, updated_at FROM bikes 
+WHERE status = 'available' 
+AND battery_level > 20
+ORDER BY id
+`
+
+func (q *Queries) ListAvailableBikes(ctx context.Context) ([]Bike, error) {
+	rows, err := q.db.QueryContext(ctx, listAvailableBikes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Bike
+	for rows.Next() {
+		var i Bike
+		if err := rows.Scan(
+			&i.ID,
+			&i.HardwareID,
+			&i.Lat,
+			&i.Lon,
+			&i.BatteryLevel,
+			&i.Status,
+			&i.ImageUrl,
+			&i.CurrentRideID,
+			&i.LastHeartbeat,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateBikeRideStatus = `-- name: UpdateBikeRideStatus :exec
+UPDATE bikes
+SET status = $2,
+    current_ride_id = $3,
+    updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateBikeRideStatusParams struct {
+	ID            string
+	Status        string
+	CurrentRideID uuid.NullUUID
+}
+
+func (q *Queries) UpdateBikeRideStatus(ctx context.Context, arg UpdateBikeRideStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateBikeRideStatus, arg.ID, arg.Status, arg.CurrentRideID)
+	return err
 }
 
 const updateBikeStatus = `-- name: UpdateBikeStatus :exec

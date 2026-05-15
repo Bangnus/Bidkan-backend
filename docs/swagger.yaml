@@ -1,6 +1,88 @@
 basePath: /api
 definitions:
-  create.Request:
+  end.Request:
+    properties:
+      lat:
+        type: number
+      lon:
+        type: number
+      user_id:
+        type: string
+    required:
+    - lat
+    - lon
+    - user_id
+    type: object
+  entity.BikeData:
+    properties:
+      battery:
+        type: integer
+      bike_id:
+        type: string
+      current_ride_id:
+        type: string
+      hardware_id:
+        type: string
+      image_url:
+        type: string
+      last_heartbeat:
+        type: string
+      lat:
+        type: number
+      lon:
+        type: number
+      status:
+        type: string
+    type: object
+  entity.Ride:
+    properties:
+      bikeID:
+        type: string
+      createdAt:
+        type: string
+      distanceKm:
+        format: float64
+        type: number
+      endLat:
+        format: float64
+        type: number
+      endLon:
+        format: float64
+        type: number
+      endTime:
+        type: string
+      id:
+        type: string
+      startLat:
+        format: float64
+        type: number
+      startLon:
+        format: float64
+        type: number
+      startTime:
+        type: string
+      status:
+        type: string
+      totalFare:
+        type: string
+      updatedAt:
+        type: string
+      userID:
+        type: string
+    type: object
+  internal_app_usecase_bike_create.Request:
+    properties:
+      bike_id:
+        type: string
+      hardware_id:
+        type: string
+      image_url:
+        type: string
+    required:
+    - bike_id
+    - hardware_id
+    type: object
+  internal_app_usecase_user_create.Request:
     properties:
       password:
         example: password123
@@ -51,22 +133,22 @@ definitions:
       username:
         type: string
     type: object
-  otp.Request:
+  start.Request:
     properties:
-      phone_number:
-        example: "0812345678"
-        minLength: 10
+      bike_id:
+        type: string
+      user_id:
         type: string
     required:
-    - phone_number
+    - bike_id
+    - user_id
     type: object
-  verify.Request:
+  verify_firebase.Request:
     properties:
-      otp:
-        example: "123456"
+      id_token:
         type: string
     required:
-    - otp
+    - id_token
     type: object
 host: localhost:8080
 info:
@@ -75,6 +157,106 @@ info:
   title: Bidkan Backend API
   version: "1.0"
 paths:
+  /v1/bikes:
+    get:
+      description: Get a list of all bikes in the system.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/entity.BikeData'
+            type: array
+      summary: List All Bikes (Admin)
+      tags:
+      - Bikes
+    post:
+      consumes:
+      - application/json
+      description: Add a new bike to the system.
+      parameters:
+      - description: Bike creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_app_usecase_bike_create.Request'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create New Bike (Admin)
+      tags:
+      - Bikes
+  /v1/bikes/available:
+    get:
+      description: Get a list of bikes that are available for rent.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/entity.BikeData'
+            type: array
+      summary: List Available Bikes
+      tags:
+      - Bikes
+  /v1/rides/end:
+    post:
+      consumes:
+      - application/json
+      description: Stop the current ride and calculate fare.
+      parameters:
+      - description: End ride request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/end.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entity.Ride'
+      security:
+      - BearerAuth: []
+      summary: End Ride (Return Bike)
+      tags:
+      - Rides
+  /v1/rides/start:
+    post:
+      consumes:
+      - application/json
+      description: Start a new ride by scanning a bike QR code.
+      parameters:
+      - description: Start ride request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/start.Request'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/entity.Ride'
+      security:
+      - BearerAuth: []
+      summary: Start Ride (Rent Bike)
+      tags:
+      - Rides
   /v1/users:
     post:
       consumes:
@@ -87,7 +269,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/create.Request'
+          $ref: '#/definitions/internal_app_usecase_user_create.Request'
       produces:
       - application/json
       responses:
@@ -158,46 +340,19 @@ paths:
       summary: Get My Profile
       tags:
       - Users
-  /v1/users/otp:
+  /v1/users/verify/firebase:
     post:
       consumes:
       - application/json
-      description: Send OTP to phone number
+      description: Verify the idToken received from Firebase on Frontend to activate
+        the user account.
       parameters:
-      - description: OTP request
+      - description: Firebase verification request
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/otp.Request'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OTP sent successfully
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid request
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Request OTP
-      tags:
-      - Users
-  /v1/users/verify:
-    post:
-      consumes:
-      - application/json
-      description: Verify the account using ONLY the OTP code received.
-      parameters:
-      - description: Verification request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/verify.Request'
+          $ref: '#/definitions/verify_firebase.Request'
       produces:
       - application/json
       responses:
@@ -207,16 +362,16 @@ paths:
             additionalProperties: true
             type: object
         "400":
-          description: Invalid OTP or request
+          description: Invalid token or request
           schema:
             additionalProperties: true
             type: object
-      summary: Verify OTP and Activate User
+      summary: Verify Firebase Token and Activate User
       tags:
       - Users
 securityDefinitions:
   BearerAuth:
-    description: 'Type "Bearer " followed by your JWT token. (Example: Bearer eyJhbG...)'
+    description: Type 'Bearer ' followed by your JWT token.
     in: header
     name: Authorization
     type: apiKey
