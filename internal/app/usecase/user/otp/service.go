@@ -3,11 +3,11 @@ package otp
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"io"
 	"time"
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
+	domainService "github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
 )
 
 type Request struct {
@@ -19,11 +19,15 @@ type Service interface {
 }
 
 type service struct {
-	otpRepo repository.OtpRepository
+	otpRepo     repository.OtpRepository
+	smsProvider domainService.SmsProvider
 }
 
-func NewService(otpRepo repository.OtpRepository) Service {
-	return &service{otpRepo: otpRepo}
+func NewService(otpRepo repository.OtpRepository, smsProvider domainService.SmsProvider) Service {
+	return &service{
+		otpRepo:     otpRepo,
+		smsProvider: smsProvider,
+	}
 }
 
 func (s *service) SendOTP(ctx context.Context, req Request) error {
@@ -36,24 +40,21 @@ func (s *service) SendOTP(ctx context.Context, req Request) error {
 		return err
 	}
 
-	// 3. TODO: ส่ง SMS ผ่าน Gateway จริง
-	fmt.Printf("Sending OTP %s to %s\n", otp, req.PhoneNumber)
-	
-	return nil
+	// 3. ส่ง SMS ผ่าน Provider 
+	return s.smsProvider.SendOTP(ctx, req.PhoneNumber, otp)
 }
 
-// ฟังก์ชันช่วยสุ่มตัวเลข
+var table = [...]byte{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'}
+
 func encodeCursor(length int) string {
 	max := length
 	b := make([]byte, max)
 	n, err := io.ReadAtLeast(rand.Reader, b, max)
 	if n != max || err != nil {
-		return "123456" // fallback
+		return "123456" 
 	}
 	for i := 0; i < len(b); i++ {
 		b[i] = table[int(b[i])%len(table)]
 	}
 	return string(b)
 }
-
-var table = [...]byte{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'}

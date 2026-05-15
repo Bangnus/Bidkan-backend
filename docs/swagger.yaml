@@ -19,6 +19,38 @@ definitions:
     - phone_number
     - username
     type: object
+  login.Request:
+    properties:
+      password:
+        example: password123
+        type: string
+      username:
+        example: somchai_jaidee
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  login.Response:
+    properties:
+      role:
+        type: string
+      token:
+        type: string
+    type: object
+  me.Response:
+    properties:
+      id:
+        type: string
+      phone_number:
+        type: string
+      role:
+        type: string
+      status:
+        type: string
+      username:
+        type: string
+    type: object
   otp.Request:
     properties:
       phone_number:
@@ -33,13 +65,8 @@ definitions:
       otp:
         example: "123456"
         type: string
-      phone_number:
-        example: "0812345678"
-        minLength: 10
-        type: string
     required:
     - otp
-    - phone_number
     type: object
 host: localhost:8080
 info:
@@ -82,6 +109,55 @@ paths:
       summary: Create a new user (and send OTP)
       tags:
       - Users
+  /v1/users/login:
+    post:
+      consumes:
+      - application/json
+      description: Login with username and password to receive a JWT token.
+      parameters:
+      - description: Login request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/login.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully logged in
+          schema:
+            $ref: '#/definitions/login.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Login User
+      tags:
+      - Users
+  /v1/users/me:
+    get:
+      consumes:
+      - application/json
+      description: Get currently logged-in user profile from JWT token.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/me.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get My Profile
+      tags:
+      - Users
   /v1/users/otp:
     post:
       consumes:
@@ -114,7 +190,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Verify the OTP sent to user's phone to activate their account.
+      description: Verify the account using ONLY the OTP code received.
       parameters:
       - description: Verification request
         in: body
@@ -138,4 +214,10 @@ paths:
       summary: Verify OTP and Activate User
       tags:
       - Users
+securityDefinitions:
+  BearerAuth:
+    description: 'Type "Bearer " followed by your JWT token. (Example: Bearer eyJhbG...)'
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

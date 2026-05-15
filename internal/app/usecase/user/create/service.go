@@ -4,18 +4,18 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
-	"fmt"
 	"io"
 	"time"
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
+	domainService "github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Request Data (รับมาจาก Client - ตัด OTP ออกเพราะจะส่งให้ทีหลัง)
+// Request Data
 type Request struct {
 	PhoneNumber string `json:"phone_number" validate:"required,min=10" example:"0812345678"`
 	Username    string `json:"username" validate:"required,min=2" example:"somchai_jaidee"`
@@ -39,14 +39,16 @@ type Service interface {
 }
 
 type service struct {
-	userRepo repository.UserRepository
-	otpRepo  repository.OtpRepository
+	userRepo    repository.UserRepository
+	otpRepo     repository.OtpRepository
+	smsProvider domainService.SmsProvider
 }
 
-func NewService(userRepo repository.UserRepository, otpRepo repository.OtpRepository) Service {
+func NewService(userRepo repository.UserRepository, otpRepo repository.OtpRepository, smsProvider domainService.SmsProvider) Service {
 	return &service{
-		userRepo: userRepo,
-		otpRepo:  otpRepo,
+		userRepo:    userRepo,
+		otpRepo:     otpRepo,
+		smsProvider: smsProvider,
 	}
 }
 
@@ -63,7 +65,7 @@ func (s *service) CreateUser(ctx context.Context, req Request) (*Response, error
 		return nil, errors.New("failed to hash password")
 	}
 
-	// 3. เตรียมข้อมูล Entity (สถานะเป็น pending เพื่อรอการยืนยัน OTP)
+	// 3. เตรียมข้อมูล Entity (สถานะเป็น pending)
 	now := time.Now()
 	user := &entity.User{
 		ID:            uuid.New(),
@@ -82,15 +84,15 @@ func (s *service) CreateUser(ctx context.Context, req Request) (*Response, error
 		return nil, errors.New("failed to create user in database")
 	}
 
-	// 5. เจนรหัส OTP และบันทึกลง Redis เพื่อส่งให้ผู้ใช้
+	// 5. เจนรหัส OTP และบันทึกลง Redis
 	otpCode := generateRandomOTP(6)
 	err = s.otpRepo.SaveOTP(ctx, user.PhoneNumber, otpCode, 5*time.Minute)
 	if err != nil {
 		return nil, errors.New("user created but failed to send OTP")
 	}
 
-	// 6. TODO: ส่ง SMS Gateway จริง
-	fmt.Printf(" [SMS Gateway] Sending OTP %s to %s for user activation\n", otpCode, user.PhoneNumber)
+	// 6. ส่ง SMS ผ่าน Provider
+	_ = s.smsProvider.SendOTP(ctx, user.PhoneNumber, otpCode)
 
 	return &Response{
 		ID:            user.ID.String(),
@@ -104,7 +106,6 @@ func (s *service) CreateUser(ctx context.Context, req Request) (*Response, error
 	}, nil
 }
 
-// ฟังก์ชันช่วยสุ่มตัวเลข OTP
 func generateRandomOTP(length int) string {
 	table := [...]byte{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'}
 	b := make([]byte, length)

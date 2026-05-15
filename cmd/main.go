@@ -7,9 +7,12 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/database"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/repository"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/sms"
 	"github.com/Bangnus/Bidkan-backend/internal/app/router"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/tracking"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/create"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/login"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/me"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/otp"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify"
 
@@ -25,6 +28,10 @@ import (
 // @description This is a sample server for Bidkan Clean Architecture.
 // @host localhost:8080
 // @BasePath /api
+
+// @securityDefinitions.http bearer
+// @name BearerAuth
+// @description Paste your JWT token ONLY (The 'Bearer ' prefix will be added automatically)
 
 func main() {
 	// 1. ต่อ Database
@@ -46,20 +53,32 @@ func main() {
 	// ------------------
 
 	// 2. Dependency Injection
+	// --- SMS Setup (เลือกสลับสายตรงนี้ได้เลย) ---
+	smsProvider := sms.NewConsoleSmsProvider() // ตอนนี้ใช้แบบ Console (ฟรี)
+	// smsProvider := sms.NewFirebaseSmsProvider(os.Getenv("FIREBASE_KEY")) // เปลี่ยนมาใช้ตัวนี้เมื่อพร้อม
+	
 	// --- User Setup ---
 	userRepo := repository.NewUserPostgresRepository(db)
 	
 	// OTP
-	otpService := otp.NewService(otpRepo)
+	otpService := otp.NewService(otpRepo, smsProvider)
 	otpHandler := otp.NewHandler(otpService)
 	
 	// Create User
-	createService := create.NewService(userRepo, otpRepo)
+	createService := create.NewService(userRepo, otpRepo, smsProvider)
 	createHandler := create.NewHandler(createService)
 	
 	// Verify User
 	verifyService := verify.NewService(userRepo, otpRepo)
 	verifyHandler := verify.NewHandler(verifyService)
+
+	// Login User
+	loginService := login.NewService(userRepo)
+	loginHandler := login.NewHandler(loginService)
+
+	// Me Profile (Protected)
+	meService := me.NewService(userRepo)
+	meHandler := me.NewHandler(meService)
 	// ------------------
 
 	// --- MQTT Setup ---
@@ -81,7 +100,7 @@ func main() {
 
 	// 4. ตั้งค่า Routes
 	app.Get("/swagger/*", swagger.HandlerDefault)
-	router.SetupUserRoutes(app, createHandler, otpHandler, verifyHandler)
+	router.SetupUserRoutes(app, createHandler, otpHandler, verifyHandler, loginHandler, meHandler)
 
 	// 5. เปิด Server
 	port := os.Getenv("PORT")

@@ -1,4 +1,4 @@
-package verify
+package login
 
 import (
 	"github.com/go-playground/validator/v10"
@@ -19,15 +19,15 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary Verify OTP and Activate User
-// @Description Verify the account using ONLY the OTP code received.
+// @Summary Login User
+// @Description Login with username and password to receive a JWT token.
 // @Tags Users
 // @Accept json
 // @Produce json
-// @Param request body Request true "Verification request"
-// @Success 200 {object} map[string]interface{} "User activated successfully"
-// @Failure 400 {object} map[string]interface{} "Invalid OTP or request"
-// @Router /v1/users/verify [post]
+// @Param request body Request true "Login request"
+// @Success 200 {object} Response "Successfully logged in"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Router /v1/users/login [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	var req Request
 	if err := c.BodyParser(&req); err != nil {
@@ -38,12 +38,10 @@ func (h *handler) Handle(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	if err := h.service.VerifyOTP(c.Context(), req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	res, err := h.service.Login(c.Context(), req)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "User activated successfully. You can now login.",
-	})
+	return c.JSON(res)
 }

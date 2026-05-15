@@ -10,5 +10,7 @@ import (
 type UserRepository interface {
 	Create(ctx context.Context, user *entity.User) error
 	GetByPhone(ctx context.Context, phone string) (*entity.User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*entity.User, error)
+	GetByUsername(ctx context.Context, username string) (*entity.User, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error
 }

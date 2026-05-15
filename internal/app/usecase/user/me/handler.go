@@ -1,0 +1,38 @@
+package me
+
+import (
+	"github.com/gofiber/fiber/v2"
+)
+
+type Handler interface {
+	Handle(c *fiber.Ctx) error
+}
+
+type handler struct {
+	service Service
+}
+
+func NewHandler(service Service) Handler {
+	return &handler{service: service}
+}
+
+// @Summary Get My Profile
+// @Description Get currently logged-in user profile from JWT token.
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} Response
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Router /v1/users/me [get]
+func (h *handler) Handle(c *fiber.Ctx) error {
+	// ดึง user_id จาก Locals ที่ Middleware ฝากไว้
+	userID := c.Locals("user_id").(string)
+
+	res, err := h.service.GetMyProfile(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(res)
+}

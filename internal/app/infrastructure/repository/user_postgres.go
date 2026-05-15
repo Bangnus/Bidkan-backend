@@ -35,6 +35,25 @@ func (r *userPostgresRepository) Create(ctx context.Context, user *entity.User) 
 	})
 }
 
+func (r *userPostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*entity.User, error) {
+	row, err := r.queries.GetUserByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &entity.User{
+		ID:            row.ID,
+		PhoneNumber:   row.PhoneNumber,
+		Username:      row.Username,
+		Password:      row.Password,
+		WalletBalance: row.WalletBalance,
+		Role:          row.Role,
+		Status:        row.Status,
+		CreatedAt:     row.CreatedAt,
+		UpdatedAt:     row.UpdatedAt,
+	}, nil
+}
+
 func (r *userPostgresRepository) GetByPhone(ctx context.Context, phone string) (*entity.User, error) {
 	row, err := r.queries.GetUserByPhone(ctx, phone)
 	if err != nil {
@@ -42,6 +61,25 @@ func (r *userPostgresRepository) GetByPhone(ctx context.Context, phone string) (
 	}
 
 	// Map จาก sqlc model → domain entity
+	return &entity.User{
+		ID:            row.ID,
+		PhoneNumber:   row.PhoneNumber,
+		Username:      row.Username,
+		Password:      row.Password,
+		WalletBalance: row.WalletBalance,
+		Role:          row.Role,
+		Status:        row.Status,
+		CreatedAt:     row.CreatedAt,
+		UpdatedAt:     row.UpdatedAt,
+	}, nil
+}
+
+func (r *userPostgresRepository) GetByUsername(ctx context.Context, username string) (*entity.User, error) {
+	row, err := r.queries.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+
 	return &entity.User{
 		ID:            row.ID,
 		PhoneNumber:   row.PhoneNumber,

@@ -8,8 +8,7 @@ import (
 )
 
 type Request struct {
-	PhoneNumber string `json:"phone_number" validate:"required,min=10" example:"0812345678"`
-	OTP         string `json:"otp" validate:"required,len=6" example:"123456"`
+	OTP string `json:"otp" validate:"required,len=6" example:"123456"`
 }
 
 type Service interface {
@@ -29,16 +28,16 @@ func NewService(userRepo repository.UserRepository, otpRepo repository.OtpReposi
 }
 
 func (s *service) VerifyOTP(ctx context.Context, req Request) error {
-	// 1. ตรวจสอบ OTP จาก Redis
-	isValid, err := s.otpRepo.VerifyOTP(ctx, req.PhoneNumber, req.OTP)
-	if err != nil || !isValid {
+	// 1. ตรวจสอบเบอร์โทรจากรหัส OTP ที่ส่งมา
+	phone, err := s.otpRepo.VerifyOTP(ctx, req.OTP)
+	if err != nil || phone == "" {
 		return errors.New("invalid or expired OTP")
 	}
 
-	// 2. ดึงข้อมูลผู้ใช้จากเบอร์โทร
-	user, err := s.userRepo.GetByPhone(ctx, req.PhoneNumber)
+	// 2. ดึงข้อมูลผู้ใช้จากเบอร์โทรที่ได้จาก OTP
+	user, err := s.userRepo.GetByPhone(ctx, phone)
 	if err != nil {
-		return errors.New("user not found")
+		return errors.New("user not found for this OTP")
 	}
 
 	// 3. อัปเดตสถานะเป็น active
@@ -48,7 +47,7 @@ func (s *service) VerifyOTP(ctx context.Context, req Request) error {
 	}
 
 	// 4. ลบ OTP ออกจาก Redis
-	_ = s.otpRepo.DeleteOTP(ctx, req.PhoneNumber)
+	_ = s.otpRepo.DeleteOTP(ctx, req.OTP)
 
 	return nil
 }

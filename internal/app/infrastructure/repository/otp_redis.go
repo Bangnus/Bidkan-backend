@@ -17,23 +17,24 @@ func NewOtpRedisRepository(client *redis.Client) repository.OtpRepository {
 }
 
 func (r *otpRedisRepository) SaveOTP(ctx context.Context, phone string, otp string, expiration time.Duration) error {
-	key := "otp:" + phone
-	return r.client.Set(ctx, key, otp, expiration).Err()
+	// ใช้ OTP เป็น Key เพื่อให้ค้นหาเบอร์โทรกลับมาได้
+	key := "otp:" + otp
+	return r.client.Set(ctx, key, phone, expiration).Err()
 }
 
-func (r *otpRedisRepository) VerifyOTP(ctx context.Context, phone string, otp string) (bool, error) {
-	key := "otp:" + phone
-	val, err := r.client.Get(ctx, key).Result()
+func (r *otpRedisRepository) VerifyOTP(ctx context.Context, otp string) (string, error) {
+	key := "otp:" + otp
+	phone, err := r.client.Get(ctx, key).Result()
 	if err == redis.Nil {
-		return false, nil
+		return "", nil // ไม่พบรหัสนี้
 	}
 	if err != nil {
-		return false, err
+		return "", err
 	}
-	return val == otp, nil
+	return phone, nil
 }
 
-func (r *otpRedisRepository) DeleteOTP(ctx context.Context, phone string) error {
-	key := "otp:" + phone
+func (r *otpRedisRepository) DeleteOTP(ctx context.Context, otp string) error {
+	key := "otp:" + otp
 	return r.client.Del(ctx, key).Err()
 }

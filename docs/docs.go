@@ -64,6 +64,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/users/login": {
+            "post": {
+                "description": "Login with username and password to receive a JWT token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Login User",
+                "parameters": [
+                    {
+                        "description": "Login request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/login.Request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully logged in",
+                        "schema": {
+                            "$ref": "#/definitions/login.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/users/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get currently logged-in user profile from JWT token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get My Profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/me.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v1/users/otp": {
             "post": {
                 "description": "Send OTP to phone number",
@@ -108,7 +184,7 @@ const docTemplate = `{
         },
         "/v1/users/verify": {
             "post": {
-                "description": "Verify the OTP sent to user's phone to activate their account.",
+                "description": "Verify the account using ONLY the OTP code received.",
                 "consumes": [
                     "application/json"
                 ],
@@ -175,6 +251,54 @@ const docTemplate = `{
                 }
             }
         },
+        "login.Request": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "example": "password123"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "somchai_jaidee"
+                }
+            }
+        },
+        "login.Response": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "me.Response": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "phone_number": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "otp.Request": {
             "type": "object",
             "required": [
@@ -191,20 +315,22 @@ const docTemplate = `{
         "verify.Request": {
             "type": "object",
             "required": [
-                "otp",
-                "phone_number"
+                "otp"
             ],
             "properties": {
                 "otp": {
                     "type": "string",
                     "example": "123456"
-                },
-                "phone_number": {
-                    "type": "string",
-                    "minLength": 10,
-                    "example": "0812345678"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Type \"Bearer \" followed by your JWT token. (Example: Bearer eyJhbG...)",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`
