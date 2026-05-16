@@ -18,13 +18,13 @@ func NewHandler(svc Service) Handler {
 }
 
 // @Summary รายการคูปองของฉัน
-// @Description ดึงรายการคูปองที่ผู้ใช้เก็บไว้และยังไม่ได้ใช้
+// @Description ดึงรายการคูปองส่วนลดที่ผู้ใช้เก็บสะสมไว้และยังไม่ได้นำไปใช้งาน
 // @Tags Coupons
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {array} CouponInfo
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Success 200 {array} CouponInfo "รายการคูปองที่ใช้งานได้"
+// @Failure 401 {object} map[string]string "ไม่ได้รับอนุญาต"
+// @Failure 500 {object} map[string]string "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์"
 // @Router /v1/coupons/my [get]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userId").(uuid.UUID)

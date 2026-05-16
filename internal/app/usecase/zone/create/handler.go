@@ -19,13 +19,14 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary Create New Zone (Admin)
-// @Description Create a new Parking Zone (P) or Riding Area (Area).
+// @Summary สร้างพื้นที่บริการใหม่ (Admin Only)
+// @Description สร้างจุดจอดรถ (P) หรือ ขอบเขตพื้นที่ให้บริการใหม่ โดยระบุพิกัดและรัศมี
 // @Tags Zones
 // @Accept json
 // @Produce json
-// @Param request body Request true "Zone creation request"
-// @Success 201 {object} map[string]interface{}
+// @Security BearerAuth
+// @Param request body Request true "ข้อมูลพื้นที่ที่ต้องการสร้าง"
+// @Success 201 {object} map[string]interface{} "สร้างสำเร็จ"
 // @Router /v1/zones [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	var req Request

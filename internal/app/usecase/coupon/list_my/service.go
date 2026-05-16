@@ -49,7 +49,7 @@ func (s *service) Execute(ctx context.Context, userID uuid.UUID) ([]CouponInfo, 
 			Value:        r.Value,
 			MinAmount:    r.MinAmount.String,
 			ExpiredAt:    r.ExpiredAt,
-			CollectedAt:  r.CollectedAt,
+			CollectedAt:  r.CollectedAt.Time,
 			UserCouponID: r.UserCouponID,
 		})
 	}

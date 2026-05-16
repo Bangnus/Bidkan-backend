@@ -6,7 +6,7 @@ UPDATE coupons SET used_count = used_count + 1, updated_at = NOW() WHERE id = $1
 
 -- name: RecordUserCoupon :exec
 INSERT INTO user_coupons (id, user_id, coupon_id, is_used, used_at)
-VALUES ($1, $2, $3, $4, NOW());
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: GetAvailableDiscountCoupon :one
 SELECT c.*, uc.id as user_coupon_id 

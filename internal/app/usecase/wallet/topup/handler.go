@@ -20,14 +20,14 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary Request Wallet Top-up
-// @Description Creates a new top-up transaction and returns a PromptPay QR code.
+// @Summary ขอเติมเงินเข้า Wallet (PromptPay)
+// @Description สร้างรายการธุรกรรมเติมเงินและรับ QR Code สำหรับชำระเงินผ่าน PromptPay
 // @Tags Wallet
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body Request true "Topup Request (Amount)"
-// @Success 200 {object} Response
+// @Param request body Request true "ระบุจำนวนเงินที่ต้องการเติม"
+// @Success 200 {object} Response "สร้างรายการเติมเงินสำเร็จ"
 // @Router /v1/wallet/topup [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	var req Request

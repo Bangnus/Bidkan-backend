@@ -17,16 +17,16 @@ func NewHandler(svc Service) Handler {
 	return &handler{svc: svc}
 }
 
-// @Summary Redeem Coupon
-// @Description ใช้โค้ดส่วนลด หรือ โค้ดรับเงินฟรี
+// @Summary ใช้โค้ดคูปอง
+// @Description กรอกโค้ดเพื่อรับเงินฟรีเข้า Wallet หรือเก็บโค้ดส่วนลดไว้ใช้หักค่าขี่ในอนาคต
 // @Tags Coupons
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body Request true "โค้ดคูปอง"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Param request body Request true "โค้ดคูปองที่ต้องการใช้"
+// @Success 200 {object} map[string]string "ใช้คูปองสำเร็จ"
+// @Failure 400 {object} map[string]string "โค้ดไม่ถูกต้อง หรือหมดอายุ หรือถูกใช้ไปแล้ว"
+// @Failure 500 {object} map[string]string "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์"
 // @Router /v1/coupons/redeem [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userId").(uuid.UUID)

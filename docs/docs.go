@@ -22,7 +22,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "แอดมินส่งประกาศ Ads หรือข่าวสารหาผู้ใช้ทุกคน",
+                "description": "แอดมินส่งข่าวสาร โปรโมชั่น หรือประกาศสำคัญไปยังผู้ใช้ทุกคนผ่าน MQTT และ Push Notification",
                 "consumes": [
                     "application/json"
                 ],
@@ -32,10 +32,10 @@ const docTemplate = `{
                 "tags": [
                     "Notifications"
                 ],
-                "summary": "Broadcast Notification (Admin Only)",
+                "summary": "ส่งประกาศแจ้งเตือนหาทุกคน (Admin Only)",
                 "parameters": [
                     {
-                        "description": "เนื้อหาประกาศ",
+                        "description": "เนื้อหาที่ต้องการประกาศ",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -46,7 +46,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "ส่งประกาศสำเร็จ",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -55,7 +55,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Forbidden",
+                        "description": "ไม่มีสิทธิ์ (เฉพาะแอดมินเท่านั้น)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -73,17 +73,17 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a list of bikes based on user role. Normal users see available bikes only. Staff/Admin see all.",
+                "description": "ดึงข้อมูลรถจักรยานทั้งหมด (ถ้าเป็น User ทั่วไปจะเห็นเฉพาะรถที่ว่าง, ถ้าเป็น Staff/Admin จะเห็นทั้งหมด)",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Bikes"
                 ],
-                "summary": "List Bikes",
+                "summary": "รายการรถจักรยาน",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "รายการรถจักรยาน",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -134,7 +134,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update bike status manually (e.g., to maintenance). Staff/Admin Only.",
+                "description": "เปลี่ยนสถานะของรถจักรยาน (เช่น เปลี่ยนเป็น maintenance หรือ unavailable) - เฉพาะ Staff/Admin เท่านั้น",
                 "consumes": [
                     "application/json"
                 ],
@@ -144,17 +144,17 @@ const docTemplate = `{
                 "tags": [
                     "Bikes"
                 ],
-                "summary": "Update Bike Status",
+                "summary": "อัปเดตสถานะรถจักรยาน",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Bike ID",
+                        "description": "ไอดีรถจักรยาน",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "New Status",
+                        "description": "สถานะใหม่ที่ต้องการเปลี่ยน",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -165,14 +165,14 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "อัปเดตสำเร็จ",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "ข้อมูลไม่ถูกต้อง",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -181,7 +181,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Forbidden",
+                        "description": "ไม่มีสิทธิ์เข้าถึง (ต้องเป็น Staff หรือ Admin)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -324,7 +324,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "ดึงรายการคูปองที่ผู้ใช้เก็บไว้และยังไม่ได้ใช้",
+                "description": "ดึงรายการคูปองส่วนลดที่ผู้ใช้เก็บสะสมไว้และยังไม่ได้นำไปใช้งาน",
                 "produces": [
                     "application/json"
                 ],
@@ -334,7 +334,7 @@ const docTemplate = `{
                 "summary": "รายการคูปองของฉัน",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "รายการคูปองที่ใช้งานได้",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -343,7 +343,7 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "ไม่ได้รับอนุญาต",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -352,7 +352,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -370,7 +370,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "ใช้โค้ดส่วนลด หรือ โค้ดรับเงินฟรี",
+                "description": "กรอกโค้ดเพื่อรับเงินฟรีเข้า Wallet หรือเก็บโค้ดส่วนลดไว้ใช้หักค่าขี่ในอนาคต",
                 "consumes": [
                     "application/json"
                 ],
@@ -380,10 +380,10 @@ const docTemplate = `{
                 "tags": [
                     "Coupons"
                 ],
-                "summary": "Redeem Coupon",
+                "summary": "ใช้โค้ดคูปอง",
                 "parameters": [
                     {
-                        "description": "โค้ดคูปอง",
+                        "description": "โค้ดคูปองที่ต้องการใช้",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -394,7 +394,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "ใช้คูปองสำเร็จ",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -403,7 +403,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "โค้ดไม่ถูกต้อง หรือหมดอายุ หรือถูกใช้ไปแล้ว",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -412,7 +412,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -430,7 +430,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "ดึงประวัติการแจ้งเตือนทั้งหมด (ทั้ง Ads และส่วนตัว)",
+                "description": "ดึงประวัติการแจ้งเตือนทั้งหมดของผู้ใช้ (รวมทั้งประกาศส่วนกลางและแจ้งเตือนส่วนตัว)",
                 "produces": [
                     "application/json"
                 ],
@@ -440,7 +440,7 @@ const docTemplate = `{
                 "summary": "รายการแจ้งเตือนของฉัน",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "รายการแจ้งเตือน",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -500,23 +500,23 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get system-wide reports including revenue and usage stats. Admin Only.",
+                "description": "ดึงข้อมูลรายงานสรุปยอดรวม เช่น รายได้รวม จำนวนผู้ใช้ และสถิติการใช้งานรถจักรยาน",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Reports"
                 ],
-                "summary": "System Report Summary",
+                "summary": "รายงานสรุปภาพรวมระบบ (Admin Only)",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "ข้อมูลรายงานสรุป",
                         "schema": {
                             "$ref": "#/definitions/entity.FullReport"
                         }
                     },
                     "403": {
-                        "description": "Forbidden",
+                        "description": "ไม่มีสิทธิ์ (เฉพาะแอดมินเท่านั้น)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -525,7 +525,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -543,7 +543,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Stop the current ride and calculate fare.",
+                "description": "จบการขี่จักรยาน คำนวณค่าบริการ หักเงินใน Wallet และคืนสถานะรถให้ว่าง",
                 "consumes": [
                     "application/json"
                 ],
@@ -553,10 +553,10 @@ const docTemplate = `{
                 "tags": [
                     "Rides"
                 ],
-                "summary": "End Ride (Return Bike)",
+                "summary": "จบการเช่ารถจักรยาน",
                 "parameters": [
                     {
-                        "description": "End ride request",
+                        "description": "ข้อมูลการจบการเช่า",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -567,7 +567,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "จบการเช่าและชำระเงินสำเร็จ",
                         "schema": {
                             "$ref": "#/definitions/entity.Ride"
                         }
@@ -582,7 +582,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Start a new ride by scanning a bike QR code.",
+                "description": "เริ่มต้นการขี่จักรยานโดยระบุไอดีรถที่ต้องการ (สแกน QR Code)",
                 "consumes": [
                     "application/json"
                 ],
@@ -592,10 +592,10 @@ const docTemplate = `{
                 "tags": [
                     "Rides"
                 ],
-                "summary": "Start Ride (Rent Bike)",
+                "summary": "เริ่มการเช่ารถจักรยาน",
                 "parameters": [
                     {
-                        "description": "Start ride request",
+                        "description": "ข้อมูลการเริ่มเช่า",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -606,7 +606,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "เริ่มการเช่าสำเร็จ",
                         "schema": {
                             "$ref": "#/definitions/entity.Ride"
                         }
@@ -616,7 +616,7 @@ const docTemplate = `{
         },
         "/v1/users": {
             "post": {
-                "description": "Register a new user with phone number, username, and password. After success, an OTP will be sent.",
+                "description": "ลงทะเบียนผู้ใช้ใหม่ด้วยเบอร์โทรศัพท์ ชื่อผู้ใช้ และรหัสผ่าน หลังจากสำเร็จจะส่งรหัส OTP ไปยังเบอร์ที่ระบุ",
                 "consumes": [
                     "application/json"
                 ],
@@ -626,10 +626,10 @@ const docTemplate = `{
                 "tags": [
                     "Users"
                 ],
-                "summary": "Create a new user (and send OTP)",
+                "summary": "สมัครสมาชิกใหม่ (และส่ง OTP)",
                 "parameters": [
                     {
-                        "description": "User creation request",
+                        "description": "ข้อมูลการสมัครสมาชิก",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -640,21 +640,21 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "User created pending, OTP sent",
+                        "description": "สมัครสมาชิกสำเร็จ รอการยืนยัน OTP",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Invalid request or validation failed",
+                        "description": "ข้อมูลไม่ถูกต้อง หรือการตรวจสอบไม่ผ่าน",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -665,7 +665,7 @@ const docTemplate = `{
         },
         "/v1/users/login": {
             "post": {
-                "description": "Login with username and password to receive a JWT token.",
+                "description": "เข้าสู่ระบบด้วยชื่อผู้ใช้และรหัสผ่านเพื่อรับ JWT Token สำหรับการเข้าถึง API อื่นๆ",
                 "consumes": [
                     "application/json"
                 ],
@@ -675,10 +675,10 @@ const docTemplate = `{
                 "tags": [
                     "Users"
                 ],
-                "summary": "Login User",
+                "summary": "เข้าสู่ระบบ",
                 "parameters": [
                     {
-                        "description": "Login request",
+                        "description": "ข้อมูลการเข้าสู่ระบบ",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -689,13 +689,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Successfully logged in",
+                        "description": "เข้าสู่ระบบสำเร็จ",
                         "schema": {
                             "$ref": "#/definitions/login.Response"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -737,7 +737,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get currently logged-in user profile from JWT token.",
+                "description": "ดึงข้อมูลโปรไฟล์ของผู้คนที่กำลังเข้าสู่ระบบอยู่โดยใช้ JWT Token",
                 "consumes": [
                     "application/json"
                 ],
@@ -747,16 +747,16 @@ const docTemplate = `{
                 "tags": [
                     "Users"
                 ],
-                "summary": "Get My Profile",
+                "summary": "ข้อมูลโปรไฟล์ส่วนตัว",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "ดึงข้อมูลสำเร็จ",
                         "schema": {
                             "$ref": "#/definitions/me.Response"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "ไม่ได้รับอนุญาต (Token ไม่ถูกต้องหรือหมดอายุ)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -832,7 +832,7 @@ const docTemplate = `{
         },
         "/v1/users/verify/firebase": {
             "post": {
-                "description": "Verify the idToken received from Firebase on Frontend to activate the user account.",
+                "description": "ตรวจสอบ idToken ที่ได้รับจาก Firebase (ฝั่ง Frontend) เพื่อเปิดใช้งานบัญชีผู้ใช้อย่างเป็นทางการ",
                 "consumes": [
                     "application/json"
                 ],
@@ -842,10 +842,10 @@ const docTemplate = `{
                 "tags": [
                     "Users"
                 ],
-                "summary": "Verify Firebase Token and Activate User",
+                "summary": "ยืนยันตัวตนผ่าน Firebase และเปิดใช้งานบัญชี",
                 "parameters": [
                     {
-                        "description": "Firebase verification request",
+                        "description": "ข้อมูลการยืนยัน Firebase",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -856,14 +856,14 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "User activated successfully",
+                        "description": "เปิดใช้งานบัญชีสำเร็จ",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Invalid token or request",
+                        "description": "Token ไม่ถูกต้อง หรือข้อมูลผิดพลาด",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -879,7 +879,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new top-up transaction and returns a PromptPay QR code.",
+                "description": "สร้างรายการธุรกรรมเติมเงินและรับ QR Code สำหรับชำระเงินผ่าน PromptPay",
                 "consumes": [
                     "application/json"
                 ],
@@ -889,10 +889,10 @@ const docTemplate = `{
                 "tags": [
                     "Wallet"
                 ],
-                "summary": "Request Wallet Top-up",
+                "summary": "ขอเติมเงินเข้า Wallet (PromptPay)",
                 "parameters": [
                     {
-                        "description": "Topup Request (Amount)",
+                        "description": "ระบุจำนวนเงินที่ต้องการเติม",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -903,7 +903,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "สร้างรายการเติมเงินสำเร็จ",
                         "schema": {
                             "$ref": "#/definitions/topup.Response"
                         }
@@ -918,7 +918,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Transfer money to another user by phone number.",
+                "description": "โอนเงินจาก Wallet ของเราไปยังผู้ใช้อื่นโดยระบุเบอร์โทรศัพท์ผู้รับ",
                 "consumes": [
                     "application/json"
                 ],
@@ -928,10 +928,10 @@ const docTemplate = `{
                 "tags": [
                     "Wallet"
                 ],
-                "summary": "Wallet Transfer",
+                "summary": "โอนเงินให้เพื่อน (P2P)",
                 "parameters": [
                     {
-                        "description": "Transfer Details",
+                        "description": "ข้อมูลการโอนเงิน",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -942,14 +942,14 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "โอนเงินสำเร็จ",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "ข้อมูลไม่ถูกต้อง หรือยอดเงินไม่พอ",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -958,7 +958,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1047,17 +1047,17 @@ const docTemplate = `{
         },
         "/v1/zones": {
             "get": {
-                "description": "Get a list of all service areas and parking zones.",
+                "description": "ดึงข้อมูลพื้นที่บริการทั้งหมด รวมถึงจุดจอด (Parking Zones) และพื้นที่ห้ามจอด",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Zones"
                 ],
-                "summary": "List All Zones",
+                "summary": "รายการพื้นที่บริการ (Zones)",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "รายการพื้นที่",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1068,7 +1068,12 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new Parking Zone (P) or Riding Area (Area).",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "สร้างจุดจอดรถ (P) หรือ ขอบเขตพื้นที่ให้บริการใหม่ โดยระบุพิกัดและรัศมี",
                 "consumes": [
                     "application/json"
                 ],
@@ -1078,10 +1083,10 @@ const docTemplate = `{
                 "tags": [
                     "Zones"
                 ],
-                "summary": "Create New Zone (Admin)",
+                "summary": "สร้างพื้นที่บริการใหม่ (Admin Only)",
                 "parameters": [
                     {
-                        "description": "Zone creation request",
+                        "description": "ข้อมูลพื้นที่ที่ต้องการสร้าง",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -1092,7 +1097,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "สร้างสำเร็จ",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true

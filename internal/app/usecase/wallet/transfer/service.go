@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/sqlc"
+	domainService "github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
 	"github.com/google/uuid"
 )
 
@@ -27,11 +29,11 @@ type service struct {
 	userRepo  repository.UserRepository
 	txRepo    repository.TransactionRepository
 	mqttPub   mqtt.Publisher
-	notiPub   service.NotificationProvider
+	notiPub   domainService.NotificationProvider
 	queries   *sqlc.Queries // สำหรับรันใน Transaction
 }
 
-func NewService(db *sql.DB, userRepo repository.UserRepository, txRepo repository.TransactionRepository, mqttPub mqtt.Publisher, notiPub service.NotificationProvider) Service {
+func NewService(db *sql.DB, userRepo repository.UserRepository, txRepo repository.TransactionRepository, mqttPub mqtt.Publisher, notiPub domainService.NotificationProvider) Service {
 	return &service{
 		db:       db,
 		userRepo: userRepo,
@@ -106,7 +108,7 @@ func (s *service) Execute(ctx context.Context, req Request) error {
 		Amount:     "-" + amountStr,
 		Type:       "transfer_out",
 		Status:     "completed",
-		ReferenceID: uuid.NullUUID{UUID: receiver.ID, Valid: true},
+		ReferenceID: sql.NullString{String: receiver.ID.String(), Valid: true},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to log sender transaction: %v", err)
@@ -115,12 +117,12 @@ func (s *service) Execute(ctx context.Context, req Request) error {
 	// D. บันทึกประวัติฝั่งคนรับ
 	transferInID := uuid.New()
 	err = qtx.CreateTransaction(ctx, sqlc.CreateTransactionParams{
-		ID:         transferInID,
-		UserID:     receiver.ID,
-		Amount:     "+" + amountStr,
-		Type:       "transfer_in",
-		Status:     "completed",
-		ReferenceID: uuid.NullUUID{UUID: sender.ID, Valid: true},
+		ID:          transferInID,
+		UserID:      receiver.ID,
+		Amount:      "+" + amountStr,
+		Type:        "transfer_in",
+		Status:      "completed",
+		ReferenceID: sql.NullString{String: sender.ID.String(), Valid: true},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to log receiver transaction: %v", err)
@@ -154,7 +156,7 @@ func (s *service) Execute(ctx context.Context, req Request) error {
 
 	// 7. ส่ง Push Notification (FCM) หาคนรับ
 	if s.notiPub != nil && receiver.FcmToken != "" {
-		_ = s.notiPub.SendToToken(ctx, receiver.FcmToken, "ได้รับเงินโอน", fmt.Sprintf("คุณได้รับเงินจำนวน %s บาท จาก %s", req.Amount, sender.Username), map[string]string{
+		_ = s.notiPub.SendToToken(ctx, receiver.FcmToken, "ได้รับเงินโอน", fmt.Sprintf("คุณได้รับเงินจำนวน %.2f บาท จาก %s", req.Amount, sender.Username), map[string]string{
 			"type": "wallet_transfer_in",
 		})
 	}

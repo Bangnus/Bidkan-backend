@@ -20,15 +20,15 @@ func NewHandler(service Service) Handler {
 }
 
 // Handle Create User
-// @Summary Create a new user (and send OTP)
-// @Description Register a new user with phone number, username, and password. After success, an OTP will be sent.
+// @Summary สมัครสมาชิกใหม่ (และส่ง OTP)
+// @Description ลงทะเบียนผู้ใช้ใหม่ด้วยเบอร์โทรศัพท์ ชื่อผู้ใช้ และรหัสผ่าน หลังจากสำเร็จจะส่งรหัส OTP ไปยังเบอร์ที่ระบุ
 // @Tags Users
 // @Accept json
 // @Produce json
-// @Param request body Request true "User creation request"
-// @Success 201 {object} map[string]interface{} "User created pending, OTP sent"
-// @Failure 400 {object} map[string]interface{} "Invalid request or validation failed"
-// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Param request body Request true "ข้อมูลการสมัครสมาชิก"
+// @Success 201 {object} map[string]interface{} "สมัครสมาชิกสำเร็จ รอการยืนยัน OTP"
+// @Failure 400 {object} map[string]interface{} "ข้อมูลไม่ถูกต้อง หรือการตรวจสอบไม่ผ่าน"
+// @Failure 500 {object} map[string]interface{} "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์"
 // @Router /v1/users [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	var req Request

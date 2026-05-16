@@ -20,14 +20,14 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary Start Ride (Rent Bike)
-// @Description Start a new ride by scanning a bike QR code.
+// @Summary เริ่มการเช่ารถจักรยาน
+// @Description เริ่มต้นการขี่จักรยานโดยระบุไอดีรถที่ต้องการ (สแกน QR Code)
 // @Tags Rides
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body Request true "Start ride request"
-// @Success 201 {object} entity.Ride
+// @Param request body Request true "ข้อมูลการเริ่มเช่า"
+// @Success 201 {object} entity.Ride "เริ่มการเช่าสำเร็จ"
 // @Router /v1/rides/start [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	var req Request

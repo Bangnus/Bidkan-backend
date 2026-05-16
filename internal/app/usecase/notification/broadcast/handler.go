@@ -16,15 +16,15 @@ func NewHandler(svc Service) Handler {
 	return &handler{svc: svc}
 }
 
-// @Summary Broadcast Notification (Admin Only)
-// @Description แอดมินส่งประกาศ Ads หรือข่าวสารหาผู้ใช้ทุกคน
+// @Summary ส่งประกาศแจ้งเตือนหาทุกคน (Admin Only)
+// @Description แอดมินส่งข่าวสาร โปรโมชั่น หรือประกาศสำคัญไปยังผู้ใช้ทุกคนผ่าน MQTT และ Push Notification
 // @Tags Notifications
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body Request true "เนื้อหาประกาศ"
-// @Success 200 {object} map[string]string
-// @Failure 403 {object} map[string]string
+// @Param request body Request true "เนื้อหาที่ต้องการประกาศ"
+// @Success 200 {object} map[string]string "ส่งประกาศสำเร็จ"
+// @Failure 403 {object} map[string]string "ไม่มีสิทธิ์ (เฉพาะแอดมินเท่านั้น)"
 // @Router /v1/admin/notifications/broadcast [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	role := c.Locals("role").(string)

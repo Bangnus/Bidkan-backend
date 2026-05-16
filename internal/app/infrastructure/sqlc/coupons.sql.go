@@ -256,7 +256,7 @@ func (q *Queries) MarkUserCouponAsUsed(ctx context.Context, id uuid.UUID) error 
 
 const recordUserCoupon = `-- name: RecordUserCoupon :exec
 INSERT INTO user_coupons (id, user_id, coupon_id, is_used, used_at)
-VALUES ($1, $2, $3, $4, NOW())
+VALUES ($1, $2, $3, $4, $5)
 `
 
 type RecordUserCouponParams struct {
@@ -264,6 +264,7 @@ type RecordUserCouponParams struct {
 	UserID   uuid.UUID
 	CouponID uuid.UUID
 	IsUsed   bool
+	UsedAt   sql.NullTime
 }
 
 func (q *Queries) RecordUserCoupon(ctx context.Context, arg RecordUserCouponParams) error {
@@ -272,6 +273,7 @@ func (q *Queries) RecordUserCoupon(ctx context.Context, arg RecordUserCouponPara
 		arg.UserID,
 		arg.CouponID,
 		arg.IsUsed,
+		arg.UsedAt,
 	)
 	return err
 }

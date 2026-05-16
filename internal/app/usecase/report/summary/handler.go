@@ -16,14 +16,14 @@ func NewHandler(svc Service) Handler {
 	return &handler{svc: svc}
 }
 
-// @Summary System Report Summary
-// @Description Get system-wide reports including revenue and usage stats. Admin Only.
+// @Summary รายงานสรุปภาพรวมระบบ (Admin Only)
+// @Description ดึงข้อมูลรายงานสรุปยอดรวม เช่น รายได้รวม จำนวนผู้ใช้ และสถิติการใช้งานรถจักรยาน
 // @Tags Reports
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {object} entity.FullReport
-// @Failure 403 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Success 200 {object} entity.FullReport "ข้อมูลรายงานสรุป"
+// @Failure 403 {object} map[string]string "ไม่มีสิทธิ์ (เฉพาะแอดมินเท่านั้น)"
+// @Failure 500 {object} map[string]string "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์"
 // @Router /v1/reports/summary [get]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	// เช็คสิทธิ์ (เฉพาะ Admin เท่านั้น)

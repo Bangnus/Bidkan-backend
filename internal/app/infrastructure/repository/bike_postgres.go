@@ -54,7 +54,7 @@ func (r *bikePostgresRepository) GetByID(ctx context.Context, id string) (*entit
 		Status:        b.Status,
 		ImageURL:      b.ImageUrl.String,
 		CurrentRideID: rideID,
-		LastHeartbeat: b.LastHeartbeat,
+		LastHeartbeat: b.LastHeartbeat.Time,
 	}, nil
 }
 
@@ -113,7 +113,7 @@ func (r *bikePostgresRepository) mapBikes(bikes []sqlc.Bike) []entity.BikeData {
 			Status:        b.Status,
 			ImageURL:      b.ImageUrl.String,
 			CurrentRideID: rideID,
-			LastHeartbeat: b.LastHeartbeat,
+			LastHeartbeat: b.LastHeartbeat.Time,
 		})
 	}
 	return res

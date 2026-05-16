@@ -17,12 +17,12 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary List Bikes
-// @Description Get a list of bikes based on user role. Normal users see available bikes only. Staff/Admin see all.
+// @Summary รายการรถจักรยาน
+// @Description ดึงข้อมูลรถจักรยานทั้งหมด (ถ้าเป็น User ทั่วไปจะเห็นเฉพาะรถที่ว่าง, ถ้าเป็น Staff/Admin จะเห็นทั้งหมด)
 // @Tags Bikes
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {array} entity.BikeData
+// @Success 200 {array} entity.BikeData "รายการรถจักรยาน"
 // @Router /v1/bikes [get]
 func (h *handler) HandleList(c *fiber.Ctx) error {
 	role, ok := c.Locals("role").(string)

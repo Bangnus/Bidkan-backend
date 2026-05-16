@@ -16,11 +16,11 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary List All Zones
-// @Description Get a list of all service areas and parking zones.
+// @Summary รายการพื้นที่บริการ (Zones)
+// @Description ดึงข้อมูลพื้นที่บริการทั้งหมด รวมถึงจุดจอด (Parking Zones) และพื้นที่ห้ามจอด
 // @Tags Zones
 // @Produce json
-// @Success 200 {array} entity.Zone
+// @Success 200 {array} entity.Zone "รายการพื้นที่"
 // @Router /v1/zones [get]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	zones, err := h.service.GetAllZones(c.Context())

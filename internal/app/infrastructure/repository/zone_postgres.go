@@ -8,7 +8,6 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/sqlc"
 	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
 )
 
 type zonePostgresRepository struct {
@@ -28,11 +27,8 @@ func (r *zonePostgresRepository) Create(ctx context.Context, zone *entity.Zone) 
 		ID:       zone.ID,
 		Name:     zone.Name,
 		Type:     zone.Type,
-		Boundary: pqtype.NullRawMessage{
-			RawMessage: []byte(zone.Boundary),
-			Valid:      zone.Boundary != "",
-		},
-		Radius: sql.NullFloat64{Float64: zone.Radius, Valid: zone.Radius > 0},
+		Boundary: zone.Boundary,
+		Radius:   zone.Radius,
 	})
 }
 
@@ -68,13 +64,27 @@ func (r *zonePostgresRepository) ListByType(ctx context.Context, zoneType string
 	return res, nil
 }
 
+func (r *zonePostgresRepository) Update(ctx context.Context, zone *entity.Zone) error {
+	return r.queries.UpdateZone(ctx, sqlc.UpdateZoneParams{
+		ID:       zone.ID,
+		Name:     zone.Name,
+		Type:     zone.Type,
+		Boundary: zone.Boundary,
+		Radius:   zone.Radius,
+	})
+}
+
+func (r *zonePostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	return r.queries.DeleteZone(ctx, id)
+}
+
 func (r *zonePostgresRepository) mapZone(z sqlc.Zone) *entity.Zone {
 	return &entity.Zone{
 		ID:        z.ID,
 		Name:      z.Name,
 		Type:      z.Type,
-		Boundary:  string(z.Boundary.RawMessage),
-		Radius:    z.Radius.Float64,
+		Boundary:  z.Boundary,
+		Radius:    z.Radius,
 		CreatedAt: z.CreatedAt,
 		UpdatedAt: z.UpdatedAt,
 	}

@@ -19,14 +19,14 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary Verify Firebase Token and Activate User
-// @Description Verify the idToken received from Firebase on Frontend to activate the user account.
+// @Summary ยืนยันตัวตนผ่าน Firebase และเปิดใช้งานบัญชี
+// @Description ตรวจสอบ idToken ที่ได้รับจาก Firebase (ฝั่ง Frontend) เพื่อเปิดใช้งานบัญชีผู้ใช้อย่างเป็นทางการ
 // @Tags Users
 // @Accept json
 // @Produce json
-// @Param request body Request true "Firebase verification request"
-// @Success 200 {object} map[string]interface{} "User activated successfully"
-// @Failure 400 {object} map[string]interface{} "Invalid token or request"
+// @Param request body Request true "ข้อมูลการยืนยัน Firebase"
+// @Success 200 {object} map[string]interface{} "เปิดใช้งานบัญชีสำเร็จ"
+// @Failure 400 {object} map[string]interface{} "Token ไม่ถูกต้อง หรือข้อมูลผิดพลาด"
 // @Router /v1/users/verify/firebase [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	var req Request

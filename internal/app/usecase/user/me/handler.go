@@ -16,14 +16,14 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary Get My Profile
-// @Description Get currently logged-in user profile from JWT token.
+// @Summary ข้อมูลโปรไฟล์ส่วนตัว
+// @Description ดึงข้อมูลโปรไฟล์ของผู้คนที่กำลังเข้าสู่ระบบอยู่โดยใช้ JWT Token
 // @Tags Users
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {object} Response
-// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Success 200 {object} Response "ดึงข้อมูลสำเร็จ"
+// @Failure 401 {object} map[string]interface{} "ไม่ได้รับอนุญาต (Token ไม่ถูกต้องหรือหมดอายุ)"
 // @Router /v1/users/me [get]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	// ดึง user_id จาก Locals ที่ Middleware ฝากไว้

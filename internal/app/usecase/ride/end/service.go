@@ -14,6 +14,8 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/sqlc"
 	"github.com/Bangnus/Bidkan-backend/pkg/utils/geo"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
+	domainService "github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
 	"github.com/google/uuid"
 )
 
@@ -37,7 +39,7 @@ type service struct {
 	configCache  repository.ConfigCacheRepository
 	couponRepo   repository.CouponRepository
 	mqttPub      mqtt.Publisher
-	notiPub      service.NotificationProvider
+	notiPub      domainService.NotificationProvider
 	db           *sql.DB // เพิ่ม DB เพื่อรัน Transaction ตอนจบงาน
 }
 
@@ -52,7 +54,7 @@ func NewService(
 	configCache repository.ConfigCacheRepository,
 	couponRepo repository.CouponRepository,
 	mqttPub mqtt.Publisher,
-	notiPub service.NotificationProvider,
+	notiPub domainService.NotificationProvider,
 	db *sql.DB,
 ) Service {
 	return &service{
@@ -72,6 +74,7 @@ func NewService(
 }
 
 func (s *service) End(ctx context.Context, req Request) (*entity.Ride, error) {
+	now := time.Now()
 	// 1. หาการเช่าที่กำลังดำเนินอยู่ (Active Ride)
 	ride, err := s.rideRepo.GetActiveRide(ctx, req.UserID)
 	if err != nil {
@@ -85,7 +88,6 @@ func (s *service) End(ctx context.Context, req Request) (*entity.Ride, error) {
 	}
 
 	// 2. คำนวณเวลาที่ใช้จริง
-	now := time.Now()
 
 	if ride.Type == "service" {
 		// สำหรับงานบริการ/ซ่อมบำรุง ไม่คิดค่าใช้จ่าย และไม่เช็ค Geofencing
@@ -230,7 +232,7 @@ func (s *service) End(ctx context.Context, req Request) (*entity.Ride, error) {
 	}
 
 	// 10. บันทึกแคชพิกัดล่าสุด (Optional)
-	_ = s.bikeRepo.UpdateLocation(ctx, bike.ID, bike.Lat, bike.Lon)
+	_ = s.bikeRepo.SaveLocation(ctx, *bike)
 
 	// --- [NEW] ส่งแจ้งเตือนจบงานผ่าน MQTT ---
 	if s.mqttPub != nil {

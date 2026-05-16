@@ -3,8 +3,7 @@ package broadcast
 import (
 	"context"
 	"database/sql"
-
-	"github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
+	domainService "github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/sqlc"
 	"github.com/google/uuid"
@@ -23,10 +22,10 @@ type Service interface {
 type service struct {
 	queries *sqlc.Queries
 	mqttPub mqtt.Publisher
-	notiPub service.NotificationProvider
+	notiPub domainService.NotificationProvider
 }
 
-func NewService(db *sql.DB, mqttPub mqtt.Publisher, notiPub service.NotificationProvider) Service {
+func NewService(db *sql.DB, mqttPub mqtt.Publisher, notiPub domainService.NotificationProvider) Service {
 	return &service{
 		queries: sqlc.New(db),
 		mqttPub:  mqttPub,

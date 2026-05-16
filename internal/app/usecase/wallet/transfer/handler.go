@@ -17,16 +17,16 @@ func NewHandler(svc Service) Handler {
 	return &handler{svc: svc}
 }
 
-// @Summary Wallet Transfer
-// @Description Transfer money to another user by phone number.
+// @Summary โอนเงินให้เพื่อน (P2P)
+// @Description โอนเงินจาก Wallet ของเราไปยังผู้ใช้อื่นโดยระบุเบอร์โทรศัพท์ผู้รับ
 // @Tags Wallet
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body Request true "Transfer Details"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Param request body Request true "ข้อมูลการโอนเงิน"
+// @Success 200 {object} map[string]interface{} "โอนเงินสำเร็จ"
+// @Failure 400 {object} map[string]string "ข้อมูลไม่ถูกต้อง หรือยอดเงินไม่พอ"
+// @Failure 500 {object} map[string]string "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์"
 // @Router /v1/wallet/transfer [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	senderID, ok := c.Locals("userId").(uuid.UUID)

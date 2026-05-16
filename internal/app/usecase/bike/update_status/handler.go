@@ -16,17 +16,17 @@ func NewHandler(svc Service) Handler {
 	return &handler{svc: svc}
 }
 
-// @Summary Update Bike Status
-// @Description Update bike status manually (e.g., to maintenance). Staff/Admin Only.
+// @Summary อัปเดตสถานะรถจักรยาน
+// @Description เปลี่ยนสถานะของรถจักรยาน (เช่น เปลี่ยนเป็น maintenance หรือ unavailable) - เฉพาะ Staff/Admin เท่านั้น
 // @Tags Bikes
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param id path string true "Bike ID"
-// @Param request body Request true "New Status"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]string
-// @Failure 403 {object} map[string]string
+// @Param id path string true "ไอดีรถจักรยาน"
+// @Param request body Request true "สถานะใหม่ที่ต้องการเปลี่ยน"
+// @Success 200 {object} map[string]interface{} "อัปเดตสำเร็จ"
+// @Failure 400 {object} map[string]string "ข้อมูลไม่ถูกต้อง"
+// @Failure 403 {object} map[string]string "ไม่มีสิทธิ์เข้าถึง (ต้องเป็น Staff หรือ Admin)"
 // @Router /v1/bikes/{id}/status [patch]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	var req Request

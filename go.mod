@@ -12,7 +12,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/redis/go-redis/v9 v9.19.0
-	github.com/sqlc-dev/pqtype v0.3.0
 	github.com/swaggo/swag v1.16.6
 	golang.org/x/crypto v0.50.0
 	google.golang.org/api v0.279.0

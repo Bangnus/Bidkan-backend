@@ -407,9 +407,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: แอดมินส่งประกาศ Ads หรือข่าวสารหาผู้ใช้ทุกคน
+      description: แอดมินส่งข่าวสาร โปรโมชั่น หรือประกาศสำคัญไปยังผู้ใช้ทุกคนผ่าน
+        MQTT และ Push Notification
       parameters:
-      - description: เนื้อหาประกาศ
+      - description: เนื้อหาที่ต้องการประกาศ
         in: body
         name: request
         required: true
@@ -419,38 +420,38 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: ส่งประกาศสำเร็จ
           schema:
             additionalProperties:
               type: string
             type: object
         "403":
-          description: Forbidden
+          description: ไม่มีสิทธิ์ (เฉพาะแอดมินเท่านั้น)
           schema:
             additionalProperties:
               type: string
             type: object
       security:
       - BearerAuth: []
-      summary: Broadcast Notification (Admin Only)
+      summary: ส่งประกาศแจ้งเตือนหาทุกคน (Admin Only)
       tags:
       - Notifications
   /v1/bikes:
     get:
-      description: Get a list of bikes based on user role. Normal users see available
-        bikes only. Staff/Admin see all.
+      description: ดึงข้อมูลรถจักรยานทั้งหมด (ถ้าเป็น User ทั่วไปจะเห็นเฉพาะรถที่ว่าง,
+        ถ้าเป็น Staff/Admin จะเห็นทั้งหมด)
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: รายการรถจักรยาน
           schema:
             items:
               $ref: '#/definitions/entity.BikeData'
             type: array
       security:
       - BearerAuth: []
-      summary: List Bikes
+      summary: รายการรถจักรยาน
       tags:
       - Bikes
     post:
@@ -479,15 +480,15 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Update bike status manually (e.g., to maintenance). Staff/Admin
-        Only.
+      description: เปลี่ยนสถานะของรถจักรยาน (เช่น เปลี่ยนเป็น maintenance หรือ unavailable)
+        - เฉพาะ Staff/Admin เท่านั้น
       parameters:
-      - description: Bike ID
+      - description: ไอดีรถจักรยาน
         in: path
         name: id
         required: true
         type: string
-      - description: New Status
+      - description: สถานะใหม่ที่ต้องการเปลี่ยน
         in: body
         name: request
         required: true
@@ -497,25 +498,25 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: อัปเดตสำเร็จ
           schema:
             additionalProperties: true
             type: object
         "400":
-          description: Bad Request
+          description: ข้อมูลไม่ถูกต้อง
           schema:
             additionalProperties:
               type: string
             type: object
         "403":
-          description: Forbidden
+          description: ไม่มีสิทธิ์เข้าถึง (ต้องเป็น Staff หรือ Admin)
           schema:
             additionalProperties:
               type: string
             type: object
       security:
       - BearerAuth: []
-      summary: Update Bike Status
+      summary: อัปเดตสถานะรถจักรยาน
       tags:
       - Bikes
   /v1/configs:
@@ -601,24 +602,24 @@ paths:
       - Coupons
   /v1/coupons/my:
     get:
-      description: ดึงรายการคูปองที่ผู้ใช้เก็บไว้และยังไม่ได้ใช้
+      description: ดึงรายการคูปองส่วนลดที่ผู้ใช้เก็บสะสมไว้และยังไม่ได้นำไปใช้งาน
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: รายการคูปองที่ใช้งานได้
           schema:
             items:
               $ref: '#/definitions/list_my.CouponInfo'
             type: array
         "401":
-          description: Unauthorized
+          description: ไม่ได้รับอนุญาต
           schema:
             additionalProperties:
               type: string
             type: object
         "500":
-          description: Internal Server Error
+          description: เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์
           schema:
             additionalProperties:
               type: string
@@ -632,9 +633,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: ใช้โค้ดส่วนลด หรือ โค้ดรับเงินฟรี
+      description: กรอกโค้ดเพื่อรับเงินฟรีเข้า Wallet หรือเก็บโค้ดส่วนลดไว้ใช้หักค่าขี่ในอนาคต
       parameters:
-      - description: โค้ดคูปอง
+      - description: โค้ดคูปองที่ต้องการใช้
         in: body
         name: request
         required: true
@@ -644,36 +645,36 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: ใช้คูปองสำเร็จ
           schema:
             additionalProperties:
               type: string
             type: object
         "400":
-          description: Bad Request
+          description: โค้ดไม่ถูกต้อง หรือหมดอายุ หรือถูกใช้ไปแล้ว
           schema:
             additionalProperties:
               type: string
             type: object
         "500":
-          description: Internal Server Error
+          description: เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์
           schema:
             additionalProperties:
               type: string
             type: object
       security:
       - BearerAuth: []
-      summary: Redeem Coupon
+      summary: ใช้โค้ดคูปอง
       tags:
       - Coupons
   /v1/notifications:
     get:
-      description: ดึงประวัติการแจ้งเตือนทั้งหมด (ทั้ง Ads และส่วนตัว)
+      description: ดึงประวัติการแจ้งเตือนทั้งหมดของผู้ใช้ (รวมทั้งประกาศส่วนกลางและแจ้งเตือนส่วนตัว)
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: รายการแจ้งเตือน
           schema:
             items:
               $ref: '#/definitions/list.NotificationInfo'
@@ -711,39 +712,38 @@ paths:
       - Notifications
   /v1/reports/summary:
     get:
-      description: Get system-wide reports including revenue and usage stats. Admin
-        Only.
+      description: ดึงข้อมูลรายงานสรุปยอดรวม เช่น รายได้รวม จำนวนผู้ใช้ และสถิติการใช้งานรถจักรยาน
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: ข้อมูลรายงานสรุป
           schema:
             $ref: '#/definitions/entity.FullReport'
         "403":
-          description: Forbidden
+          description: ไม่มีสิทธิ์ (เฉพาะแอดมินเท่านั้น)
           schema:
             additionalProperties:
               type: string
             type: object
         "500":
-          description: Internal Server Error
+          description: เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์
           schema:
             additionalProperties:
               type: string
             type: object
       security:
       - BearerAuth: []
-      summary: System Report Summary
+      summary: รายงานสรุปภาพรวมระบบ (Admin Only)
       tags:
       - Reports
   /v1/rides/end:
     post:
       consumes:
       - application/json
-      description: Stop the current ride and calculate fare.
+      description: จบการขี่จักรยาน คำนวณค่าบริการ หักเงินใน Wallet และคืนสถานะรถให้ว่าง
       parameters:
-      - description: End ride request
+      - description: ข้อมูลการจบการเช่า
         in: body
         name: request
         required: true
@@ -753,21 +753,21 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: จบการเช่าและชำระเงินสำเร็จ
           schema:
             $ref: '#/definitions/entity.Ride'
       security:
       - BearerAuth: []
-      summary: End Ride (Return Bike)
+      summary: จบการเช่ารถจักรยาน
       tags:
       - Rides
   /v1/rides/start:
     post:
       consumes:
       - application/json
-      description: Start a new ride by scanning a bike QR code.
+      description: เริ่มต้นการขี่จักรยานโดยระบุไอดีรถที่ต้องการ (สแกน QR Code)
       parameters:
-      - description: Start ride request
+      - description: ข้อมูลการเริ่มเช่า
         in: body
         name: request
         required: true
@@ -777,22 +777,22 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: เริ่มการเช่าสำเร็จ
           schema:
             $ref: '#/definitions/entity.Ride'
       security:
       - BearerAuth: []
-      summary: Start Ride (Rent Bike)
+      summary: เริ่มการเช่ารถจักรยาน
       tags:
       - Rides
   /v1/users:
     post:
       consumes:
       - application/json
-      description: Register a new user with phone number, username, and password.
-        After success, an OTP will be sent.
+      description: ลงทะเบียนผู้ใช้ใหม่ด้วยเบอร์โทรศัพท์ ชื่อผู้ใช้ และรหัสผ่าน หลังจากสำเร็จจะส่งรหัส
+        OTP ไปยังเบอร์ที่ระบุ
       parameters:
-      - description: User creation request
+      - description: ข้อมูลการสมัครสมาชิก
         in: body
         name: request
         required: true
@@ -802,30 +802,31 @@ paths:
       - application/json
       responses:
         "201":
-          description: User created pending, OTP sent
+          description: สมัครสมาชิกสำเร็จ รอการยืนยัน OTP
           schema:
             additionalProperties: true
             type: object
         "400":
-          description: Invalid request or validation failed
+          description: ข้อมูลไม่ถูกต้อง หรือการตรวจสอบไม่ผ่าน
           schema:
             additionalProperties: true
             type: object
         "500":
-          description: Internal server error
+          description: เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์
           schema:
             additionalProperties: true
             type: object
-      summary: Create a new user (and send OTP)
+      summary: สมัครสมาชิกใหม่ (และส่ง OTP)
       tags:
       - Users
   /v1/users/login:
     post:
       consumes:
       - application/json
-      description: Login with username and password to receive a JWT token.
+      description: เข้าสู่ระบบด้วยชื่อผู้ใช้และรหัสผ่านเพื่อรับ JWT Token สำหรับการเข้าถึง
+        API อื่นๆ
       parameters:
-      - description: Login request
+      - description: ข้อมูลการเข้าสู่ระบบ
         in: body
         name: request
         required: true
@@ -835,15 +836,15 @@ paths:
       - application/json
       responses:
         "200":
-          description: Successfully logged in
+          description: เข้าสู่ระบบสำเร็จ
           schema:
             $ref: '#/definitions/login.Response'
         "401":
-          description: Unauthorized
+          description: ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง
           schema:
             additionalProperties: true
             type: object
-      summary: Login User
+      summary: เข้าสู่ระบบ
       tags:
       - Users
   /v1/users/logout:
@@ -867,22 +868,22 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get currently logged-in user profile from JWT token.
+      description: ดึงข้อมูลโปรไฟล์ของผู้คนที่กำลังเข้าสู่ระบบอยู่โดยใช้ JWT Token
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: ดึงข้อมูลสำเร็จ
           schema:
             $ref: '#/definitions/me.Response'
         "401":
-          description: Unauthorized
+          description: ไม่ได้รับอนุญาต (Token ไม่ถูกต้องหรือหมดอายุ)
           schema:
             additionalProperties: true
             type: object
       security:
       - BearerAuth: []
-      summary: Get My Profile
+      summary: ข้อมูลโปรไฟล์ส่วนตัว
       tags:
       - Users
   /v1/users/profile/image:
@@ -929,10 +930,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Verify the idToken received from Firebase on Frontend to activate
-        the user account.
+      description: ตรวจสอบ idToken ที่ได้รับจาก Firebase (ฝั่ง Frontend) เพื่อเปิดใช้งานบัญชีผู้ใช้อย่างเป็นทางการ
       parameters:
-      - description: Firebase verification request
+      - description: ข้อมูลการยืนยัน Firebase
         in: body
         name: request
         required: true
@@ -942,25 +942,25 @@ paths:
       - application/json
       responses:
         "200":
-          description: User activated successfully
+          description: เปิดใช้งานบัญชีสำเร็จ
           schema:
             additionalProperties: true
             type: object
         "400":
-          description: Invalid token or request
+          description: Token ไม่ถูกต้อง หรือข้อมูลผิดพลาด
           schema:
             additionalProperties: true
             type: object
-      summary: Verify Firebase Token and Activate User
+      summary: ยืนยันตัวตนผ่าน Firebase และเปิดใช้งานบัญชี
       tags:
       - Users
   /v1/wallet/topup:
     post:
       consumes:
       - application/json
-      description: Creates a new top-up transaction and returns a PromptPay QR code.
+      description: สร้างรายการธุรกรรมเติมเงินและรับ QR Code สำหรับชำระเงินผ่าน PromptPay
       parameters:
-      - description: Topup Request (Amount)
+      - description: ระบุจำนวนเงินที่ต้องการเติม
         in: body
         name: request
         required: true
@@ -970,21 +970,21 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: สร้างรายการเติมเงินสำเร็จ
           schema:
             $ref: '#/definitions/topup.Response'
       security:
       - BearerAuth: []
-      summary: Request Wallet Top-up
+      summary: ขอเติมเงินเข้า Wallet (PromptPay)
       tags:
       - Wallet
   /v1/wallet/transfer:
     post:
       consumes:
       - application/json
-      description: Transfer money to another user by phone number.
+      description: โอนเงินจาก Wallet ของเราไปยังผู้ใช้อื่นโดยระบุเบอร์โทรศัพท์ผู้รับ
       parameters:
-      - description: Transfer Details
+      - description: ข้อมูลการโอนเงิน
         in: body
         name: request
         required: true
@@ -994,25 +994,25 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: โอนเงินสำเร็จ
           schema:
             additionalProperties: true
             type: object
         "400":
-          description: Bad Request
+          description: ข้อมูลไม่ถูกต้อง หรือยอดเงินไม่พอ
           schema:
             additionalProperties:
               type: string
             type: object
         "500":
-          description: Internal Server Error
+          description: เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์
           schema:
             additionalProperties:
               type: string
             type: object
       security:
       - BearerAuth: []
-      summary: Wallet Transfer
+      summary: โอนเงินให้เพื่อน (P2P)
       tags:
       - Wallet
   /v1/wallet/verify-receiver:
@@ -1066,25 +1066,25 @@ paths:
       - Wallet
   /v1/zones:
     get:
-      description: Get a list of all service areas and parking zones.
+      description: ดึงข้อมูลพื้นที่บริการทั้งหมด รวมถึงจุดจอด (Parking Zones) และพื้นที่ห้ามจอด
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: รายการพื้นที่
           schema:
             items:
               $ref: '#/definitions/entity.Zone'
             type: array
-      summary: List All Zones
+      summary: รายการพื้นที่บริการ (Zones)
       tags:
       - Zones
     post:
       consumes:
       - application/json
-      description: Create a new Parking Zone (P) or Riding Area (Area).
+      description: สร้างจุดจอดรถ (P) หรือ ขอบเขตพื้นที่ให้บริการใหม่ โดยระบุพิกัดและรัศมี
       parameters:
-      - description: Zone creation request
+      - description: ข้อมูลพื้นที่ที่ต้องการสร้าง
         in: body
         name: request
         required: true
@@ -1094,11 +1094,13 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: สร้างสำเร็จ
           schema:
             additionalProperties: true
             type: object
-      summary: Create New Zone (Admin)
+      security:
+      - BearerAuth: []
+      summary: สร้างพื้นที่บริการใหม่ (Admin Only)
       tags:
       - Zones
 securityDefinitions:

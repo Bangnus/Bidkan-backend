@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
@@ -96,7 +97,7 @@ func (s *service) Execute(ctx context.Context, req Request) error {
 			Amount:     "+" + coupon.Value,
 			Type:       "coupon_redeem",
 			Status:     "completed",
-			ReferenceID: uuid.NullUUID{UUID: coupon.ID, Valid: true},
+			ReferenceID: sql.NullString{String: coupon.ID.String(), Valid: true},
 		})
 		if err != nil {
 			return err
@@ -112,7 +113,8 @@ func (s *service) Execute(ctx context.Context, req Request) error {
 			ID:       uuid.New(),
 			UserID:   req.UserID,
 			CouponID: coupon.ID,
-			IsUsed:   true, // คูปองเงินฟรีถือว่าใช้ทันที
+			IsUsed:   true,
+			UsedAt:   sql.NullTime{Time: time.Now(), Valid: true},
 		})
 		if err != nil {
 			return err
@@ -150,7 +152,8 @@ func (s *service) Execute(ctx context.Context, req Request) error {
 			ID:       uuid.New(),
 			UserID:   req.UserID,
 			CouponID: coupon.ID,
-			IsUsed:   false, // ยังไม่ถูกใช้จริง จะไปใช้ตอน Ride End
+			IsUsed:   false,
+			UsedAt:   sql.NullTime{Valid: false},
 		})
 		if err != nil {
 			return err

@@ -18,11 +18,11 @@ func NewHandler(svc Service) Handler {
 }
 
 // @Summary รายการแจ้งเตือนของฉัน
-// @Description ดึงประวัติการแจ้งเตือนทั้งหมด (ทั้ง Ads และส่วนตัว)
+// @Description ดึงประวัติการแจ้งเตือนทั้งหมดของผู้ใช้ (รวมทั้งประกาศส่วนกลางและแจ้งเตือนส่วนตัว)
 // @Tags Notifications
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {array} NotificationInfo
+// @Success 200 {array} NotificationInfo "รายการแจ้งเตือน"
 // @Router /v1/notifications [get]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userId").(uuid.UUID)

@@ -20,14 +20,14 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary End Ride (Return Bike)
-// @Description Stop the current ride and calculate fare.
+// @Summary จบการเช่ารถจักรยาน
+// @Description จบการขี่จักรยาน คำนวณค่าบริการ หักเงินใน Wallet และคืนสถานะรถให้ว่าง
 // @Tags Rides
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body Request true "End ride request"
-// @Success 200 {object} entity.Ride
+// @Param request body Request true "ข้อมูลการจบการเช่า"
+// @Success 200 {object} entity.Ride "จบการเช่าและชำระเงินสำเร็จ"
 // @Router /v1/rides/end [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	var req Request

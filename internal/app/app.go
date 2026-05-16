@@ -4,7 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
+	domainService "github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/repository"
 	
@@ -36,6 +36,7 @@ import (
 	// Notification
 	notiBroadcast "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/broadcast"
 	notiList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/list"
+	notiUpdateToken "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/update_token"
 
 	// Coupon
 	couponRedeem "github.com/Bangnus/Bidkan-backend/internal/app/usecase/coupon/redeem"
@@ -85,7 +86,7 @@ type Container struct {
 	// Notification
 	NotiBroadcastHandler   notiBroadcast.Handler
 	NotiListHandler        notiList.Handler
-	NotiUpdateTokenHandler update_token.Handler
+	NotiUpdateTokenHandler notiUpdateToken.Handler
 
 	// Coupon
 	RedeemCouponHandler   couponRedeem.Handler
@@ -99,8 +100,8 @@ type Container struct {
 	ConfigHandler         configUsecase.Handler
 
 	// External
-	SmsProvider           service.SmsProvider
-	NotiProvider          service.NotificationProvider
+	SmsProvider           domainService.SmsProvider
+	NotiProvider          domainService.NotificationProvider
 	MqttPublisher         mqtt.Publisher
 }
 
@@ -160,7 +161,7 @@ func NewContainer(
 	// Notification
 	notiBroadcastService := notiBroadcast.NewService(db, mqttPub, notiProvider)
 	notiListService := notiList.NewService(db)
-	updateTokenService := update_token.NewService(db)
+	updateTokenService := notiUpdateToken.NewService(db)
 
 	// Coupon
 	couponRedeemService := couponRedeem.NewService(db, couponRepo, userRepo, mqttPub)
@@ -203,7 +204,7 @@ func NewContainer(
 		
 		NotiBroadcastHandler:  notiBroadcast.NewHandler(notiBroadcastService),
 		NotiListHandler:       notiList.NewHandler(notiListService),
-		NotiUpdateTokenHandler: update_token.NewHandler(updateTokenService),
+		NotiUpdateTokenHandler: notiUpdateToken.NewHandler(updateTokenService),
 
 		ReportSummaryHandler:  reportSummary.NewHandler(reportSummaryService),
 

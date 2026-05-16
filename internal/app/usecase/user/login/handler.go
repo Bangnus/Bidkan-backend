@@ -19,14 +19,14 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary Login User
-// @Description Login with username and password to receive a JWT token.
+// @Summary เข้าสู่ระบบ
+// @Description เข้าสู่ระบบด้วยชื่อผู้ใช้และรหัสผ่านเพื่อรับ JWT Token สำหรับการเข้าถึง API อื่นๆ
 // @Tags Users
 // @Accept json
 // @Produce json
-// @Param request body Request true "Login request"
-// @Success 200 {object} Response "Successfully logged in"
-// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Param request body Request true "ข้อมูลการเข้าสู่ระบบ"
+// @Success 200 {object} Response "เข้าสู่ระบบสำเร็จ"
+// @Failure 401 {object} map[string]interface{} "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"
 // @Router /v1/users/login [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	var req Request
