@@ -16,16 +16,16 @@ func NewHandler(svc Service) Handler {
 	return &handler{svc: svc}
 }
 
-// @Summary Create Coupon (Admin Only)
-// @Description แอดมินสร้างคูปองใหม่ กำหนดโค้ด ประเภท และมูลค่าได้เอง
+// @Summary สร้างคูปองใหม่ (Admin Only)
+// @Description แอดมินสร้างคูปองใหม่เพื่อแจกจ่ายให้ผู้ใช้ โดยกำหนดรหัส (Code) ประเภท (Type) และมูลค่าได้
 // @Tags Coupons
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body Request true "รายละเอียดคูปอง"
-// @Success 200 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Param request body Request true "รายละเอียดคูปองที่ต้องการสร้าง"
+// @Success 200 {object} map[string]string "สร้างคูปองสำเร็จ"
+// @Failure 403 {object} map[string]string "ไม่มีสิทธิ์ (เฉพาะแอดมินเท่านั้น)"
+// @Failure 500 {object} map[string]string "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์"
 // @Router /v1/coupons [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	role := c.Locals("role").(string)

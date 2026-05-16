@@ -457,9 +457,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Add a new bike to the system.
+      description: เพิ่มรถจักรยานใหม่เข้าสู่ระบบ พร้อมระบุไอดี และสถานะเริ่มต้น
       parameters:
-      - description: Bike creation request
+      - description: ข้อมูลรถจักรยานใหม่
         in: body
         name: request
         required: true
@@ -469,11 +469,13 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: เพิ่มรถสำเร็จ
           schema:
             additionalProperties: true
             type: object
-      summary: Create New Bike (Admin)
+      security:
+      - BearerAuth: []
+      summary: เพิ่มรถจักรยานใหม่ (Admin Only)
       tags:
       - Bikes
   /v1/bikes/{id}/status:
@@ -523,9 +525,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Set a global configuration value (e.g. parking_penalty_fee).
+      description: ตั้งค่าพารามิเตอร์ต่างๆ ของระบบ (เช่น ค่าปรับจอดนอกพื้นที่, อัตราค่าบริการ)
       parameters:
-      - description: Config request
+      - description: ข้อมูลการตั้งค่า
         in: body
         name: request
         required: true
@@ -535,18 +537,20 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: ตั้งค่าสำเร็จ
           schema:
             additionalProperties: true
             type: object
-      summary: Set System Config (Admin)
+      security:
+      - BearerAuth: []
+      summary: ตั้งค่าระบบ (Admin Only)
       tags:
       - Configs
   /v1/configs/{key}:
     get:
-      description: Get a global configuration value by key.
+      description: ดึงค่าการตั้งค่าตาม Key ที่ระบุ
       parameters:
-      - description: Config Key
+      - description: ชื่อของการตั้งค่า (Key)
         in: path
         name: key
         required: true
@@ -555,20 +559,21 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: ดึงข้อมูลสำเร็จ
           schema:
             additionalProperties: true
             type: object
-      summary: Get System Config
+      summary: ดึงค่าการตั้งค่าระบบ
       tags:
       - Configs
   /v1/coupons:
     post:
       consumes:
       - application/json
-      description: แอดมินสร้างคูปองใหม่ กำหนดโค้ด ประเภท และมูลค่าได้เอง
+      description: แอดมินสร้างคูปองใหม่เพื่อแจกจ่ายให้ผู้ใช้ โดยกำหนดรหัส (Code) ประเภท
+        (Type) และมูลค่าได้
       parameters:
-      - description: รายละเอียดคูปอง
+      - description: รายละเอียดคูปองที่ต้องการสร้าง
         in: body
         name: request
         required: true
@@ -578,26 +583,26 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: สร้างคูปองสำเร็จ
           schema:
             additionalProperties:
               type: string
             type: object
         "403":
-          description: Forbidden
+          description: ไม่มีสิทธิ์ (เฉพาะแอดมินเท่านั้น)
           schema:
             additionalProperties:
               type: string
             type: object
         "500":
-          description: Internal Server Error
+          description: เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์
           schema:
             additionalProperties:
               type: string
             type: object
       security:
       - BearerAuth: []
-      summary: Create Coupon (Admin Only)
+      summary: สร้างคูปองใหม่ (Admin Only)
       tags:
       - Coupons
   /v1/coupons/my:
@@ -688,9 +693,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: อัปเดต Token สำหรับส่ง Push Notification
+      description: อัปเดต Device Token (Firebase) สำหรับรับการแจ้งเตือนแบบ Push Notification
+        บนมือถือ
       parameters:
-      - description: FCM Token
+      - description: รหัส Token ของอุปกรณ์
         in: body
         name: request
         required: true
@@ -700,14 +706,14 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: อัปเดตสำเร็จ
           schema:
             additionalProperties:
               type: string
             type: object
       security:
       - BearerAuth: []
-      summary: Update FCM Token
+      summary: อัปเดต FCM Token
       tags:
       - Notifications
   /v1/reports/summary:
@@ -890,9 +896,9 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Update the profile image URL for the current user.
+      description: เปลี่ยน URL ของรูปโปรไฟล์สำหรับผู้ใช้ปัจจุบัน
       parameters:
-      - description: Update profile image request
+      - description: ข้อมูลรูปโปรไฟล์ใหม่
         in: body
         name: request
         required: true
@@ -902,28 +908,28 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: อัปเดตสำเร็จ
           schema:
             additionalProperties: true
             type: object
       security:
       - BearerAuth: []
-      summary: Update Profile Image
+      summary: อัปเดตรูปโปรไฟล์
       tags:
       - Users
   /v1/users/rank:
     get:
-      description: Get current rank and spending progress for the last 4 months.
+      description: ดึงข้อมูลระดับสมาชิกปัจจุบันและยอดการใช้งานสะสมย้อนหลัง 4 เดือนเพื่อคำนวณลำดับ
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: ดึงข้อมูลสำเร็จ
           schema:
             $ref: '#/definitions/rank.Response'
       security:
       - BearerAuth: []
-      summary: Get User Rank
+      summary: ข้อมูลระดับสมาชิก (Rank)
       tags:
       - Users
   /v1/users/verify/firebase:
@@ -1017,9 +1023,9 @@ paths:
       - Wallet
   /v1/wallet/verify-receiver:
     get:
-      description: Find username by phone number for wallet transfer.
+      description: ค้นหาชื่อผู้ใช้งานจากเบอร์โทรศัพท์ เพื่อยืนยันตัวตนก่อนทำการโอนเงิน
       parameters:
-      - description: Receiver Phone Number
+      - description: เบอร์โทรศัพท์ผู้รับ
         in: query
         name: phone
         required: true
@@ -1028,40 +1034,40 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: พบข้อมูลผู้รับ
           schema:
             $ref: '#/definitions/verify_receiver.Response'
         "400":
-          description: Bad Request
+          description: ข้อมูลไม่ถูกต้อง
           schema:
             additionalProperties:
               type: string
             type: object
         "404":
-          description: Not Found
+          description: ไม่พบผู้ใช้งานเบอร์นี้
           schema:
             additionalProperties:
               type: string
             type: object
       security:
       - BearerAuth: []
-      summary: Verify Receiver
+      summary: ตรวจสอบผู้รับโอน
       tags:
       - Wallet
   /v1/wallet/webhook/paysolutions:
     post:
       consumes:
       - application/json
-      description: Receives payment status updates from PaySolutions server.
+      description: รับการแจ้งเตือนสถานะการชำระเงินจาก PaySolutions (ใช้สำหรับเติมเงินอัตโนมัติ)
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: รับข้อมูลสำเร็จ
           schema:
             additionalProperties: true
             type: object
-      summary: PaySolutions Webhook Callback
+      summary: PaySolutions Webhook (ระบบรับแจ้งชำระเงิน)
       tags:
       - Wallet
   /v1/zones:

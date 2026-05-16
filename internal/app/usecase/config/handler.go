@@ -20,13 +20,14 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary Set System Config (Admin)
-// @Description Set a global configuration value (e.g. parking_penalty_fee).
+// @Summary ตั้งค่าระบบ (Admin Only)
+// @Description ตั้งค่าพารามิเตอร์ต่างๆ ของระบบ (เช่น ค่าปรับจอดนอกพื้นที่, อัตราค่าบริการ)
 // @Tags Configs
 // @Accept json
 // @Produce json
-// @Param request body Request true "Config request"
-// @Success 200 {object} map[string]interface{}
+// @Security BearerAuth
+// @Param request body Request true "ข้อมูลการตั้งค่า"
+// @Success 200 {object} map[string]interface{} "ตั้งค่าสำเร็จ"
 // @Router /v1/configs [post]
 func (h *handler) HandleSet(c *fiber.Ctx) error {
 	var req Request
@@ -45,12 +46,12 @@ func (h *handler) HandleSet(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Config updated successfully"})
 }
 
-// @Summary Get System Config
-// @Description Get a global configuration value by key.
+// @Summary ดึงค่าการตั้งค่าระบบ
+// @Description ดึงค่าการตั้งค่าตาม Key ที่ระบุ
 // @Tags Configs
 // @Produce json
-// @Param key path string true "Config Key"
-// @Success 200 {object} map[string]interface{}
+// @Param key path string true "ชื่อของการตั้งค่า (Key)"
+// @Success 200 {object} map[string]interface{} "ดึงข้อมูลสำเร็จ"
 // @Router /v1/configs/{key} [get]
 func (h *handler) HandleGet(c *fiber.Ctx) error {
 	key := c.Params("key")

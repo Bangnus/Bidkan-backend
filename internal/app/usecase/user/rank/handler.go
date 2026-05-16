@@ -17,12 +17,12 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary Get User Rank
-// @Description Get current rank and spending progress for the last 4 months.
+// @Summary ข้อมูลระดับสมาชิก (Rank)
+// @Description ดึงข้อมูลระดับสมาชิกปัจจุบันและยอดการใช้งานสะสมย้อนหลัง 4 เดือนเพื่อคำนวณลำดับ
 // @Tags Users
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {object} Response
+// @Success 200 {object} Response "ดึงข้อมูลสำเร็จ"
 // @Router /v1/users/rank [get]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	userIDStr, ok := c.Locals("user_id").(string)

@@ -20,14 +20,14 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary Update Profile Image
-// @Description Update the profile image URL for the current user.
+// @Summary อัปเดตรูปโปรไฟล์
+// @Description เปลี่ยน URL ของรูปโปรไฟล์สำหรับผู้ใช้ปัจจุบัน
 // @Tags Users
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body Request true "Update profile image request"
-// @Success 200 {object} map[string]interface{}
+// @Param request body Request true "ข้อมูลรูปโปรไฟล์ใหม่"
+// @Success 200 {object} map[string]interface{} "อัปเดตสำเร็จ"
 // @Router /v1/users/profile/image [patch]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	var req Request

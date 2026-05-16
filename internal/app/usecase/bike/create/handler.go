@@ -19,13 +19,14 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary Create New Bike (Admin)
-// @Description Add a new bike to the system.
+// @Summary เพิ่มรถจักรยานใหม่ (Admin Only)
+// @Description เพิ่มรถจักรยานใหม่เข้าสู่ระบบ พร้อมระบุไอดี และสถานะเริ่มต้น
 // @Tags Bikes
 // @Accept json
 // @Produce json
-// @Param request body Request true "Bike creation request"
-// @Success 201 {object} map[string]interface{}
+// @Security BearerAuth
+// @Param request body Request true "ข้อมูลรถจักรยานใหม่"
+// @Success 201 {object} map[string]interface{} "เพิ่มรถสำเร็จ"
 // @Router /v1/bikes [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	var req Request

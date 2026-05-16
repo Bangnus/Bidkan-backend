@@ -18,12 +18,12 @@ func NewHandler(service Service) Handler {
 	return &handler{service: service}
 }
 
-// @Summary PaySolutions Webhook Callback
-// @Description Receives payment status updates from PaySolutions server.
+// @Summary PaySolutions Webhook (ระบบรับแจ้งชำระเงิน)
+// @Description รับการแจ้งเตือนสถานะการชำระเงินจาก PaySolutions (ใช้สำหรับเติมเงินอัตโนมัติ)
 // @Tags Wallet
 // @Accept json
 // @Produce json
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} map[string]interface{} "รับข้อมูลสำเร็จ"
 // @Router /v1/wallet/webhook/paysolutions [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	var payload PaySolutionsWebhookPayload

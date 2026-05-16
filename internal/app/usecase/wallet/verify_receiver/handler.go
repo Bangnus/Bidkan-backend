@@ -16,15 +16,15 @@ func NewHandler(svc Service) Handler {
 	return &handler{svc: svc}
 }
 
-// @Summary Verify Receiver
-// @Description Find username by phone number for wallet transfer.
+// @Summary ตรวจสอบผู้รับโอน
+// @Description ค้นหาชื่อผู้ใช้งานจากเบอร์โทรศัพท์ เพื่อยืนยันตัวตนก่อนทำการโอนเงิน
 // @Tags Wallet
 // @Produce json
 // @Security BearerAuth
-// @Param phone query string true "Receiver Phone Number"
-// @Success 200 {object} Response
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
+// @Param phone query string true "เบอร์โทรศัพท์ผู้รับ"
+// @Success 200 {object} Response "พบข้อมูลผู้รับ"
+// @Failure 400 {object} map[string]string "ข้อมูลไม่ถูกต้อง"
+// @Failure 404 {object} map[string]string "ไม่พบผู้ใช้งานเบอร์นี้"
 // @Router /v1/wallet/verify-receiver [get]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	phone := c.Query("phone")

@@ -94,7 +94,12 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Add a new bike to the system.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "เพิ่มรถจักรยานใหม่เข้าสู่ระบบ พร้อมระบุไอดี และสถานะเริ่มต้น",
                 "consumes": [
                     "application/json"
                 ],
@@ -104,10 +109,10 @@ const docTemplate = `{
                 "tags": [
                     "Bikes"
                 ],
-                "summary": "Create New Bike (Admin)",
+                "summary": "เพิ่มรถจักรยานใหม่ (Admin Only)",
                 "parameters": [
                     {
-                        "description": "Bike creation request",
+                        "description": "ข้อมูลรถจักรยานใหม่",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -118,7 +123,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "เพิ่มรถสำเร็จ",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -194,7 +199,12 @@ const docTemplate = `{
         },
         "/v1/configs": {
             "post": {
-                "description": "Set a global configuration value (e.g. parking_penalty_fee).",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "ตั้งค่าพารามิเตอร์ต่างๆ ของระบบ (เช่น ค่าปรับจอดนอกพื้นที่, อัตราค่าบริการ)",
                 "consumes": [
                     "application/json"
                 ],
@@ -204,10 +214,10 @@ const docTemplate = `{
                 "tags": [
                     "Configs"
                 ],
-                "summary": "Set System Config (Admin)",
+                "summary": "ตั้งค่าระบบ (Admin Only)",
                 "parameters": [
                     {
-                        "description": "Config request",
+                        "description": "ข้อมูลการตั้งค่า",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -218,7 +228,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "ตั้งค่าสำเร็จ",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -229,18 +239,18 @@ const docTemplate = `{
         },
         "/v1/configs/{key}": {
             "get": {
-                "description": "Get a global configuration value by key.",
+                "description": "ดึงค่าการตั้งค่าตาม Key ที่ระบุ",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Configs"
                 ],
-                "summary": "Get System Config",
+                "summary": "ดึงค่าการตั้งค่าระบบ",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Config Key",
+                        "description": "ชื่อของการตั้งค่า (Key)",
                         "name": "key",
                         "in": "path",
                         "required": true
@@ -248,7 +258,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "ดึงข้อมูลสำเร็จ",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -264,7 +274,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "แอดมินสร้างคูปองใหม่ กำหนดโค้ด ประเภท และมูลค่าได้เอง",
+                "description": "แอดมินสร้างคูปองใหม่เพื่อแจกจ่ายให้ผู้ใช้ โดยกำหนดรหัส (Code) ประเภท (Type) และมูลค่าได้",
                 "consumes": [
                     "application/json"
                 ],
@@ -274,10 +284,10 @@ const docTemplate = `{
                 "tags": [
                     "Coupons"
                 ],
-                "summary": "Create Coupon (Admin Only)",
+                "summary": "สร้างคูปองใหม่ (Admin Only)",
                 "parameters": [
                     {
-                        "description": "รายละเอียดคูปอง",
+                        "description": "รายละเอียดคูปองที่ต้องการสร้าง",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -288,7 +298,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "สร้างคูปองสำเร็จ",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -297,7 +307,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Forbidden",
+                        "description": "ไม่มีสิทธิ์ (เฉพาะแอดมินเท่านั้น)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -306,7 +316,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -458,7 +468,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "อัปเดต Token สำหรับส่ง Push Notification",
+                "description": "อัปเดต Device Token (Firebase) สำหรับรับการแจ้งเตือนแบบ Push Notification บนมือถือ",
                 "consumes": [
                     "application/json"
                 ],
@@ -468,10 +478,10 @@ const docTemplate = `{
                 "tags": [
                     "Notifications"
                 ],
-                "summary": "Update FCM Token",
+                "summary": "อัปเดต FCM Token",
                 "parameters": [
                     {
-                        "description": "FCM Token",
+                        "description": "รหัส Token ของอุปกรณ์",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -482,7 +492,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "อัปเดตสำเร็จ",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -772,7 +782,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update the profile image URL for the current user.",
+                "description": "เปลี่ยน URL ของรูปโปรไฟล์สำหรับผู้ใช้ปัจจุบัน",
                 "consumes": [
                     "application/json"
                 ],
@@ -782,10 +792,10 @@ const docTemplate = `{
                 "tags": [
                     "Users"
                 ],
-                "summary": "Update Profile Image",
+                "summary": "อัปเดตรูปโปรไฟล์",
                 "parameters": [
                     {
-                        "description": "Update profile image request",
+                        "description": "ข้อมูลรูปโปรไฟล์ใหม่",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -796,7 +806,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "อัปเดตสำเร็จ",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -812,17 +822,17 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get current rank and spending progress for the last 4 months.",
+                "description": "ดึงข้อมูลระดับสมาชิกปัจจุบันและยอดการใช้งานสะสมย้อนหลัง 4 เดือนเพื่อคำนวณลำดับ",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Users"
                 ],
-                "summary": "Get User Rank",
+                "summary": "ข้อมูลระดับสมาชิก (Rank)",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "ดึงข้อมูลสำเร็จ",
                         "schema": {
                             "$ref": "#/definitions/rank.Response"
                         }
@@ -976,18 +986,18 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Find username by phone number for wallet transfer.",
+                "description": "ค้นหาชื่อผู้ใช้งานจากเบอร์โทรศัพท์ เพื่อยืนยันตัวตนก่อนทำการโอนเงิน",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Wallet"
                 ],
-                "summary": "Verify Receiver",
+                "summary": "ตรวจสอบผู้รับโอน",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Receiver Phone Number",
+                        "description": "เบอร์โทรศัพท์ผู้รับ",
                         "name": "phone",
                         "in": "query",
                         "required": true
@@ -995,13 +1005,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "พบข้อมูลผู้รับ",
                         "schema": {
                             "$ref": "#/definitions/verify_receiver.Response"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "ข้อมูลไม่ถูกต้อง",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1010,7 +1020,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "ไม่พบผู้ใช้งานเบอร์นี้",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1023,7 +1033,7 @@ const docTemplate = `{
         },
         "/v1/wallet/webhook/paysolutions": {
             "post": {
-                "description": "Receives payment status updates from PaySolutions server.",
+                "description": "รับการแจ้งเตือนสถานะการชำระเงินจาก PaySolutions (ใช้สำหรับเติมเงินอัตโนมัติ)",
                 "consumes": [
                     "application/json"
                 ],
@@ -1033,10 +1043,10 @@ const docTemplate = `{
                 "tags": [
                     "Wallet"
                 ],
-                "summary": "PaySolutions Webhook Callback",
+                "summary": "PaySolutions Webhook (ระบบรับแจ้งชำระเงิน)",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "รับข้อมูลสำเร็จ",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true

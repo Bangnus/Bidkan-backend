@@ -17,14 +17,14 @@ func NewHandler(svc Service) Handler {
 	return &handler{svc: svc}
 }
 
-// @Summary Update FCM Token
-// @Description อัปเดต Token สำหรับส่ง Push Notification
+// @Summary อัปเดต FCM Token
+// @Description อัปเดต Device Token (Firebase) สำหรับรับการแจ้งเตือนแบบ Push Notification บนมือถือ
 // @Tags Notifications
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body Request true "FCM Token"
-// @Success 200 {object} map[string]string
+// @Param request body Request true "รหัส Token ของอุปกรณ์"
+// @Success 200 {object} map[string]string "อัปเดตสำเร็จ"
 // @Router /v1/notifications/fcm-token [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userId").(uuid.UUID)
