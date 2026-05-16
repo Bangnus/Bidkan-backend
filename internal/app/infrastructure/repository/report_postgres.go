@@ -7,7 +7,6 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/sqlc"
-	"github.com/google/uuid"
 )
 
 type reportPostgresRepository struct {
@@ -22,58 +21,58 @@ func NewReportPostgresRepository(db *sql.DB) repository.ReportRepository {
 	}
 }
 
-func (r *reportPostgresRepository) Create(ctx context.Context, report *entity.Report) error {
-	return r.queries.CreateReport(ctx, sqlc.CreateReportParams{
-		ID:         report.ID,
-		BikeID:     report.BikeID,
-		ReportedBy: report.ReportedBy,
-		IssueType:  report.IssueType,
-		Status:     report.Status,
-	})
-}
-
-func (r *reportPostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*entity.Report, error) {
-	res, err := r.queries.GetReport(ctx, id)
+func (r *reportPostgresRepository) GetSummary(ctx context.Context) (*entity.FullReport, error) {
+	// 1. Get General Summary
+	summaryRes, err := r.queries.GetSystemSummary(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &entity.Report{
-		ID:         res.ID,
-		BikeID:     res.BikeID,
-		ReportedBy: res.ReportedBy,
-		IssueType:  res.IssueType,
-		Status:     res.Status,
-		ResolvedBy: res.ResolvedBy,
-		CreatedAt:  res.CreatedAt,
-		UpdatedAt:  res.UpdatedAt,
-	}, nil
-}
 
-func (r *reportPostgresRepository) ListByBike(ctx context.Context, bikeID string) ([]entity.Report, error) {
-	reports, err := r.queries.ListReportsByBike(ctx, bikeID)
+	summary := entity.SystemSummary{
+		TotalUsers:     summaryRes.TotalUsers,
+		TotalBikes:     summaryRes.TotalBikes,
+		AvailableBikes: summaryRes.AvailableBikes,
+		ActiveRides:    summaryRes.ActiveRides,
+		TotalRevenue:   summaryRes.TotalRevenue,
+	}
+
+	// 2. Get Bike Usage Stats
+	bikeRes, err := r.queries.GetBikeUsageStats(ctx)
 	if err != nil {
 		return nil, err
 	}
-	var res []entity.Report
-	for _, report := range reports {
-		res = append(res, entity.Report{
-			ID:         report.ID,
-			BikeID:     report.BikeID,
-			ReportedBy: report.ReportedBy,
-			IssueType:  report.IssueType,
-			Status:     report.Status,
-			ResolvedBy: report.ResolvedBy,
-			CreatedAt:  report.CreatedAt,
-			UpdatedAt:  report.UpdatedAt,
+
+	bikeStats := make([]entity.BikeUsageStat, 0)
+	for _, b := range bikeRes {
+		bikeStats = append(bikeStats, entity.BikeUsageStat{
+			BikeID:          b.BikeID,
+			RideCount:       b.RideCount,
+			TotalDistanceKM: b.TotalDistanceKm,
+			TotalRevenue:    b.TotalRevenue,
 		})
 	}
-	return res, nil
-}
 
-func (r *reportPostgresRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status string, resolvedBy uuid.UUID) error {
-	return r.queries.UpdateReportStatus(ctx, sqlc.UpdateReportStatusParams{
-		ID:         id,
-		Status:     status,
-		ResolvedBy: uuid.NullUUID{UUID: resolvedBy, Valid: resolvedBy != uuid.Nil},
-	})
+	// 3. Get Daily Revenue
+	dailyRes, err := r.queries.GetDailyRevenue(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	dailyRevenue := make([]entity.DailyRevenue, 0)
+	for _, d := range dailyRes {
+		// d.Date เป็น time.Time จาก sqlc อยู่แล้ว
+		dateStr := d.Date.Format("2006-01-02")
+
+		dailyRevenue = append(dailyRevenue, entity.DailyRevenue{
+			Date:         dateStr,
+			RideCount:    d.RideCount,
+			DailyRevenue: d.DailyRevenue,
+		})
+	}
+
+	return &entity.FullReport{
+		Summary:      summary,
+		BikeStats:    bikeStats,
+		DailyRevenue: dailyRevenue,
+	}, nil
 }

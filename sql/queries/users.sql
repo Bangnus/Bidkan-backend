@@ -17,5 +17,11 @@ SELECT * FROM users WHERE username = $1;
 -- name: GetUserByID :one
 SELECT * FROM users WHERE id = $1;
 
+-- name: AddBalance :exec
+UPDATE users SET wallet_balance = wallet_balance + $1, updated_at = NOW() WHERE id = $2;
+
+-- name: DeductBalance :exec
+UPDATE users SET wallet_balance = wallet_balance - $1, updated_at = NOW() WHERE id = $2;
+
 -- name: UpdateUserProfileImage :exec
 UPDATE users SET image_url = $1, updated_at = NOW() WHERE id = $2;

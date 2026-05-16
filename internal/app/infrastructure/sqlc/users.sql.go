@@ -13,6 +13,20 @@ import (
 	"github.com/google/uuid"
 )
 
+const addBalance = `-- name: AddBalance :exec
+UPDATE users SET wallet_balance = wallet_balance + $1, updated_at = NOW() WHERE id = $2
+`
+
+type AddBalanceParams struct {
+	WalletBalance string
+	ID            uuid.UUID
+}
+
+func (q *Queries) AddBalance(ctx context.Context, arg AddBalanceParams) error {
+	_, err := q.db.ExecContext(ctx, addBalance, arg.WalletBalance, arg.ID)
+	return err
+}
+
 const createUser = `-- name: CreateUser :exec
 INSERT INTO users (id, phone_number, username, password, wallet_balance, role, status, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -42,6 +56,20 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
+	return err
+}
+
+const deductBalance = `-- name: DeductBalance :exec
+UPDATE users SET wallet_balance = wallet_balance - $1, updated_at = NOW() WHERE id = $2
+`
+
+type DeductBalanceParams struct {
+	WalletBalance string
+	ID            uuid.UUID
+}
+
+func (q *Queries) DeductBalance(ctx context.Context, arg DeductBalanceParams) error {
+	_, err := q.db.ExecContext(ctx, deductBalance, arg.WalletBalance, arg.ID)
 	return err
 }
 

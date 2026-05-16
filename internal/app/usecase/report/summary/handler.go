@@ -1,0 +1,41 @@
+package summary
+
+import (
+	"github.com/gofiber/fiber/v2"
+)
+
+type Handler interface {
+	Handle(c *fiber.Ctx) error
+}
+
+type handler struct {
+	svc Service
+}
+
+func NewHandler(svc Service) Handler {
+	return &handler{svc: svc}
+}
+
+// @Summary System Report Summary
+// @Description Get system-wide reports including revenue and usage stats. Admin Only.
+// @Tags Reports
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} entity.FullReport
+// @Failure 403 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /v1/reports/summary [get]
+func (h *handler) Handle(c *fiber.Ctx) error {
+	// เช็คสิทธิ์ (เฉพาะ Admin เท่านั้น)
+	role := c.Locals("role").(string)
+	if role != "admin" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "permission denied: admin only"})
+	}
+
+	report, err := h.svc.GetSummary(c.Context())
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(report)
+}

@@ -19,6 +19,7 @@ import (
 	// Bike
 	bikeCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/create"
 	bikeList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/list"
+	bikeUpdateStatus "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/update_status"
 	
 	// Ride
 	rideStart "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/start"
@@ -28,9 +29,14 @@ import (
 	zoneList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/zone/list"
 	zoneCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/zone/create"
 
+	// Report
+	reportSummary "github.com/Bangnus/Bidkan-backend/internal/app/usecase/report/summary"
+
 	// Wallet & Payment
 	"github.com/Bangnus/Bidkan-backend/pkg/payment"
 	walletTopup "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/topup"
+	walletTransfer "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/transfer"
+	walletVerify "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/verify_receiver"
 	walletWebhook "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/webhook"
 
 	// Config
@@ -49,11 +55,14 @@ type Container struct {
 
 	// Wallet
 	TopupHandler          walletTopup.Handler
+	TransferHandler       walletTransfer.Handler
+	VerifyReceiverHandler walletVerify.Handler
 	WebhookHandler        walletWebhook.Handler
 
 	// Bike
 	CreateBikeHandler     bikeCreate.Handler
 	ListBikeHandler       bikeList.Handler
+	UpdateBikeStatusHandler bikeUpdateStatus.Handler
 
 	// Ride
 	StartRideHandler      rideStart.Handler
@@ -62,6 +71,9 @@ type Container struct {
 	// Zone
 	ListZoneHandler       zoneList.Handler
 	CreateZoneHandler     zoneCreate.Handler
+
+	// Report
+	ReportSummaryHandler  reportSummary.Handler
 
 	// Config
 	ConfigHandler         configUsecase.Handler
@@ -76,6 +88,7 @@ func NewContainer(db *sql.DB, rdb *redis.Client, firebaseProvider service.SmsPro
 	configRepo := repository.NewConfigRepository(db)
 	txRepo := repository.NewTransactionPostgresRepository(db)
 	spendingRepo := repository.NewUserMonthlySpendingRepository(db)
+	reportRepo := repository.NewReportPostgresRepository(db)
 
 	// --- Cache (Redis) ---
 	rankCacheRepo := repository.NewUserRankRedisRepository(rdb)
@@ -95,11 +108,14 @@ func NewContainer(db *sql.DB, rdb *redis.Client, firebaseProvider service.SmsPro
 
 	// Wallet
 	topupService := walletTopup.NewService(txRepo, userRepo, paySvc)
+	transferService := walletTransfer.NewService(db, userRepo, txRepo)
+	verifyService := walletVerify.NewService(userRepo)
 	webhookService := walletWebhook.NewService(txRepo, userRepo)
 
 	// Bike
 	bikeCreateService := bikeCreate.NewService(bikeRepo)
 	bikeListService := bikeList.NewService(bikeRepo)
+	bikeUpdateStatusService := bikeUpdateStatus.NewService(bikeRepo)
 
 	// Ride
 	rideStartService := rideStart.NewService(rideRepo, userRepo, bikeRepo)
@@ -108,6 +124,9 @@ func NewContainer(db *sql.DB, rdb *redis.Client, firebaseProvider service.SmsPro
 	// Zone
 	zoneListService := zoneList.NewService(zoneRepo)
 	zoneCreateService := zoneCreate.NewService(zoneRepo)
+
+	// Report
+	reportSummaryService := reportSummary.NewService(reportRepo)
 
 	// Config
 	configService := configUsecase.NewService(configRepo)
@@ -124,18 +143,23 @@ func NewContainer(db *sql.DB, rdb *redis.Client, firebaseProvider service.SmsPro
 
 		// Wallet
 		TopupHandler:          walletTopup.NewHandler(topupService),
+		TransferHandler:       walletTransfer.NewHandler(transferService),
+		VerifyReceiverHandler: walletVerify.NewHandler(verifyService),
 		WebhookHandler:        walletWebhook.NewHandler(webhookService),
 
 		// Bike
 		CreateBikeHandler:     bikeCreate.NewHandler(bikeCreateService),
 
 		ListBikeHandler:       bikeList.NewHandler(bikeListService),
+		UpdateBikeStatusHandler: bikeUpdateStatus.NewHandler(bikeUpdateStatusService),
 
 		StartRideHandler:      rideStart.NewHandler(rideStartService),
 		EndRideHandler:        rideEnd.NewHandler(rideEndService),
 
 		ListZoneHandler:       zoneList.NewHandler(zoneListService),
 		CreateZoneHandler:     zoneCreate.NewHandler(zoneCreateService),
+
+		ReportSummaryHandler:  reportSummary.NewHandler(reportSummaryService),
 
 		ConfigHandler:         configUsecase.NewHandler(configService),
 	}

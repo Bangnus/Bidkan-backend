@@ -65,6 +65,7 @@ type Ride struct {
 	DistanceKm sql.NullFloat64
 	TotalFare  sql.NullString
 	Status     string
+	Type       string
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }

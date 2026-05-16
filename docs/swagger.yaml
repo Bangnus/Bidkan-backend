@@ -38,6 +38,39 @@ definitions:
       status:
         type: string
     type: object
+  entity.BikeUsageStat:
+    properties:
+      bike_id:
+        type: string
+      ride_count:
+        type: integer
+      total_distance_km:
+        type: number
+      total_revenue:
+        type: string
+    type: object
+  entity.DailyRevenue:
+    properties:
+      daily_revenue:
+        type: string
+      date:
+        type: string
+      ride_count:
+        type: integer
+    type: object
+  entity.FullReport:
+    properties:
+      bike_stats:
+        items:
+          $ref: '#/definitions/entity.BikeUsageStat'
+        type: array
+      daily_revenue:
+        items:
+          $ref: '#/definitions/entity.DailyRevenue'
+        type: array
+      summary:
+        $ref: '#/definitions/entity.SystemSummary'
+    type: object
   entity.Ride:
     properties:
       bikeID:
@@ -66,13 +99,30 @@ definitions:
       startTime:
         type: string
       status:
+        description: ongoing, completed, cancelled
         type: string
       totalFare:
+        type: string
+      type:
+        description: ride, service
         type: string
       updatedAt:
         type: string
       userID:
         type: string
+    type: object
+  entity.SystemSummary:
+    properties:
+      active_rides:
+        type: integer
+      available_bikes:
+        type: integer
+      total_bikes:
+        type: integer
+      total_revenue:
+        type: string
+      total_users:
+        type: integer
     type: object
   entity.Zone:
     properties:
@@ -220,6 +270,15 @@ definitions:
       transaction_id:
         type: string
     type: object
+  transfer.Request:
+    properties:
+      amount:
+        type: number
+      receiver_phone:
+        type: string
+      sender_id:
+        type: string
+    type: object
   update_profile.Request:
     properties:
       image_url:
@@ -227,12 +286,26 @@ definitions:
     required:
     - image_url
     type: object
+  update_status.Request:
+    properties:
+      bike_id:
+        type: string
+      status:
+        type: string
+    type: object
   verify_firebase.Request:
     properties:
       id_token:
         type: string
     required:
     - id_token
+    type: object
+  verify_receiver.Response:
+    properties:
+      phone_number:
+        type: string
+      username:
+        type: string
     type: object
 host: localhost:8080
 info:
@@ -243,7 +316,8 @@ info:
 paths:
   /v1/bikes:
     get:
-      description: Get a list of all bikes in the system.
+      description: Get a list of bikes based on user role. Normal users see available
+        bikes only. Staff/Admin see all.
       produces:
       - application/json
       responses:
@@ -253,7 +327,9 @@ paths:
             items:
               $ref: '#/definitions/entity.BikeData'
             type: array
-      summary: List All Bikes (Admin)
+      security:
+      - BearerAuth: []
+      summary: List Bikes
       tags:
       - Bikes
     post:
@@ -278,19 +354,47 @@ paths:
       summary: Create New Bike (Admin)
       tags:
       - Bikes
-  /v1/bikes/available:
-    get:
-      description: Get a list of bikes that are available for rent.
+  /v1/bikes/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: Update bike status manually (e.g., to maintenance). Staff/Admin
+        Only.
+      parameters:
+      - description: Bike ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New Status
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/update_status.Request'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/entity.BikeData'
-            type: array
-      summary: List Available Bikes
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Bike Status
       tags:
       - Bikes
   /v1/configs:
@@ -336,6 +440,34 @@ paths:
       summary: Get System Config
       tags:
       - Configs
+  /v1/reports/summary:
+    get:
+      description: Get system-wide reports including revenue and usage stats. Admin
+        Only.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entity.FullReport'
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: System Report Summary
+      tags:
+      - Reports
   /v1/rides/end:
     post:
       consumes:
@@ -575,6 +707,76 @@ paths:
       security:
       - BearerAuth: []
       summary: Request Wallet Top-up
+      tags:
+      - Wallet
+  /v1/wallet/transfer:
+    post:
+      consumes:
+      - application/json
+      description: Transfer money to another user by phone number.
+      parameters:
+      - description: Transfer Details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/transfer.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Wallet Transfer
+      tags:
+      - Wallet
+  /v1/wallet/verify-receiver:
+    get:
+      description: Find username by phone number for wallet transfer.
+      parameters:
+      - description: Receiver Phone Number
+        in: query
+        name: phone
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/verify_receiver.Response'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Verify Receiver
       tags:
       - Wallet
   /v1/wallet/webhook/paysolutions:

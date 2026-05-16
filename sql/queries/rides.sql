@@ -1,8 +1,8 @@
 -- name: CreateRide :exec
 INSERT INTO rides (
-    id, user_id, bike_id, start_time, start_lat, start_lon, status, created_at, updated_at
+    id, user_id, bike_id, start_time, start_lat, start_lon, status, type, created_at, updated_at
 ) VALUES (
-    $1, $2, $3, NOW(), $4, $5, 'ongoing', NOW(), NOW()
+    $1, $2, $3, NOW(), $4, $5, 'ongoing', $6, NOW(), NOW()
 );
 
 -- name: GetRide :one

@@ -7,141 +7,124 @@ package sqlc
 
 import (
 	"context"
-
-	"github.com/google/uuid"
+	"time"
 )
 
-const createReport = `-- name: CreateReport :exec
-INSERT INTO reports (id, bike_id, reported_by, issue_type, status, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+const getBikeUsageStats = `-- name: GetBikeUsageStats :many
+SELECT 
+    bike_id, 
+    COUNT(*) as ride_count,
+    COALESCE(SUM(distance_km), 0)::FLOAT as total_distance_km,
+    COALESCE(SUM(CAST(total_fare AS DECIMAL)), 0)::TEXT as total_revenue
+FROM rides
+WHERE status = 'completed'
+GROUP BY bike_id
+ORDER BY ride_count DESC
 `
 
-type CreateReportParams struct {
-	ID         uuid.UUID
-	BikeID     string
-	ReportedBy uuid.UUID
-	IssueType  string
-	Status     string
+type GetBikeUsageStatsRow struct {
+	BikeID          string
+	RideCount       int64
+	TotalDistanceKm float64
+	TotalRevenue    string
 }
 
-func (q *Queries) CreateReport(ctx context.Context, arg CreateReportParams) error {
-	_, err := q.db.ExecContext(ctx, createReport,
-		arg.ID,
-		arg.BikeID,
-		arg.ReportedBy,
-		arg.IssueType,
-		arg.Status,
-	)
-	return err
+func (q *Queries) GetBikeUsageStats(ctx context.Context) ([]GetBikeUsageStatsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getBikeUsageStats)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetBikeUsageStatsRow
+	for rows.Next() {
+		var i GetBikeUsageStatsRow
+		if err := rows.Scan(
+			&i.BikeID,
+			&i.RideCount,
+			&i.TotalDistanceKm,
+			&i.TotalRevenue,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
-const getReport = `-- name: GetReport :one
-SELECT id, bike_id, reported_by, issue_type, status, resolved_by, created_at, updated_at FROM reports WHERE id = $1
+const getDailyRevenue = `-- name: GetDailyRevenue :many
+SELECT 
+    DATE(start_time) as date,
+    COUNT(*) as ride_count,
+    COALESCE(SUM(CAST(total_fare AS DECIMAL)), 0)::TEXT as daily_revenue
+FROM rides
+WHERE status = 'completed'
+GROUP BY DATE(start_time)
+ORDER BY date DESC
+LIMIT 7
 `
 
-func (q *Queries) GetReport(ctx context.Context, id uuid.UUID) (Report, error) {
-	row := q.db.QueryRowContext(ctx, getReport, id)
-	var i Report
+type GetDailyRevenueRow struct {
+	Date         time.Time
+	RideCount    int64
+	DailyRevenue string
+}
+
+func (q *Queries) GetDailyRevenue(ctx context.Context) ([]GetDailyRevenueRow, error) {
+	rows, err := q.db.QueryContext(ctx, getDailyRevenue)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetDailyRevenueRow
+	for rows.Next() {
+		var i GetDailyRevenueRow
+		if err := rows.Scan(&i.Date, &i.RideCount, &i.DailyRevenue); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getSystemSummary = `-- name: GetSystemSummary :one
+SELECT 
+    (SELECT COUNT(*) FROM users WHERE role = 'user') as total_users,
+    (SELECT COUNT(*) FROM bikes) as total_bikes,
+    (SELECT COUNT(*) FROM bikes WHERE status = 'available') as available_bikes,
+    (SELECT COUNT(*) FROM rides WHERE status = 'ongoing') as active_rides,
+    (SELECT COALESCE(SUM(CAST(total_fare AS DECIMAL)), 0)::TEXT FROM rides WHERE status = 'completed') as total_revenue
+FROM rides LIMIT 1
+`
+
+type GetSystemSummaryRow struct {
+	TotalUsers     int64
+	TotalBikes     int64
+	AvailableBikes int64
+	ActiveRides    int64
+	TotalRevenue   string
+}
+
+func (q *Queries) GetSystemSummary(ctx context.Context) (GetSystemSummaryRow, error) {
+	row := q.db.QueryRowContext(ctx, getSystemSummary)
+	var i GetSystemSummaryRow
 	err := row.Scan(
-		&i.ID,
-		&i.BikeID,
-		&i.ReportedBy,
-		&i.IssueType,
-		&i.Status,
-		&i.ResolvedBy,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.TotalUsers,
+		&i.TotalBikes,
+		&i.AvailableBikes,
+		&i.ActiveRides,
+		&i.TotalRevenue,
 	)
 	return i, err
-}
-
-const listReportsByBike = `-- name: ListReportsByBike :many
-SELECT id, bike_id, reported_by, issue_type, status, resolved_by, created_at, updated_at FROM reports WHERE bike_id = $1 ORDER BY created_at DESC
-`
-
-func (q *Queries) ListReportsByBike(ctx context.Context, bikeID string) ([]Report, error) {
-	rows, err := q.db.QueryContext(ctx, listReportsByBike, bikeID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Report
-	for rows.Next() {
-		var i Report
-		if err := rows.Scan(
-			&i.ID,
-			&i.BikeID,
-			&i.ReportedBy,
-			&i.IssueType,
-			&i.Status,
-			&i.ResolvedBy,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listReportsByStatus = `-- name: ListReportsByStatus :many
-SELECT id, bike_id, reported_by, issue_type, status, resolved_by, created_at, updated_at FROM reports WHERE status = $1 ORDER BY created_at DESC
-`
-
-func (q *Queries) ListReportsByStatus(ctx context.Context, status string) ([]Report, error) {
-	rows, err := q.db.QueryContext(ctx, listReportsByStatus, status)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Report
-	for rows.Next() {
-		var i Report
-		if err := rows.Scan(
-			&i.ID,
-			&i.BikeID,
-			&i.ReportedBy,
-			&i.IssueType,
-			&i.Status,
-			&i.ResolvedBy,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const updateReportStatus = `-- name: UpdateReportStatus :exec
-UPDATE reports 
-SET status = $2, 
-    resolved_by = $3, 
-    updated_at = NOW() 
-WHERE id = $1
-`
-
-type UpdateReportStatusParams struct {
-	ID         uuid.UUID
-	Status     string
-	ResolvedBy uuid.NullUUID
-}
-
-func (q *Queries) UpdateReportStatus(ctx context.Context, arg UpdateReportStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updateReportStatus, arg.ID, arg.Status, arg.ResolvedBy)
-	return err
 }

@@ -11,14 +11,19 @@
     "paths": {
         "/v1/bikes": {
             "get": {
-                "description": "Get a list of all bikes in the system.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a list of bikes based on user role. Normal users see available bikes only. Staff/Admin see all.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Bikes"
                 ],
-                "summary": "List All Bikes (Admin)",
+                "summary": "List Bikes",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -65,23 +70,65 @@
                 }
             }
         },
-        "/v1/bikes/available": {
-            "get": {
-                "description": "Get a list of bikes that are available for rent.",
+        "/v1/bikes/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update bike status manually (e.g., to maintenance). Staff/Admin Only.",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Bikes"
                 ],
-                "summary": "List Available Bikes",
+                "summary": "Update Bike Status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bike ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New Status",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/update_status.Request"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/entity.BikeData"
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
                             }
                         }
                     }
@@ -148,6 +195,49 @@
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reports/summary": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get system-wide reports including revenue and usage stats. Admin Only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "System Report Summary",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/entity.FullReport"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -528,6 +618,116 @@
                 }
             }
         },
+        "/v1/wallet/transfer": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Transfer money to another user by phone number.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wallet"
+                ],
+                "summary": "Wallet Transfer",
+                "parameters": [
+                    {
+                        "description": "Transfer Details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/transfer.Request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/wallet/verify-receiver": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Find username by phone number for wallet transfer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Wallet"
+                ],
+                "summary": "Verify Receiver",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Receiver Phone Number",
+                        "name": "phone",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/verify_receiver.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/v1/wallet/webhook/paysolutions": {
             "post": {
                 "description": "Receives payment status updates from PaySolutions server.",
@@ -668,6 +868,57 @@
                 }
             }
         },
+        "entity.BikeUsageStat": {
+            "type": "object",
+            "properties": {
+                "bike_id": {
+                    "type": "string"
+                },
+                "ride_count": {
+                    "type": "integer"
+                },
+                "total_distance_km": {
+                    "type": "number"
+                },
+                "total_revenue": {
+                    "type": "string"
+                }
+            }
+        },
+        "entity.DailyRevenue": {
+            "type": "object",
+            "properties": {
+                "daily_revenue": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "ride_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "entity.FullReport": {
+            "type": "object",
+            "properties": {
+                "bike_stats": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entity.BikeUsageStat"
+                    }
+                },
+                "daily_revenue": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entity.DailyRevenue"
+                    }
+                },
+                "summary": {
+                    "$ref": "#/definitions/entity.SystemSummary"
+                }
+            }
+        },
         "entity.Ride": {
             "type": "object",
             "properties": {
@@ -707,9 +958,14 @@
                     "type": "string"
                 },
                 "status": {
+                    "description": "ongoing, completed, cancelled",
                     "type": "string"
                 },
                 "totalFare": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "ride, service",
                     "type": "string"
                 },
                 "updatedAt": {
@@ -717,6 +973,26 @@
                 },
                 "userID": {
                     "type": "string"
+                }
+            }
+        },
+        "entity.SystemSummary": {
+            "type": "object",
+            "properties": {
+                "active_rides": {
+                    "type": "integer"
+                },
+                "available_bikes": {
+                    "type": "integer"
+                },
+                "total_bikes": {
+                    "type": "integer"
+                },
+                "total_revenue": {
+                    "type": "string"
+                },
+                "total_users": {
+                    "type": "integer"
                 }
             }
         },
@@ -936,6 +1212,20 @@
                 }
             }
         },
+        "transfer.Request": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "receiver_phone": {
+                    "type": "string"
+                },
+                "sender_id": {
+                    "type": "string"
+                }
+            }
+        },
         "update_profile.Request": {
             "type": "object",
             "required": [
@@ -947,6 +1237,17 @@
                 }
             }
         },
+        "update_status.Request": {
+            "type": "object",
+            "properties": {
+                "bike_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "verify_firebase.Request": {
             "type": "object",
             "required": [
@@ -954,6 +1255,17 @@
             ],
             "properties": {
                 "id_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "verify_receiver.Response": {
+            "type": "object",
+            "properties": {
+                "phone_number": {
+                    "type": "string"
+                },
+                "username": {
                     "type": "string"
                 }
             }

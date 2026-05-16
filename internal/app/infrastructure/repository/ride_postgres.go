@@ -29,6 +29,7 @@ func (r *ridePostgresRepository) Create(ctx context.Context, ride *entity.Ride) 
 		BikeID:   ride.BikeID,
 		StartLat: ride.StartLat,
 		StartLon: ride.StartLon,
+		Type:     ride.Type,
 	})
 }
 
@@ -48,6 +49,7 @@ func (r *ridePostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*en
 		DistanceKm: res.DistanceKm.Float64,
 		TotalFare:  res.TotalFare.String,
 		Status:     res.Status,
+		Type:       res.Type,
 		CreatedAt:  res.CreatedAt,
 		UpdatedAt:  res.UpdatedAt,
 	}
@@ -92,6 +94,7 @@ func (r *ridePostgresRepository) ListByUser(ctx context.Context, userID uuid.UUI
 			DistanceKm: resRide.DistanceKm.Float64,
 			TotalFare:  resRide.TotalFare.String,
 			Status:     resRide.Status,
+			Type:       resRide.Type,
 			CreatedAt:  resRide.CreatedAt,
 			UpdatedAt:  resRide.UpdatedAt,
 		}
@@ -125,6 +128,7 @@ func (r *ridePostgresRepository) GetActiveRide(ctx context.Context, userID uuid.
 		DistanceKm: res.DistanceKm.Float64,
 		TotalFare:  res.TotalFare.String,
 		Status:     res.Status,
+		Type:       res.Type,
 		CreatedAt:  res.CreatedAt,
 		UpdatedAt:  res.UpdatedAt,
 	}

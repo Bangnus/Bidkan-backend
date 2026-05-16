@@ -69,8 +69,21 @@ func (s *service) End(ctx context.Context, req Request) (*entity.Ride, error) {
 		return nil, errors.New("failed to retrieve bike information")
 	}
 
-	// 2. คำนวณเวลาที่ใช้จริงเป็น "วินาที" เพื่อความแม่นยำระดับสตางค์
+	// 2. คำนวณเวลาที่ใช้จริง
 	now := time.Now()
+
+	if ride.Type == "service" {
+		// สำหรับงานบริการ/ซ่อมบำรุง ไม่คิดค่าใช้จ่าย และไม่เช็ค Geofencing
+		distance := geo.CalculateDistance(geo.Point{Lat: ride.StartLat, Lon: ride.StartLon}, geo.Point{Lat: bike.Lat, Lon: bike.Lon}) / 1000.0
+		_ = s.rideRepo.EndRide(ctx, ride.ID, bike.Lat, bike.Lon, distance, "0.00")
+
+		bike.Status = "available" // หลังซ่อมเสร็จให้รถว่าง
+		bike.CurrentRideID = nil
+		_ = s.bikeRepo.UpdateStatus(ctx, *bike)
+
+		return s.rideRepo.GetByID(ctx, ride.ID)
+	}
+
 	duration := now.Sub(ride.StartTime)
 	seconds := duration.Seconds()
 

@@ -14,5 +14,7 @@ type UserRepository interface {
 	GetByUsername(ctx context.Context, username string) (*entity.User, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error
 	UpdateBalance(ctx context.Context, id uuid.UUID, newBalance string) error
+	AddBalance(ctx context.Context, id uuid.UUID, amount string) error
+	DeductBalance(ctx context.Context, id uuid.UUID, amount string) error
 	UpdateProfileImage(ctx context.Context, id uuid.UUID, imageURL string) error
 }

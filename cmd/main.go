@@ -96,11 +96,12 @@ func main() {
 		container.LogoutHandler,
 		container.RankHandler,
 	)
-	router.SetupBikeRoutes(server, container.CreateBikeHandler, container.ListBikeHandler)
+	router.SetupBikeRoutes(server, container.CreateBikeHandler, container.ListBikeHandler, container.UpdateBikeStatusHandler)
 	router.SetupRideRoutes(server, container.StartRideHandler, container.EndRideHandler)
 	router.SetupZoneRoutes(server, container.ListZoneHandler, container.CreateZoneHandler)
+	router.SetupReportRoutes(server, container.ReportSummaryHandler)
 	router.SetupConfigRoutes(server, container.ConfigHandler)
-	router.SetupWalletRoutes(server, container.TopupHandler, container.WebhookHandler)
+	router.SetupWalletRoutes(server, container.TopupHandler, container.WebhookHandler, container.TransferHandler, container.VerifyReceiverHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {

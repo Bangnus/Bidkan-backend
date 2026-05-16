@@ -74,6 +74,20 @@ func (r *userPostgresRepository) UpdateBalance(ctx context.Context, id uuid.UUID
 	})
 }
 
+func (r *userPostgresRepository) AddBalance(ctx context.Context, id uuid.UUID, amount string) error {
+	return r.queries.AddBalance(ctx, sqlc.AddBalanceParams{
+		WalletBalance: amount,
+		ID:            id,
+	})
+}
+
+func (r *userPostgresRepository) DeductBalance(ctx context.Context, id uuid.UUID, amount string) error {
+	return r.queries.DeductBalance(ctx, sqlc.DeductBalanceParams{
+		WalletBalance: amount,
+		ID:            id,
+	})
+}
+
 func (r *userPostgresRepository) UpdateProfileImage(ctx context.Context, id uuid.UUID, imageURL string) error {
 	return r.queries.UpdateUserProfileImage(ctx, sqlc.UpdateUserProfileImageParams{
 		ImageUrl: sql.NullString{String: imageURL, Valid: imageURL != ""},

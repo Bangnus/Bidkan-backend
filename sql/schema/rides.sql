@@ -11,6 +11,7 @@ CREATE TABLE rides (
     distance_km    DOUBLE PRECISION DEFAULT 0,
     total_fare     DECIMAL(10,2) DEFAULT 0.00,
     status         VARCHAR(20) NOT NULL DEFAULT 'ongoing', -- ongoing, completed, cancelled
+    type           VARCHAR(20) NOT NULL DEFAULT 'ride',    -- ride, service
     created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at     TIMESTAMP NOT NULL DEFAULT NOW()
 );
