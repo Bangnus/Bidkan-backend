@@ -10,6 +10,7 @@ var validate = validator.New()
 type Handler interface {
 	HandleSet(c *fiber.Ctx) error
 	HandleGet(c *fiber.Ctx) error
+	HandleList(c *fiber.Ctx) error
 }
 
 type handler struct {
@@ -65,4 +66,19 @@ func (h *handler) HandleGet(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"key": key, "value": val})
+}
+
+// @Summary รายการตั้งค่าทั้งหมด
+// @Description ดึงรายการตั้งค่าระบบทั้งหมดที่มีอยู่ในปัจจุบัน
+// @Tags Configs
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]string "รายการตั้งค่าทั้งหมด"
+// @Router /v1/configs [get]
+func (h *handler) HandleList(c *fiber.Ctx) error {
+	configs, err := h.service.GetAllConfigs(c.Context())
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(configs)
 }

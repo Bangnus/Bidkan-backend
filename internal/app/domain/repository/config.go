@@ -7,4 +7,5 @@ import (
 type ConfigRepository interface {
 	GetConfig(ctx context.Context, key string) (string, error)
 	SetConfig(ctx context.Context, key string, value string) error
+	ListAll(ctx context.Context) (map[string]string, error)
 }

@@ -13,6 +13,7 @@ type Request struct {
 type Service interface {
 	SetConfig(ctx context.Context, req Request) error
 	GetConfig(ctx context.Context, key string) (string, error)
+	GetAllConfigs(ctx context.Context) (map[string]string, error)
 }
 
 type service struct {
@@ -29,4 +30,8 @@ func (s *service) SetConfig(ctx context.Context, req Request) error {
 
 func (s *service) GetConfig(ctx context.Context, key string) (string, error) {
 	return s.repo.GetConfig(ctx, key)
+}
+
+func (s *service) GetAllConfigs(ctx context.Context) (map[string]string, error) {
+	return s.repo.ListAll(ctx)
 }

@@ -522,6 +522,22 @@ paths:
       tags:
       - Bikes
   /v1/configs:
+    get:
+      description: ดึงรายการตั้งค่าระบบทั้งหมดที่มีอยู่ในปัจจุบัน
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: รายการตั้งค่าทั้งหมด
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: รายการตั้งค่าทั้งหมด
+      tags:
+      - Configs
     post:
       consumes:
       - application/json

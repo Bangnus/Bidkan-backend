@@ -5,3 +5,6 @@ SELECT value FROM configs WHERE key = $1;
 INSERT INTO configs (key, value, updated_at) 
 VALUES ($1, $2, NOW()) 
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
+ 
+-- name: ListConfigs :many
+SELECT key, value FROM configs;

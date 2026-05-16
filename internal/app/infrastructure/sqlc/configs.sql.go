@@ -20,6 +20,38 @@ func (q *Queries) GetConfig(ctx context.Context, key string) (string, error) {
 	return value, err
 }
 
+const listConfigs = `-- name: ListConfigs :many
+SELECT key, value FROM configs
+`
+
+type ListConfigsRow struct {
+	Key   string
+	Value string
+}
+
+func (q *Queries) ListConfigs(ctx context.Context) ([]ListConfigsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listConfigs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListConfigsRow
+	for rows.Next() {
+		var i ListConfigsRow
+		if err := rows.Scan(&i.Key, &i.Value); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setConfig = `-- name: SetConfig :exec
 INSERT INTO configs (key, value, updated_at) 
 VALUES ($1, $2, NOW()) 

@@ -198,6 +198,32 @@ const docTemplate = `{
             }
         },
         "/v1/configs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "ดึงรายการตั้งค่าระบบทั้งหมดที่มีอยู่ในปัจจุบัน",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Configs"
+                ],
+                "summary": "รายการตั้งค่าทั้งหมด",
+                "responses": {
+                    "200": {
+                        "description": "รายการตั้งค่าทั้งหมด",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {

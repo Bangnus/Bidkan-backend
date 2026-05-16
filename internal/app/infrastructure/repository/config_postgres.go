@@ -34,3 +34,16 @@ func (r *configPostgresRepository) SetConfig(ctx context.Context, key string, va
 		Value: value,
 	})
 }
+
+func (r *configPostgresRepository) ListAll(ctx context.Context) (map[string]string, error) {
+	rows, err := r.queries.ListConfigs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]string)
+	for _, row := range rows {
+		result[row.Key] = row.Value
+	}
+	return result, nil
+}
