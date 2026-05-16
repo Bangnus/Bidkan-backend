@@ -62,7 +62,7 @@ func (q *Queries) CreateBikeLocation(ctx context.Context, arg CreateBikeLocation
 }
 
 const getBike = `-- name: GetBike :one
-SELECT id, hardware_id, lat, lon, battery_level, status, image_url, current_ride_id, last_heartbeat, created_at, updated_at FROM bikes WHERE id = $1
+SELECT id, hardware_id, status, lat, lon, battery_level, image_url, last_heartbeat, current_ride_id, created_at, updated_at FROM bikes WHERE id = $1
 `
 
 func (q *Queries) GetBike(ctx context.Context, id string) (Bike, error) {
@@ -71,13 +71,13 @@ func (q *Queries) GetBike(ctx context.Context, id string) (Bike, error) {
 	err := row.Scan(
 		&i.ID,
 		&i.HardwareID,
+		&i.Status,
 		&i.Lat,
 		&i.Lon,
 		&i.BatteryLevel,
-		&i.Status,
 		&i.ImageUrl,
-		&i.CurrentRideID,
 		&i.LastHeartbeat,
+		&i.CurrentRideID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -85,7 +85,7 @@ func (q *Queries) GetBike(ctx context.Context, id string) (Bike, error) {
 }
 
 const listAllBikes = `-- name: ListAllBikes :many
-SELECT id, hardware_id, lat, lon, battery_level, status, image_url, current_ride_id, last_heartbeat, created_at, updated_at FROM bikes ORDER BY id
+SELECT id, hardware_id, status, lat, lon, battery_level, image_url, last_heartbeat, current_ride_id, created_at, updated_at FROM bikes ORDER BY id
 `
 
 func (q *Queries) ListAllBikes(ctx context.Context) ([]Bike, error) {
@@ -100,13 +100,13 @@ func (q *Queries) ListAllBikes(ctx context.Context) ([]Bike, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.HardwareID,
+			&i.Status,
 			&i.Lat,
 			&i.Lon,
 			&i.BatteryLevel,
-			&i.Status,
 			&i.ImageUrl,
-			&i.CurrentRideID,
 			&i.LastHeartbeat,
+			&i.CurrentRideID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -124,7 +124,7 @@ func (q *Queries) ListAllBikes(ctx context.Context) ([]Bike, error) {
 }
 
 const listAvailableBikes = `-- name: ListAvailableBikes :many
-SELECT id, hardware_id, lat, lon, battery_level, status, image_url, current_ride_id, last_heartbeat, created_at, updated_at FROM bikes 
+SELECT id, hardware_id, status, lat, lon, battery_level, image_url, last_heartbeat, current_ride_id, created_at, updated_at FROM bikes 
 WHERE status = 'available' 
 AND battery_level > 20
 ORDER BY id
@@ -142,13 +142,13 @@ func (q *Queries) ListAvailableBikes(ctx context.Context) ([]Bike, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.HardwareID,
+			&i.Status,
 			&i.Lat,
 			&i.Lon,
 			&i.BatteryLevel,
-			&i.Status,
 			&i.ImageUrl,
-			&i.CurrentRideID,
 			&i.LastHeartbeat,
+			&i.CurrentRideID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {

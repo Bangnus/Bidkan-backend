@@ -5,6 +5,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/repository"
 	
 	// User
@@ -31,6 +32,15 @@ import (
 
 	// Report
 	reportSummary "github.com/Bangnus/Bidkan-backend/internal/app/usecase/report/summary"
+
+	// Notification
+	notiBroadcast "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/broadcast"
+	notiList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/list"
+
+	// Coupon
+	couponRedeem "github.com/Bangnus/Bidkan-backend/internal/app/usecase/coupon/redeem"
+	couponCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/coupon/create"
+	couponListMy "github.com/Bangnus/Bidkan-backend/internal/app/usecase/coupon/list_my"
 
 	// Wallet & Payment
 	"github.com/Bangnus/Bidkan-backend/pkg/payment"
@@ -71,15 +81,36 @@ type Container struct {
 	// Zone
 	ListZoneHandler       zoneList.Handler
 	CreateZoneHandler     zoneCreate.Handler
+	
+	// Notification
+	NotiBroadcastHandler   notiBroadcast.Handler
+	NotiListHandler        notiList.Handler
+	NotiUpdateTokenHandler update_token.Handler
+
+	// Coupon
+	RedeemCouponHandler   couponRedeem.Handler
+	CreateCouponHandler   couponCreate.Handler
+	ListMyCouponHandler   couponListMy.Handler
 
 	// Report
 	ReportSummaryHandler  reportSummary.Handler
 
 	// Config
 	ConfigHandler         configUsecase.Handler
+
+	// External
+	SmsProvider           service.SmsProvider
+	NotiProvider          service.NotificationProvider
+	MqttPublisher         mqtt.Publisher
 }
 
-func NewContainer(db *sql.DB, rdb *redis.Client, firebaseProvider service.SmsProvider) *Container {
+func NewContainer(
+	db *sql.DB,
+	rdb *redis.Client,
+	smsProvider domainService.SmsProvider,
+	notiProvider domainService.NotificationProvider,
+	mqttPub mqtt.Publisher,
+) *Container {
 	// --- Repositories ---
 	userRepo := repository.NewUserPostgresRepository(db)
 	bikeRepo := repository.NewBikePostgresRepository(db)
@@ -89,6 +120,7 @@ func NewContainer(db *sql.DB, rdb *redis.Client, firebaseProvider service.SmsPro
 	txRepo := repository.NewTransactionPostgresRepository(db)
 	spendingRepo := repository.NewUserMonthlySpendingRepository(db)
 	reportRepo := repository.NewReportPostgresRepository(db)
+	couponRepo := repository.NewCouponPostgresRepository(db)
 
 	// --- Cache (Redis) ---
 	rankCacheRepo := repository.NewUserRankRedisRepository(rdb)
@@ -97,7 +129,7 @@ func NewContainer(db *sql.DB, rdb *redis.Client, firebaseProvider service.SmsPro
 	// --- Services ---
 	// User
 	createService := create.NewService(userRepo)
-	verifyFirebaseService := verify_firebase.NewService(userRepo, firebaseProvider)
+	verifyFirebaseService := verify_firebase.NewService(userRepo, smsProvider)
 	loginService := login.NewService(userRepo)
 	meService := me.NewService(userRepo)
 	rankService := rank.NewService(spendingRepo, rankCacheRepo)
@@ -108,7 +140,7 @@ func NewContainer(db *sql.DB, rdb *redis.Client, firebaseProvider service.SmsPro
 
 	// Wallet
 	topupService := walletTopup.NewService(txRepo, userRepo, paySvc)
-	transferService := walletTransfer.NewService(db, userRepo, txRepo)
+	transferService := walletTransfer.NewService(db, userRepo, txRepo, mqttPub, notiProvider)
 	verifyService := walletVerify.NewService(userRepo)
 	webhookService := walletWebhook.NewService(txRepo, userRepo)
 
@@ -119,11 +151,21 @@ func NewContainer(db *sql.DB, rdb *redis.Client, firebaseProvider service.SmsPro
 
 	// Ride
 	rideStartService := rideStart.NewService(rideRepo, userRepo, bikeRepo)
-	rideEndService := rideEnd.NewService(rideRepo, userRepo, bikeRepo, zoneRepo, configRepo, spendingRepo, rankCacheRepo, configCacheRepo)
+	rideEndService := rideEnd.NewService(rideRepo, userRepo, bikeRepo, zoneRepo, configRepo, spendingRepo, rankCacheRepo, configCacheRepo, couponRepo, mqttPub, notiProvider, db)
 
 	// Zone
 	zoneListService := zoneList.NewService(zoneRepo)
 	zoneCreateService := zoneCreate.NewService(zoneRepo)
+
+	// Notification
+	notiBroadcastService := notiBroadcast.NewService(db, mqttPub, notiProvider)
+	notiListService := notiList.NewService(db)
+	updateTokenService := update_token.NewService(db)
+
+	// Coupon
+	couponRedeemService := couponRedeem.NewService(db, couponRepo, userRepo, mqttPub)
+	couponCreateService := couponCreate.NewService(db)
+	couponListMyService := couponListMy.NewService(db)
 
 	// Report
 	reportSummaryService := reportSummary.NewService(reportRepo)
@@ -158,8 +200,16 @@ func NewContainer(db *sql.DB, rdb *redis.Client, firebaseProvider service.SmsPro
 
 		ListZoneHandler:       zoneList.NewHandler(zoneListService),
 		CreateZoneHandler:     zoneCreate.NewHandler(zoneCreateService),
+		
+		NotiBroadcastHandler:  notiBroadcast.NewHandler(notiBroadcastService),
+		NotiListHandler:       notiList.NewHandler(notiListService),
+		NotiUpdateTokenHandler: update_token.NewHandler(updateTokenService),
 
 		ReportSummaryHandler:  reportSummary.NewHandler(reportSummaryService),
+
+		RedeemCouponHandler:   couponRedeem.NewHandler(couponRedeemService),
+		CreateCouponHandler:   couponCreate.NewHandler(couponCreateService),
+		ListMyCouponHandler:   couponListMy.NewHandler(couponListMyService),
 
 		ConfigHandler:         configUsecase.NewHandler(configService),
 	}

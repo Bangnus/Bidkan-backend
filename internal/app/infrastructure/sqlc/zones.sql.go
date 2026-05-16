@@ -7,10 +7,8 @@ package sqlc
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
 )
 
 const createZone = `-- name: CreateZone :exec
@@ -25,8 +23,8 @@ type CreateZoneParams struct {
 	ID       uuid.UUID
 	Name     string
 	Type     string
-	Boundary pqtype.NullRawMessage
-	Radius   sql.NullFloat64
+	Boundary string
+	Radius   float64
 }
 
 func (q *Queries) CreateZone(ctx context.Context, arg CreateZoneParams) error {
@@ -152,8 +150,8 @@ type UpdateZoneParams struct {
 	ID       uuid.UUID
 	Name     string
 	Type     string
-	Boundary pqtype.NullRawMessage
-	Radius   sql.NullFloat64
+	Boundary string
+	Radius   float64
 }
 
 func (q *Queries) UpdateZone(ctx context.Context, arg UpdateZoneParams) error {

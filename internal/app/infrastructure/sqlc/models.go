@@ -9,19 +9,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sqlc-dev/pqtype"
 )
 
 type Bike struct {
 	ID            string
 	HardwareID    string
+	Status        string
 	Lat           float64
 	Lon           float64
 	BatteryLevel  int32
-	Status        string
 	ImageUrl      sql.NullString
+	LastHeartbeat sql.NullTime
 	CurrentRideID uuid.NullUUID
-	LastHeartbeat time.Time
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
@@ -36,9 +35,34 @@ type BikeLocation struct {
 }
 
 type Config struct {
-	Key       string
+	Key         string
+	Value       string
+	Description sql.NullString
+	UpdatedAt   time.Time
+}
+
+type Coupon struct {
+	ID        uuid.UUID
+	Code      string
+	Type      string
 	Value     string
+	MinAmount sql.NullString
+	StartAt   time.Time
+	MaxUses   int32
+	UsedCount int32
+	ExpiredAt time.Time
+	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+type Notification struct {
+	ID        uuid.UUID
+	UserID    uuid.NullUUID
+	Title     string
+	Message   string
+	Type      string
+	IsRead    bool
+	CreatedAt time.Time
 }
 
 type Report struct {
@@ -56,16 +80,16 @@ type Ride struct {
 	ID         uuid.UUID
 	UserID     uuid.UUID
 	BikeID     string
-	StartTime  time.Time
-	EndTime    sql.NullTime
 	StartLat   float64
 	StartLon   float64
 	EndLat     sql.NullFloat64
 	EndLon     sql.NullFloat64
-	DistanceKm sql.NullFloat64
-	TotalFare  sql.NullString
+	DistanceKm float64
+	TotalFare  string
 	Status     string
 	Type       string
+	StartTime  time.Time
+	EndTime    sql.NullTime
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
@@ -76,8 +100,9 @@ type Transaction struct {
 	Amount      string
 	Type        string
 	Status      string
-	ReferenceID uuid.NullUUID
+	ReferenceID sql.NullString
 	GatewayRef  sql.NullString
+	Description sql.NullString
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -91,8 +116,18 @@ type User struct {
 	Role          string
 	Status        string
 	ImageUrl      sql.NullString
+	FcmToken      sql.NullString
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+}
+
+type UserCoupon struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	CouponID  uuid.UUID
+	IsUsed    bool
+	UsedAt    sql.NullTime
+	CreatedAt time.Time
 }
 
 type UserMonthlySpending struct {
@@ -106,8 +141,8 @@ type Zone struct {
 	ID        uuid.UUID
 	Name      string
 	Type      string
-	Boundary  pqtype.NullRawMessage
-	Radius    sql.NullFloat64
+	Boundary  string
+	Radius    float64
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

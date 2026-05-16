@@ -24,7 +24,7 @@ type CreateTransactionParams struct {
 	Amount      string
 	Type        string
 	Status      string
-	ReferenceID uuid.NullUUID
+	ReferenceID sql.NullString
 	GatewayRef  sql.NullString
 }
 
@@ -63,7 +63,7 @@ func (q *Queries) GetTotalSpendingInWindow(ctx context.Context, arg GetTotalSpen
 }
 
 const getTransactionByID = `-- name: GetTransactionByID :one
-SELECT id, user_id, amount, type, status, reference_id, gateway_ref, created_at, updated_at FROM transactions WHERE id = $1
+SELECT id, user_id, amount, type, status, reference_id, gateway_ref, description, created_at, updated_at FROM transactions WHERE id = $1
 `
 
 func (q *Queries) GetTransactionByID(ctx context.Context, id uuid.UUID) (Transaction, error) {
@@ -77,6 +77,7 @@ func (q *Queries) GetTransactionByID(ctx context.Context, id uuid.UUID) (Transac
 		&i.Status,
 		&i.ReferenceID,
 		&i.GatewayRef,
+		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

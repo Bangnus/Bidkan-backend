@@ -8,6 +8,7 @@ import (
 	domainService "github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/database"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/notification"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/repository"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/sms"
 	"github.com/Bangnus/Bidkan-backend/internal/app/router"
@@ -15,9 +16,11 @@ import (
 
 	_ "github.com/Bangnus/Bidkan-backend/docs" 
 
+	firebase "firebase.google.com/go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/swagger"
+	"google.golang.org/api/option"
 )
 
 // @title Bidkan Backend API
@@ -47,36 +50,54 @@ func main() {
 	rdb := database.NewRedisClient(redisAddr)
 	
 	// 2. Setup External Services (Firebase)
-	var firebaseProvider domainService.SmsProvider
+	var smsProvider domainService.SmsProvider
+	var notiProvider domainService.NotificationProvider
+
 	firebaseKey := "configs/bidkan-service-account.json"
 	if _, err := os.Stat(firebaseKey); err == nil {
-		p, err := sms.NewFirebaseSmsProvider(firebaseKey)
+		sP, err := sms.NewFirebaseSmsProvider(firebaseKey)
 		if err != nil {
-			log.Printf("⚠️ Warning: Failed to init Firebase: %v", err)
-			firebaseProvider = sms.NewConsoleSmsProvider()
+			log.Printf("⚠️ Warning: Failed to init Firebase SMS: %v", err)
+			smsProvider = sms.NewConsoleSmsProvider()
+			notiProvider = notification.NewConsoleNotificationProvider()
 		} else {
-			firebaseProvider = p
+			smsProvider = sP
+			// ดึง Firebase App จาก SMS Provider เพื่อสร้าง Notification Provider
+			// หมายเหตุ: ผมจะไปแก้ NewFirebaseSmsProvider ให้คืนค่า App มาด้วย หรือใช้ท่าอื่น
+			// เพื่อความง่าย ผมจะสร้าง App แยกตรงนี้เลยครับ
+			opt := option.WithCredentialsFile(firebaseKey)
+			app, _ := firebase.NewApp(context.Background(), nil, opt)
+			nP, _ := notification.NewFirebaseNotificationProvider(app)
+			notiProvider = nP
 			log.Println("✅ Firebase Admin SDK initialized successfully")
 		}
 	} else {
-		log.Println("ℹ️ Firebase key not found. Using Console Provider (Dev Mode)")
-		firebaseProvider = sms.NewConsoleSmsProvider()
+		log.Println("ℹ️ Firebase key not found. Using Console Providers (Dev Mode)")
+		smsProvider = sms.NewConsoleSmsProvider()
+		notiProvider = notification.NewConsoleNotificationProvider()
 	}
 
-	// 3. Dependency Injection Container (ย้าย Logic การสร้าง Service ไปไว้ที่นี่)
-	container := app.NewContainer(db, rdb, firebaseProvider)
-
-	// 4. Setup MQTT (แยกส่วนการทำงาน)
-	bikeRepo := repository.NewBikePostgresRepository(db)
-	bikeCache := repository.NewBikeRedisRepository(rdb)
-	trackingService := tracking.NewService(bikeRepo, bikeCache)
+	// 3. Setup MQTT
 	mqttBroker := os.Getenv("MQTT_BROKER")
 	if mqttBroker == "" {
 		mqttBroker = "tcp://localhost:1883"
 	}
-	mqttSub := mqtt.NewSubscriber(mqttBroker, "bidkan_backend_main", trackingService)
+	
+	mqttPub, err := mqtt.NewPublisher(mqttBroker, "bidkan_backend_pub")
+	if err != nil {
+		log.Printf("⚠️ Warning: Failed to init MQTT Publisher: %v", err)
+	}
+
+	// 4. Dependency Injection Container
+	container := app.NewContainer(db, rdb, smsProvider, notiProvider, mqttPub)
+
+	// 5. Setup MQTT Subscriber (สำหรับรับพิกัด)
+	bikeRepo := repository.NewBikePostgresRepository(db)
+	bikeCache := repository.NewBikeRedisRepository(rdb)
+	trackingService := tracking.NewService(bikeRepo, bikeCache)
+	mqttSub := mqtt.NewSubscriber(mqttBroker, "bidkan_backend_sub", trackingService)
 	if err := mqttSub.Start(); err != nil {
-		log.Fatalf("Failed to start MQTT: %v", err)
+		log.Fatalf("Failed to start MQTT Subscriber: %v", err)
 	}
 
 	// 5. Start Fiber Server
@@ -100,6 +121,8 @@ func main() {
 	router.SetupRideRoutes(server, container.StartRideHandler, container.EndRideHandler)
 	router.SetupZoneRoutes(server, container.ListZoneHandler, container.CreateZoneHandler)
 	router.SetupReportRoutes(server, container.ReportSummaryHandler)
+	router.SetupCouponRoutes(server, container.RedeemCouponHandler, container.CreateCouponHandler, container.ListMyCouponHandler)
+	router.SetupNotificationRoutes(server, container.NotiBroadcastHandler, container.NotiListHandler, container.NotiUpdateTokenHandler)
 	router.SetupConfigRoutes(server, container.ConfigHandler)
 	router.SetupWalletRoutes(server, container.TopupHandler, container.WebhookHandler, container.TransferHandler, container.VerifyReceiverHandler)
 

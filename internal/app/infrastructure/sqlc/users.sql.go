@@ -74,7 +74,7 @@ func (q *Queries) DeductBalance(ctx context.Context, arg DeductBalanceParams) er
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, phone_number, username, password, wallet_balance, role, status, image_url, created_at, updated_at FROM users WHERE id = $1
+SELECT id, phone_number, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -89,6 +89,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Role,
 		&i.Status,
 		&i.ImageUrl,
+		&i.FcmToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -96,7 +97,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, phone_number, username, password, wallet_balance, role, status, image_url, created_at, updated_at FROM users WHERE phone_number = $1
+SELECT id, phone_number, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE phone_number = $1
 `
 
 func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User, error) {
@@ -111,6 +112,7 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User,
 		&i.Role,
 		&i.Status,
 		&i.ImageUrl,
+		&i.FcmToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -118,7 +120,7 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User,
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, phone_number, username, password, wallet_balance, role, status, image_url, created_at, updated_at FROM users WHERE username = $1
+SELECT id, phone_number, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE username = $1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -133,6 +135,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.Role,
 		&i.Status,
 		&i.ImageUrl,
+		&i.FcmToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

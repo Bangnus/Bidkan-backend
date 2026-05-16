@@ -15,6 +15,7 @@ type User struct {
 	Role          string
 	Status        string
 	ImageURL      string
+	FcmToken      string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }

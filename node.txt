@@ -9,3 +9,9 @@ http://localhost:8080/swagger/index.html#/
 
 
 ℹ️ โน้ตสำหรับ API ของ PaySolutions: ตอนนี้ในไฟล์ pkg/payment/paysolutions.go ผมเขียนระบบการจำลอง URL ของ QR Code ไว้ก่อนนะครับ เมื่อคุณได้ เอกสารเชื่อมต่อ (API Document) จากทาง PaySolutions มาแล้ว เราสามารถเอา URL จริงมาใส่ในไฟล์นี้ได้เลยโดยไม่กระทบโครงสร้างอื่นๆ ครับ
+
+
+
+ตั้งค่าแอปมือถือ:
+ให้แอปมือถือ Subscribe Topic ที่ชื่อว่า broadcast เพื่อรับข่าวสาร
+ให้แอปส่ง FCM Token มาที่ API หลัง Login สำเร็จ

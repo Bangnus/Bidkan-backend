@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/sqlc"
 	"github.com/google/uuid"
 )
@@ -25,14 +26,18 @@ type service struct {
 	db        *sql.DB
 	userRepo  repository.UserRepository
 	txRepo    repository.TransactionRepository
+	mqttPub   mqtt.Publisher
+	notiPub   service.NotificationProvider
 	queries   *sqlc.Queries // สำหรับรันใน Transaction
 }
 
-func NewService(db *sql.DB, userRepo repository.UserRepository, txRepo repository.TransactionRepository) Service {
+func NewService(db *sql.DB, userRepo repository.UserRepository, txRepo repository.TransactionRepository, mqttPub mqtt.Publisher, notiPub service.NotificationProvider) Service {
 	return &service{
 		db:       db,
 		userRepo: userRepo,
 		txRepo:   txRepo,
+		mqttPub:  mqttPub,
+		notiPub:  notiPub,
 		queries:  sqlc.New(db),
 	}
 }
@@ -122,5 +127,37 @@ func (s *service) Execute(ctx context.Context, req Request) error {
 	}
 
 	// 5. ยืนยันการทำรายการทั้งหมด
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	// 6. ส่งแจ้งเตือน Real-time (ถ้าต่อ MQTT สำเร็จ)
+	if s.mqttPub != nil {
+		// แจ้งฝั่งคนโอน
+		s.mqttPub.Publish(fmt.Sprintf("bidkan/users/%s/notifications", sender.ID), map[string]interface{}{
+			"type":    "wallet_transfer_out",
+			"amount":  req.Amount,
+			"to":      receiver.Username,
+			"balance": "updated", // หรือจะคำนวณ balance ใหม่ส่งไปเลยก็ได้
+			"time":    time.Now().Format(time.RFC3339),
+		})
+
+		// แจ้งฝั่งคนรับ
+		s.mqttPub.Publish(fmt.Sprintf("bidkan/users/%s/notifications", receiver.ID), map[string]interface{}{
+			"type":    "wallet_transfer_in",
+			"amount":  req.Amount,
+			"from":    sender.Username,
+			"balance": "updated",
+			"time":    time.Now().Format(time.RFC3339),
+		})
+	}
+
+	// 7. ส่ง Push Notification (FCM) หาคนรับ
+	if s.notiPub != nil && receiver.FcmToken != "" {
+		_ = s.notiPub.SendToToken(ctx, receiver.FcmToken, "ได้รับเงินโอน", fmt.Sprintf("คุณได้รับเงินจำนวน %s บาท จาก %s", req.Amount, sender.Username), map[string]string{
+			"type": "wallet_transfer_in",
+		})
+	}
+
+	return nil
 }

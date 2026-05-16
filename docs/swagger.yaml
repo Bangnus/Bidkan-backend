@@ -1,5 +1,19 @@
 basePath: /api
 definitions:
+  broadcast.Request:
+    properties:
+      message:
+        type: string
+      title:
+        type: string
+      type:
+        description: promo, news, system
+        type: string
+    required:
+    - message
+    - title
+    - type
+    type: object
   config.Request:
     properties:
       key:
@@ -12,6 +26,9 @@ definitions:
     type: object
   end.Request:
     properties:
+      coupon_code:
+        description: เพิ่มฟิลด์เลือกใช้คูปอง (Optional)
+        type: string
       user_id:
         type: string
     required:
@@ -161,6 +178,30 @@ definitions:
     - bike_id
     - hardware_id
     type: object
+  internal_app_usecase_coupon_create.Request:
+    properties:
+      code:
+        type: string
+      expired_at:
+        type: string
+      max_uses:
+        type: integer
+      min_amount:
+        type: string
+      start_at:
+        type: string
+      type:
+        description: credit, discount
+        type: string
+      value:
+        type: string
+    required:
+    - code
+    - expired_at
+    - max_uses
+    - type
+    - value
+    type: object
   internal_app_usecase_user_create.Request:
     properties:
       password:
@@ -198,6 +239,40 @@ definitions:
     required:
     - name
     - type
+    type: object
+  list.NotificationInfo:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      is_read:
+        type: boolean
+      message:
+        type: string
+      title:
+        type: string
+      type:
+        type: string
+    type: object
+  list_my.CouponInfo:
+    properties:
+      code:
+        type: string
+      collected_at:
+        type: string
+      expired_at:
+        type: string
+      id:
+        type: string
+      min_amount:
+        type: string
+      type:
+        type: string
+      user_coupon_id:
+        type: string
+      value:
+        type: string
     type: object
   login.Request:
     properties:
@@ -243,6 +318,13 @@ definitions:
         type: number
       total_spent_4_months:
         type: number
+    type: object
+  redeem.Request:
+    properties:
+      code:
+        type: string
+      user_id:
+        type: string
     type: object
   start.Request:
     properties:
@@ -293,6 +375,13 @@ definitions:
       status:
         type: string
     type: object
+  update_token.Request:
+    properties:
+      fcm_token:
+        type: string
+    required:
+    - fcm_token
+    type: object
   verify_firebase.Request:
     properties:
       id_token:
@@ -314,6 +403,38 @@ info:
   title: Bidkan Backend API
   version: "1.0"
 paths:
+  /v1/admin/notifications/broadcast:
+    post:
+      consumes:
+      - application/json
+      description: แอดมินส่งประกาศ Ads หรือข่าวสารหาผู้ใช้ทุกคน
+      parameters:
+      - description: เนื้อหาประกาศ
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/broadcast.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Broadcast Notification (Admin Only)
+      tags:
+      - Notifications
   /v1/bikes:
     get:
       description: Get a list of bikes based on user role. Normal users see available
@@ -440,6 +561,154 @@ paths:
       summary: Get System Config
       tags:
       - Configs
+  /v1/coupons:
+    post:
+      consumes:
+      - application/json
+      description: แอดมินสร้างคูปองใหม่ กำหนดโค้ด ประเภท และมูลค่าได้เอง
+      parameters:
+      - description: รายละเอียดคูปอง
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_app_usecase_coupon_create.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Coupon (Admin Only)
+      tags:
+      - Coupons
+  /v1/coupons/my:
+    get:
+      description: ดึงรายการคูปองที่ผู้ใช้เก็บไว้และยังไม่ได้ใช้
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/list_my.CouponInfo'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: รายการคูปองของฉัน
+      tags:
+      - Coupons
+  /v1/coupons/redeem:
+    post:
+      consumes:
+      - application/json
+      description: ใช้โค้ดส่วนลด หรือ โค้ดรับเงินฟรี
+      parameters:
+      - description: โค้ดคูปอง
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/redeem.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Redeem Coupon
+      tags:
+      - Coupons
+  /v1/notifications:
+    get:
+      description: ดึงประวัติการแจ้งเตือนทั้งหมด (ทั้ง Ads และส่วนตัว)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/list.NotificationInfo'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: รายการแจ้งเตือนของฉัน
+      tags:
+      - Notifications
+  /v1/notifications/fcm-token:
+    post:
+      consumes:
+      - application/json
+      description: อัปเดต Token สำหรับส่ง Push Notification
+      parameters:
+      - description: FCM Token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/update_token.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update FCM Token
+      tags:
+      - Notifications
   /v1/reports/summary:
     get:
       description: Get system-wide reports including revenue and usage stats. Admin

@@ -57,8 +57,8 @@ type EndRideParams struct {
 	ID         uuid.UUID
 	EndLat     sql.NullFloat64
 	EndLon     sql.NullFloat64
-	DistanceKm sql.NullFloat64
-	TotalFare  sql.NullString
+	DistanceKm float64
+	TotalFare  string
 }
 
 func (q *Queries) EndRide(ctx context.Context, arg EndRideParams) error {
@@ -73,7 +73,7 @@ func (q *Queries) EndRide(ctx context.Context, arg EndRideParams) error {
 }
 
 const getActiveRideByUser = `-- name: GetActiveRideByUser :one
-SELECT id, user_id, bike_id, start_time, end_time, start_lat, start_lon, end_lat, end_lon, distance_km, total_fare, status, type, created_at, updated_at FROM rides WHERE user_id = $1 AND status = 'ongoing' LIMIT 1
+SELECT id, user_id, bike_id, start_lat, start_lon, end_lat, end_lon, distance_km, total_fare, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE user_id = $1 AND status = 'ongoing' LIMIT 1
 `
 
 func (q *Queries) GetActiveRideByUser(ctx context.Context, userID uuid.UUID) (Ride, error) {
@@ -83,8 +83,6 @@ func (q *Queries) GetActiveRideByUser(ctx context.Context, userID uuid.UUID) (Ri
 		&i.ID,
 		&i.UserID,
 		&i.BikeID,
-		&i.StartTime,
-		&i.EndTime,
 		&i.StartLat,
 		&i.StartLon,
 		&i.EndLat,
@@ -93,6 +91,8 @@ func (q *Queries) GetActiveRideByUser(ctx context.Context, userID uuid.UUID) (Ri
 		&i.TotalFare,
 		&i.Status,
 		&i.Type,
+		&i.StartTime,
+		&i.EndTime,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -100,7 +100,7 @@ func (q *Queries) GetActiveRideByUser(ctx context.Context, userID uuid.UUID) (Ri
 }
 
 const getRide = `-- name: GetRide :one
-SELECT id, user_id, bike_id, start_time, end_time, start_lat, start_lon, end_lat, end_lon, distance_km, total_fare, status, type, created_at, updated_at FROM rides WHERE id = $1
+SELECT id, user_id, bike_id, start_lat, start_lon, end_lat, end_lon, distance_km, total_fare, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE id = $1
 `
 
 func (q *Queries) GetRide(ctx context.Context, id uuid.UUID) (Ride, error) {
@@ -110,8 +110,6 @@ func (q *Queries) GetRide(ctx context.Context, id uuid.UUID) (Ride, error) {
 		&i.ID,
 		&i.UserID,
 		&i.BikeID,
-		&i.StartTime,
-		&i.EndTime,
 		&i.StartLat,
 		&i.StartLon,
 		&i.EndLat,
@@ -120,6 +118,8 @@ func (q *Queries) GetRide(ctx context.Context, id uuid.UUID) (Ride, error) {
 		&i.TotalFare,
 		&i.Status,
 		&i.Type,
+		&i.StartTime,
+		&i.EndTime,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -127,7 +127,7 @@ func (q *Queries) GetRide(ctx context.Context, id uuid.UUID) (Ride, error) {
 }
 
 const listRidesByUser = `-- name: ListRidesByUser :many
-SELECT id, user_id, bike_id, start_time, end_time, start_lat, start_lon, end_lat, end_lon, distance_km, total_fare, status, type, created_at, updated_at FROM rides WHERE user_id = $1 ORDER BY start_time DESC
+SELECT id, user_id, bike_id, start_lat, start_lon, end_lat, end_lon, distance_km, total_fare, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE user_id = $1 ORDER BY start_time DESC
 `
 
 func (q *Queries) ListRidesByUser(ctx context.Context, userID uuid.UUID) ([]Ride, error) {
@@ -143,8 +143,6 @@ func (q *Queries) ListRidesByUser(ctx context.Context, userID uuid.UUID) ([]Ride
 			&i.ID,
 			&i.UserID,
 			&i.BikeID,
-			&i.StartTime,
-			&i.EndTime,
 			&i.StartLat,
 			&i.StartLon,
 			&i.EndLat,
@@ -153,6 +151,8 @@ func (q *Queries) ListRidesByUser(ctx context.Context, userID uuid.UUID) ([]Ride
 			&i.TotalFare,
 			&i.Status,
 			&i.Type,
+			&i.StartTime,
+			&i.EndTime,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
