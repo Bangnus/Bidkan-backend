@@ -21,6 +21,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/swagger"
+	"github.com/joho/godotenv"
 	"google.golang.org/api/option"
 )
 
@@ -36,6 +37,8 @@ import (
 // @description Type 'Bearer ' followed by your JWT token.
 
 func main() {
+	_ = godotenv.Load()
+
 	// 1. Setup Infrastructure (Database, Redis)
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {

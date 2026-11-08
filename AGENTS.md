@@ -1,0 +1,54 @@
+# 🚲 Project Context & Agent Instructions: "BidKan" (บิดกัน) - Backend
+
+คู่มือและคำแนะนำสำหรับ Agent ในโปรเจกต์ **Bidkan Backend** (RESTful API & MQTT Broker สำหรับระบบสมาร์ทอีไบค์แชร์ริ่ง BidKan)
+
+---
+
+## 🛠️ Tech Stack
+- **Language:** Go (1.23+)
+- **Framework:** `github.com/gofiber/fiber/v2`
+- **Database Toolkit:** `sqlc` + `database/sql` + `github.com/lib/pq` (Pure SQL ไม่ใช้ ORM)
+- **Database:** PostgreSQL (PostGIS สำหรับระบบพิกัดจักรยาน/โซน)
+- **Message Broker:** Eclipse Mosquitto (MQTT สำหรับตำแหน่งจักรยานและ IoT ESP32)
+- **Hot Reload:** Air (`.air.toml`)
+
+---
+
+## 🧠 Core Business Logic
+- **Geofencing System:** ตรวจสอบว่าพิกัดรถอยู่ใน `Parking Zone (P)` ก่อนอนุญาตให้จบการเดินทาง และตรวจจับการออกนอก `Riding Limit Zone` เพื่อสั่งตัดไฟ Relay
+- **Real-time Wallet Deduction & Auto-Cutoff:** หักเงินจากกระเป๋าตามเวลาขับขี่จริง และสั่งตัดไฟผ่าน MQTT ทันทีเมื่อยอดเงินหมด (`wallet_balance <= 0`)
+- **Ranking & Loyalty System:** คำนวณระดับแรงค์ย้อนหลัง 3 เดือนเพื่อให้ส่วนลดอัตราค่าบริการรายนาที
+
+---
+
+## 🏛️ Architecture Rules (Pure SQL Go Clean Architecture)
+โปรเจกต์นี้ใช้ Go Clean Architecture แยกชั้นการทำงานอย่างเคร่งครัด:
+
+```text
+internal/app/
+├── domain/                    # Enterprise Business Rules
+│   ├── entity/                # Data Structs บริสุทธิ์
+│   └── repository/            # Repository Interfaces สำหรับ Database
+├── infrastructure/            # Implementations
+│   ├── database/              # PostgreSQL Connection & Pool
+│   └── repository/            # SQL Execution ผ่าน sqlc Queries
+├── usecase/                   # Application Business Logic
+│   └── [feature]/             # แยกตาม Feature ย่อย (Service & Handler)
+├── router/                    # Fiber Route Declarations
+└── middleware/                # Auth, CORS, Logger, Validator
+```
+
+---
+
+## 🚀 Common Commands
+```bash
+# Start Development with Live Reload
+air
+
+# Run SQLC Generation (หลังจากแก้ไฟล์ใน sql/queries หรือ sql/schema)
+sqlc generate
+
+# Docker Compose Services
+docker compose up -d
+```
+
