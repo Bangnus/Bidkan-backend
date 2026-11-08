@@ -14,10 +14,13 @@ func SetupBikeRoutes(
 	listHandler list.Handler,
 	updateStatusHandler update_status.Handler,
 ) {
-	v1 := app.Group("/api/v1/bikes", middleware.AuthMiddleware())
-	
-	v1.Get("/", listHandler.HandleList)
-	v1.Post("/", createHandler.Handle) // Admin Only 
-	v1.Patch("/:id/status", updateStatusHandler.Handle) // Staff/Admin Only
+	v1 := app.Group("/api/v1/bikes")
 
+	// Public / Guest / User สามารถดึงดูรายการรถบนแผนที่ได้
+	v1.Get("/", middleware.OptionalAuthMiddleware(), listHandler.HandleList)
+
+	// Protected สำหรับ Admin และ Staff จัดการรถ
+	protected := v1.Group("", middleware.AuthMiddleware())
+	protected.Post("/", createHandler.Handle)            // Admin Only
+	protected.Patch("/:id/status", updateStatusHandler.Handle) // Staff/Admin Only
 }

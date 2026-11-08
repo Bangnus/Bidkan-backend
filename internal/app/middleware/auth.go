@@ -61,6 +61,42 @@ func AuthMiddleware() fiber.Handler {
 	}
 }
 
+// OptionalAuthMiddleware อนุญาตให้เรียก API ได้ทั้งแบบมี Token และไม่มี Token
+// หากมี Token จะเซ็ต user_id, role ลงใน Locals เพื่อให้ Handler นำไปใช้ต่อได้
+func OptionalAuthMiddleware() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		authHeader := c.Get("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			return c.Next()
+		}
+
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		secret := os.Getenv("JWT_SECRET")
+		if secret == "" {
+			secret = "bidkan_secret_key_2024"
+		}
+
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fiber.ErrUnauthorized
+			}
+			return []byte(secret), nil
+		})
+
+		if err == nil && token != nil && token.Valid {
+			if claims, ok := token.Claims.(jwt.MapClaims); ok {
+				c.Locals("user_id", claims["user_id"])
+				c.Locals("role", claims["role"])
+				if tenantID, exists := claims["tenant_id"]; exists && tenantID != nil {
+					c.Locals("tenant_id", tenantID)
+				}
+			}
+		}
+
+		return c.Next()
+	}
+}
+
 func AdminOnly() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		role := c.Locals("role")

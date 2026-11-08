@@ -19,6 +19,7 @@ import (
 
 	firebase "firebase.google.com/go"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/swagger"
 	"github.com/joho/godotenv"
@@ -106,10 +107,26 @@ func main() {
 
 	// 5. Start Fiber Server
 	server := fiber.New()
+	server.Use(cors.New())
 	server.Use(logger.New())
 
 	server.Get("/swagger/*", swagger.HandlerDefault)
 	
+	// Setup Multi-Tenant Module
+	tenantModule := app.NewTenantModule(db)
+	router.SetupSuperAdminRoutes(
+		server,
+		tenantModule.CreateTenantHandler,
+		tenantModule.ListTenantHandler,
+		tenantModule.AssignBikeHandler,
+	)
+	router.SetupCampusRoutes(
+		server,
+		tenantModule.CampusDashboardHandler,
+		tenantModule.CampusBikeListHandler,
+		tenantModule.CampusFieldOpsHandler,
+	)
+
 	// Setup Modules
 	router.SetupUserRoutes(
 		server, 
