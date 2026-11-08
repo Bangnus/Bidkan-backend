@@ -14,6 +14,7 @@ import (
 type Bike struct {
 	ID            string
 	HardwareID    string
+	TenantID      uuid.NullUUID
 	Status        string
 	Lat           float64
 	Lon           float64
@@ -43,6 +44,8 @@ type Config struct {
 
 type Coupon struct {
 	ID        uuid.UUID
+	TenantID  uuid.NullUUID
+	Scope     string
 	Code      string
 	Type      string
 	Value     string
@@ -77,21 +80,56 @@ type Report struct {
 }
 
 type Ride struct {
-	ID         uuid.UUID
-	UserID     uuid.UUID
-	BikeID     string
-	StartLat   float64
-	StartLon   float64
-	EndLat     sql.NullFloat64
-	EndLon     sql.NullFloat64
-	DistanceKm float64
-	TotalFare  string
-	Status     string
-	Type       string
-	StartTime  time.Time
-	EndTime    sql.NullTime
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID              uuid.UUID
+	UserID          uuid.UUID
+	BikeID          string
+	TenantID        uuid.UUID
+	StartLat        float64
+	StartLon        float64
+	EndLat          sql.NullFloat64
+	EndLon          sql.NullFloat64
+	DistanceKm      float64
+	UnlockFee       string
+	RatePerMinute   string
+	TotalFare       string
+	PlatformFee     string
+	PartnerEarnings string
+	Status          string
+	Type            string
+	StartTime       time.Time
+	EndTime         sql.NullTime
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type Tenant struct {
+	ID                        uuid.UUID
+	Slug                      string
+	Name                      string
+	StripeAccountID           sql.NullString
+	StripeOnboardingCompleted bool
+	PlatformFeePercent        string
+	UnlockFee                 string
+	PerMinuteRate             string
+	Status                    string
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
+}
+
+type TenantPayout struct {
+	ID                uuid.UUID
+	TenantID          uuid.UUID
+	StripeTransferID  sql.NullString
+	TotalRides        int32
+	GrossAmount       string
+	PlatformFeeAmount string
+	NetPayoutAmount   string
+	Status            string
+	ErrorMessage      sql.NullString
+	PeriodStart       time.Time
+	PeriodEnd         time.Time
+	ProcessedAt       sql.NullTime
+	CreatedAt         time.Time
 }
 
 type Transaction struct {
@@ -109,6 +147,7 @@ type Transaction struct {
 
 type User struct {
 	ID            uuid.UUID
+	TenantID      uuid.NullUUID
 	PhoneNumber   string
 	Username      string
 	Password      string
@@ -139,6 +178,7 @@ type UserMonthlySpending struct {
 
 type Zone struct {
 	ID        uuid.UUID
+	TenantID  uuid.NullUUID
 	Name      string
 	Type      string
 	Boundary  string

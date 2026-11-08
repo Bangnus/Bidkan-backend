@@ -52,6 +52,9 @@ func AuthMiddleware() fiber.Handler {
 		if ok && token.Valid {
 			c.Locals("user_id", claims["user_id"])
 			c.Locals("role", claims["role"])
+			if tenantID, exists := claims["tenant_id"]; exists && tenantID != nil {
+				c.Locals("tenant_id", tenantID)
+			}
 		}
 
 		return c.Next()

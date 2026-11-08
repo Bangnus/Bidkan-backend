@@ -27,6 +27,57 @@ func (q *Queries) AddBalance(ctx context.Context, arg AddBalanceParams) error {
 	return err
 }
 
+const assignUserToTenant = `-- name: AssignUserToTenant :exec
+UPDATE users 
+SET tenant_id = $2, role = $3, updated_at = NOW()
+WHERE id = $1
+`
+
+type AssignUserToTenantParams struct {
+	ID       uuid.UUID
+	TenantID uuid.NullUUID
+	Role     string
+}
+
+func (q *Queries) AssignUserToTenant(ctx context.Context, arg AssignUserToTenantParams) error {
+	_, err := q.db.ExecContext(ctx, assignUserToTenant, arg.ID, arg.TenantID, arg.Role)
+	return err
+}
+
+const createTenantUser = `-- name: CreateTenantUser :exec
+INSERT INTO users (id, tenant_id, phone_number, username, password, wallet_balance, role, status, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+`
+
+type CreateTenantUserParams struct {
+	ID            uuid.UUID
+	TenantID      uuid.NullUUID
+	PhoneNumber   string
+	Username      string
+	Password      string
+	WalletBalance string
+	Role          string
+	Status        string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+func (q *Queries) CreateTenantUser(ctx context.Context, arg CreateTenantUserParams) error {
+	_, err := q.db.ExecContext(ctx, createTenantUser,
+		arg.ID,
+		arg.TenantID,
+		arg.PhoneNumber,
+		arg.Username,
+		arg.Password,
+		arg.WalletBalance,
+		arg.Role,
+		arg.Status,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
 const createUser = `-- name: CreateUser :exec
 INSERT INTO users (id, phone_number, username, password, wallet_balance, role, status, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -74,7 +125,7 @@ func (q *Queries) DeductBalance(ctx context.Context, arg DeductBalanceParams) er
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, phone_number, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE id = $1
+SELECT id, tenant_id, phone_number, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -82,6 +133,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.TenantID,
 		&i.PhoneNumber,
 		&i.Username,
 		&i.Password,
@@ -97,7 +149,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, phone_number, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE phone_number = $1
+SELECT id, tenant_id, phone_number, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE phone_number = $1
 `
 
 func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User, error) {
@@ -105,6 +157,7 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User,
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.TenantID,
 		&i.PhoneNumber,
 		&i.Username,
 		&i.Password,
@@ -120,7 +173,7 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber string) (User,
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, phone_number, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE username = $1
+SELECT id, tenant_id, phone_number, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE username = $1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -128,6 +181,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.TenantID,
 		&i.PhoneNumber,
 		&i.Username,
 		&i.Password,
@@ -140,6 +194,88 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listStaffByTenant = `-- name: ListStaffByTenant :many
+SELECT id, tenant_id, phone_number, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users 
+WHERE tenant_id = $1 AND role = 'tenant_staff'
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListStaffByTenant(ctx context.Context, tenantID uuid.NullUUID) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, listStaffByTenant, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.PhoneNumber,
+			&i.Username,
+			&i.Password,
+			&i.WalletBalance,
+			&i.Role,
+			&i.Status,
+			&i.ImageUrl,
+			&i.FcmToken,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUsersByTenant = `-- name: ListUsersByTenant :many
+SELECT id, tenant_id, phone_number, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE tenant_id = $1 ORDER BY created_at DESC
+`
+
+func (q *Queries) ListUsersByTenant(ctx context.Context, tenantID uuid.NullUUID) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, listUsersByTenant, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.PhoneNumber,
+			&i.Username,
+			&i.Password,
+			&i.WalletBalance,
+			&i.Role,
+			&i.Status,
+			&i.ImageUrl,
+			&i.FcmToken,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateUserBalance = `-- name: UpdateUserBalance :exec

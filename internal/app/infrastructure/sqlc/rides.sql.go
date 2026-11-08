@@ -14,19 +14,22 @@ import (
 
 const createRide = `-- name: CreateRide :exec
 INSERT INTO rides (
-    id, user_id, bike_id, start_time, start_lat, start_lon, status, type, created_at, updated_at
+    id, user_id, bike_id, tenant_id, start_time, start_lat, start_lon, unlock_fee, rate_per_minute, status, type, created_at, updated_at
 ) VALUES (
-    $1, $2, $3, NOW(), $4, $5, 'ongoing', $6, NOW(), NOW()
+    $1, $2, $3, $4, NOW(), $5, $6, $7, $8, 'ongoing', $9, NOW(), NOW()
 )
 `
 
 type CreateRideParams struct {
-	ID       uuid.UUID
-	UserID   uuid.UUID
-	BikeID   string
-	StartLat float64
-	StartLon float64
-	Type     string
+	ID            uuid.UUID
+	UserID        uuid.UUID
+	BikeID        string
+	TenantID      uuid.UUID
+	StartLat      float64
+	StartLon      float64
+	UnlockFee     string
+	RatePerMinute string
+	Type          string
 }
 
 func (q *Queries) CreateRide(ctx context.Context, arg CreateRideParams) error {
@@ -34,8 +37,11 @@ func (q *Queries) CreateRide(ctx context.Context, arg CreateRideParams) error {
 		arg.ID,
 		arg.UserID,
 		arg.BikeID,
+		arg.TenantID,
 		arg.StartLat,
 		arg.StartLon,
+		arg.UnlockFee,
+		arg.RatePerMinute,
 		arg.Type,
 	)
 	return err
@@ -48,17 +54,21 @@ SET end_time = NOW(),
     end_lon = $3,
     distance_km = $4,
     total_fare = $5,
+    platform_fee = $6,
+    partner_earnings = $7,
     status = 'completed',
     updated_at = NOW()
 WHERE id = $1
 `
 
 type EndRideParams struct {
-	ID         uuid.UUID
-	EndLat     sql.NullFloat64
-	EndLon     sql.NullFloat64
-	DistanceKm float64
-	TotalFare  string
+	ID              uuid.UUID
+	EndLat          sql.NullFloat64
+	EndLon          sql.NullFloat64
+	DistanceKm      float64
+	TotalFare       string
+	PlatformFee     string
+	PartnerEarnings string
 }
 
 func (q *Queries) EndRide(ctx context.Context, arg EndRideParams) error {
@@ -68,12 +78,14 @@ func (q *Queries) EndRide(ctx context.Context, arg EndRideParams) error {
 		arg.EndLon,
 		arg.DistanceKm,
 		arg.TotalFare,
+		arg.PlatformFee,
+		arg.PartnerEarnings,
 	)
 	return err
 }
 
 const getActiveRideByUser = `-- name: GetActiveRideByUser :one
-SELECT id, user_id, bike_id, start_lat, start_lon, end_lat, end_lon, distance_km, total_fare, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE user_id = $1 AND status = 'ongoing' LIMIT 1
+SELECT id, user_id, bike_id, tenant_id, start_lat, start_lon, end_lat, end_lon, distance_km, unlock_fee, rate_per_minute, total_fare, platform_fee, partner_earnings, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE user_id = $1 AND status = 'ongoing' LIMIT 1
 `
 
 func (q *Queries) GetActiveRideByUser(ctx context.Context, userID uuid.UUID) (Ride, error) {
@@ -83,12 +95,17 @@ func (q *Queries) GetActiveRideByUser(ctx context.Context, userID uuid.UUID) (Ri
 		&i.ID,
 		&i.UserID,
 		&i.BikeID,
+		&i.TenantID,
 		&i.StartLat,
 		&i.StartLon,
 		&i.EndLat,
 		&i.EndLon,
 		&i.DistanceKm,
+		&i.UnlockFee,
+		&i.RatePerMinute,
 		&i.TotalFare,
+		&i.PlatformFee,
+		&i.PartnerEarnings,
 		&i.Status,
 		&i.Type,
 		&i.StartTime,
@@ -100,7 +117,7 @@ func (q *Queries) GetActiveRideByUser(ctx context.Context, userID uuid.UUID) (Ri
 }
 
 const getRide = `-- name: GetRide :one
-SELECT id, user_id, bike_id, start_lat, start_lon, end_lat, end_lon, distance_km, total_fare, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE id = $1
+SELECT id, user_id, bike_id, tenant_id, start_lat, start_lon, end_lat, end_lon, distance_km, unlock_fee, rate_per_minute, total_fare, platform_fee, partner_earnings, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE id = $1
 `
 
 func (q *Queries) GetRide(ctx context.Context, id uuid.UUID) (Ride, error) {
@@ -110,12 +127,17 @@ func (q *Queries) GetRide(ctx context.Context, id uuid.UUID) (Ride, error) {
 		&i.ID,
 		&i.UserID,
 		&i.BikeID,
+		&i.TenantID,
 		&i.StartLat,
 		&i.StartLon,
 		&i.EndLat,
 		&i.EndLon,
 		&i.DistanceKm,
+		&i.UnlockFee,
+		&i.RatePerMinute,
 		&i.TotalFare,
+		&i.PlatformFee,
+		&i.PartnerEarnings,
 		&i.Status,
 		&i.Type,
 		&i.StartTime,
@@ -126,8 +148,56 @@ func (q *Queries) GetRide(ctx context.Context, id uuid.UUID) (Ride, error) {
 	return i, err
 }
 
+const listRidesByTenant = `-- name: ListRidesByTenant :many
+SELECT id, user_id, bike_id, tenant_id, start_lat, start_lon, end_lat, end_lon, distance_km, unlock_fee, rate_per_minute, total_fare, platform_fee, partner_earnings, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE tenant_id = $1 ORDER BY start_time DESC
+`
+
+func (q *Queries) ListRidesByTenant(ctx context.Context, tenantID uuid.UUID) ([]Ride, error) {
+	rows, err := q.db.QueryContext(ctx, listRidesByTenant, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Ride
+	for rows.Next() {
+		var i Ride
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.BikeID,
+			&i.TenantID,
+			&i.StartLat,
+			&i.StartLon,
+			&i.EndLat,
+			&i.EndLon,
+			&i.DistanceKm,
+			&i.UnlockFee,
+			&i.RatePerMinute,
+			&i.TotalFare,
+			&i.PlatformFee,
+			&i.PartnerEarnings,
+			&i.Status,
+			&i.Type,
+			&i.StartTime,
+			&i.EndTime,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRidesByUser = `-- name: ListRidesByUser :many
-SELECT id, user_id, bike_id, start_lat, start_lon, end_lat, end_lon, distance_km, total_fare, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE user_id = $1 ORDER BY start_time DESC
+SELECT id, user_id, bike_id, tenant_id, start_lat, start_lon, end_lat, end_lon, distance_km, unlock_fee, rate_per_minute, total_fare, platform_fee, partner_earnings, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE user_id = $1 ORDER BY start_time DESC
 `
 
 func (q *Queries) ListRidesByUser(ctx context.Context, userID uuid.UUID) ([]Ride, error) {
@@ -143,12 +213,17 @@ func (q *Queries) ListRidesByUser(ctx context.Context, userID uuid.UUID) ([]Ride
 			&i.ID,
 			&i.UserID,
 			&i.BikeID,
+			&i.TenantID,
 			&i.StartLat,
 			&i.StartLon,
 			&i.EndLat,
 			&i.EndLon,
 			&i.DistanceKm,
+			&i.UnlockFee,
+			&i.RatePerMinute,
 			&i.TotalFare,
+			&i.PlatformFee,
+			&i.PartnerEarnings,
 			&i.Status,
 			&i.Type,
 			&i.StartTime,

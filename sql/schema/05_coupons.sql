@@ -1,5 +1,7 @@
 CREATE TABLE coupons (
     id             UUID PRIMARY KEY,
+    tenant_id      UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    scope          VARCHAR(20) NOT NULL DEFAULT 'global',
     code           VARCHAR(50) UNIQUE NOT NULL,
     type           VARCHAR(20) NOT NULL,          -- 'credit' (เงินฟรี), 'discount' (ส่วนลด)
     value          DECIMAL(10,2) NOT NULL,

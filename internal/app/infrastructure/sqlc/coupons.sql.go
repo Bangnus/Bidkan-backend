@@ -62,7 +62,7 @@ func (q *Queries) CreateCoupon(ctx context.Context, arg CreateCouponParams) erro
 }
 
 const getAvailableDiscountCoupon = `-- name: GetAvailableDiscountCoupon :one
-SELECT c.id, c.code, c.type, c.value, c.min_amount, c.start_at, c.max_uses, c.used_count, c.expired_at, c.created_at, c.updated_at, uc.id as user_coupon_id 
+SELECT c.id, c.tenant_id, c.scope, c.code, c.type, c.value, c.min_amount, c.start_at, c.max_uses, c.used_count, c.expired_at, c.created_at, c.updated_at, uc.id as user_coupon_id 
 FROM user_coupons uc
 JOIN coupons c ON uc.coupon_id = c.id
 WHERE uc.user_id = $1 AND uc.is_used = FALSE AND c.type = 'discount'
@@ -71,6 +71,8 @@ ORDER BY c.value DESC LIMIT 1
 
 type GetAvailableDiscountCouponRow struct {
 	ID           uuid.UUID
+	TenantID     uuid.NullUUID
+	Scope        string
 	Code         string
 	Type         string
 	Value        string
@@ -89,6 +91,8 @@ func (q *Queries) GetAvailableDiscountCoupon(ctx context.Context, userID uuid.UU
 	var i GetAvailableDiscountCouponRow
 	err := row.Scan(
 		&i.ID,
+		&i.TenantID,
+		&i.Scope,
 		&i.Code,
 		&i.Type,
 		&i.Value,
@@ -105,7 +109,7 @@ func (q *Queries) GetAvailableDiscountCoupon(ctx context.Context, userID uuid.UU
 }
 
 const getCouponByCode = `-- name: GetCouponByCode :one
-SELECT id, code, type, value, min_amount, start_at, max_uses, used_count, expired_at, created_at, updated_at FROM coupons WHERE code = $1 LIMIT 1
+SELECT id, tenant_id, scope, code, type, value, min_amount, start_at, max_uses, used_count, expired_at, created_at, updated_at FROM coupons WHERE code = $1 LIMIT 1
 `
 
 func (q *Queries) GetCouponByCode(ctx context.Context, code string) (Coupon, error) {
@@ -113,6 +117,8 @@ func (q *Queries) GetCouponByCode(ctx context.Context, code string) (Coupon, err
 	var i Coupon
 	err := row.Scan(
 		&i.ID,
+		&i.TenantID,
+		&i.Scope,
 		&i.Code,
 		&i.Type,
 		&i.Value,
@@ -128,7 +134,7 @@ func (q *Queries) GetCouponByCode(ctx context.Context, code string) (Coupon, err
 }
 
 const getMyAvailableCoupons = `-- name: GetMyAvailableCoupons :many
-SELECT c.id, c.code, c.type, c.value, c.min_amount, c.start_at, c.max_uses, c.used_count, c.expired_at, c.created_at, c.updated_at, uc.id as user_coupon_id, uc.used_at as collected_at
+SELECT c.id, c.tenant_id, c.scope, c.code, c.type, c.value, c.min_amount, c.start_at, c.max_uses, c.used_count, c.expired_at, c.created_at, c.updated_at, uc.id as user_coupon_id, uc.used_at as collected_at
 FROM user_coupons uc
 JOIN coupons c ON uc.coupon_id = c.id
 WHERE uc.user_id = $1 AND uc.is_used = FALSE AND c.expired_at > NOW()
@@ -137,6 +143,8 @@ ORDER BY uc.used_at DESC
 
 type GetMyAvailableCouponsRow struct {
 	ID           uuid.UUID
+	TenantID     uuid.NullUUID
+	Scope        string
 	Code         string
 	Type         string
 	Value        string
@@ -162,6 +170,8 @@ func (q *Queries) GetMyAvailableCoupons(ctx context.Context, userID uuid.UUID) (
 		var i GetMyAvailableCouponsRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.TenantID,
+			&i.Scope,
 			&i.Code,
 			&i.Type,
 			&i.Value,
@@ -189,7 +199,7 @@ func (q *Queries) GetMyAvailableCoupons(ctx context.Context, userID uuid.UUID) (
 }
 
 const getSpecificUserCouponByCode = `-- name: GetSpecificUserCouponByCode :one
-SELECT c.id, c.code, c.type, c.value, c.min_amount, c.start_at, c.max_uses, c.used_count, c.expired_at, c.created_at, c.updated_at, uc.id as user_coupon_id 
+SELECT c.id, c.tenant_id, c.scope, c.code, c.type, c.value, c.min_amount, c.start_at, c.max_uses, c.used_count, c.expired_at, c.created_at, c.updated_at, uc.id as user_coupon_id 
 FROM user_coupons uc
 JOIN coupons c ON uc.coupon_id = c.id
 WHERE uc.user_id = $1 AND c.code = $2 AND uc.is_used = FALSE AND c.type = 'discount'
@@ -203,6 +213,8 @@ type GetSpecificUserCouponByCodeParams struct {
 
 type GetSpecificUserCouponByCodeRow struct {
 	ID           uuid.UUID
+	TenantID     uuid.NullUUID
+	Scope        string
 	Code         string
 	Type         string
 	Value        string
@@ -221,6 +233,8 @@ func (q *Queries) GetSpecificUserCouponByCode(ctx context.Context, arg GetSpecif
 	var i GetSpecificUserCouponByCodeRow
 	err := row.Scan(
 		&i.ID,
+		&i.TenantID,
+		&i.Scope,
 		&i.Code,
 		&i.Type,
 		&i.Value,

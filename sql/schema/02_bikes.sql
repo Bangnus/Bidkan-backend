@@ -1,12 +1,13 @@
 CREATE TABLE bikes (
     id              VARCHAR(50) PRIMARY KEY,
     hardware_id     VARCHAR(100) UNIQUE NOT NULL,
+    tenant_id       UUID REFERENCES tenants(id) ON DELETE SET NULL,
     status          VARCHAR(20) NOT NULL DEFAULT 'available',
     lat             DOUBLE PRECISION NOT NULL DEFAULT 0,
     lon             DOUBLE PRECISION NOT NULL DEFAULT 0,
     battery_level   INT NOT NULL DEFAULT 100,
-    image_url       VARCHAR(255),                 -- เพิ่มกลับมา
-    last_heartbeat  TIMESTAMP,                    -- เพิ่มกลับมา
+    image_url       VARCHAR(255),
+    last_heartbeat  TIMESTAMP,
     current_ride_id UUID,
     created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMP NOT NULL DEFAULT NOW()
@@ -17,6 +18,6 @@ CREATE TABLE bike_locations (
     bike_id     VARCHAR(50) NOT NULL REFERENCES bikes(id),
     lat         DOUBLE PRECISION NOT NULL,
     lon         DOUBLE PRECISION NOT NULL,
-    battery     INT NOT NULL DEFAULT 0,           -- แก้ชื่อคอลัมน์ให้ตรง Query
+    battery     INT NOT NULL DEFAULT 0,
     created_at  TIMESTAMP NOT NULL DEFAULT NOW()
 );

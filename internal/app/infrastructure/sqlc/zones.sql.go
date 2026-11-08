@@ -13,14 +13,15 @@ import (
 
 const createZone = `-- name: CreateZone :exec
 INSERT INTO zones (
-    id, name, type, boundary, radius, created_at, updated_at
+    id, tenant_id, name, type, boundary, radius, created_at, updated_at
 ) VALUES (
-    $1, $2, $3, $4, $5, NOW(), NOW()
+    $1, $2, $3, $4, $5, $6, NOW(), NOW()
 )
 `
 
 type CreateZoneParams struct {
 	ID       uuid.UUID
+	TenantID uuid.NullUUID
 	Name     string
 	Type     string
 	Boundary string
@@ -30,6 +31,7 @@ type CreateZoneParams struct {
 func (q *Queries) CreateZone(ctx context.Context, arg CreateZoneParams) error {
 	_, err := q.db.ExecContext(ctx, createZone,
 		arg.ID,
+		arg.TenantID,
 		arg.Name,
 		arg.Type,
 		arg.Boundary,
@@ -48,7 +50,7 @@ func (q *Queries) DeleteZone(ctx context.Context, id uuid.UUID) error {
 }
 
 const getZone = `-- name: GetZone :one
-SELECT id, name, type, boundary, radius, created_at, updated_at FROM zones WHERE id = $1
+SELECT id, tenant_id, name, type, boundary, radius, created_at, updated_at FROM zones WHERE id = $1
 `
 
 func (q *Queries) GetZone(ctx context.Context, id uuid.UUID) (Zone, error) {
@@ -56,6 +58,7 @@ func (q *Queries) GetZone(ctx context.Context, id uuid.UUID) (Zone, error) {
 	var i Zone
 	err := row.Scan(
 		&i.ID,
+		&i.TenantID,
 		&i.Name,
 		&i.Type,
 		&i.Boundary,
@@ -67,7 +70,7 @@ func (q *Queries) GetZone(ctx context.Context, id uuid.UUID) (Zone, error) {
 }
 
 const listZones = `-- name: ListZones :many
-SELECT id, name, type, boundary, radius, created_at, updated_at FROM zones ORDER BY name
+SELECT id, tenant_id, name, type, boundary, radius, created_at, updated_at FROM zones ORDER BY name
 `
 
 func (q *Queries) ListZones(ctx context.Context) ([]Zone, error) {
@@ -81,6 +84,84 @@ func (q *Queries) ListZones(ctx context.Context) ([]Zone, error) {
 		var i Zone
 		if err := rows.Scan(
 			&i.ID,
+			&i.TenantID,
+			&i.Name,
+			&i.Type,
+			&i.Boundary,
+			&i.Radius,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listZonesByTenant = `-- name: ListZonesByTenant :many
+SELECT id, tenant_id, name, type, boundary, radius, created_at, updated_at FROM zones WHERE tenant_id = $1 ORDER BY name
+`
+
+func (q *Queries) ListZonesByTenant(ctx context.Context, tenantID uuid.NullUUID) ([]Zone, error) {
+	rows, err := q.db.QueryContext(ctx, listZonesByTenant, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Zone
+	for rows.Next() {
+		var i Zone
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Name,
+			&i.Type,
+			&i.Boundary,
+			&i.Radius,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listZonesByTenantAndType = `-- name: ListZonesByTenantAndType :many
+SELECT id, tenant_id, name, type, boundary, radius, created_at, updated_at FROM zones WHERE tenant_id = $1 AND type = $2 ORDER BY name
+`
+
+type ListZonesByTenantAndTypeParams struct {
+	TenantID uuid.NullUUID
+	Type     string
+}
+
+func (q *Queries) ListZonesByTenantAndType(ctx context.Context, arg ListZonesByTenantAndTypeParams) ([]Zone, error) {
+	rows, err := q.db.QueryContext(ctx, listZonesByTenantAndType, arg.TenantID, arg.Type)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Zone
+	for rows.Next() {
+		var i Zone
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
 			&i.Name,
 			&i.Type,
 			&i.Boundary,
@@ -102,7 +183,7 @@ func (q *Queries) ListZones(ctx context.Context) ([]Zone, error) {
 }
 
 const listZonesByType = `-- name: ListZonesByType :many
-SELECT id, name, type, boundary, radius, created_at, updated_at FROM zones WHERE type = $1 ORDER BY name
+SELECT id, tenant_id, name, type, boundary, radius, created_at, updated_at FROM zones WHERE type = $1 ORDER BY name
 `
 
 func (q *Queries) ListZonesByType(ctx context.Context, type_ string) ([]Zone, error) {
@@ -116,6 +197,7 @@ func (q *Queries) ListZonesByType(ctx context.Context, type_ string) ([]Zone, er
 		var i Zone
 		if err := rows.Scan(
 			&i.ID,
+			&i.TenantID,
 			&i.Name,
 			&i.Type,
 			&i.Boundary,

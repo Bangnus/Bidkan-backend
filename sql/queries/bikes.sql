@@ -8,8 +8,14 @@ SET lat = $2,
 WHERE id = $1;
 
 -- name: CreateBike :exec
-INSERT INTO bikes (id, hardware_id, status, image_url)
-VALUES ($1, $2, $3, $4);
+INSERT INTO bikes (id, hardware_id, status, image_url, tenant_id)
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: AssignBikeToTenant :exec
+UPDATE bikes
+SET tenant_id = $2,
+    updated_at = NOW()
+WHERE id = $1;
 
 -- name: GetBike :one
 SELECT * FROM bikes WHERE id = $1;
@@ -17,9 +23,21 @@ SELECT * FROM bikes WHERE id = $1;
 -- name: ListAllBikes :many
 SELECT * FROM bikes ORDER BY id;
 
+-- name: ListBikesByTenant :many
+SELECT * FROM bikes 
+WHERE tenant_id = $1 
+ORDER BY id;
+
 -- name: ListAvailableBikes :many
 SELECT * FROM bikes 
 WHERE status = 'available' 
+AND battery_level > 20
+ORDER BY id;
+
+-- name: ListAvailableBikesByTenant :many
+SELECT * FROM bikes 
+WHERE tenant_id = $1
+AND status = 'available' 
 AND battery_level > 20
 ORDER BY id;
 

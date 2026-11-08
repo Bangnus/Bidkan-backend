@@ -13,9 +13,26 @@ import (
 	"github.com/google/uuid"
 )
 
+const assignBikeToTenant = `-- name: AssignBikeToTenant :exec
+UPDATE bikes
+SET tenant_id = $2,
+    updated_at = NOW()
+WHERE id = $1
+`
+
+type AssignBikeToTenantParams struct {
+	ID       string
+	TenantID uuid.NullUUID
+}
+
+func (q *Queries) AssignBikeToTenant(ctx context.Context, arg AssignBikeToTenantParams) error {
+	_, err := q.db.ExecContext(ctx, assignBikeToTenant, arg.ID, arg.TenantID)
+	return err
+}
+
 const createBike = `-- name: CreateBike :exec
-INSERT INTO bikes (id, hardware_id, status, image_url)
-VALUES ($1, $2, $3, $4)
+INSERT INTO bikes (id, hardware_id, status, image_url, tenant_id)
+VALUES ($1, $2, $3, $4, $5)
 `
 
 type CreateBikeParams struct {
@@ -23,6 +40,7 @@ type CreateBikeParams struct {
 	HardwareID string
 	Status     string
 	ImageUrl   sql.NullString
+	TenantID   uuid.NullUUID
 }
 
 func (q *Queries) CreateBike(ctx context.Context, arg CreateBikeParams) error {
@@ -31,6 +49,7 @@ func (q *Queries) CreateBike(ctx context.Context, arg CreateBikeParams) error {
 		arg.HardwareID,
 		arg.Status,
 		arg.ImageUrl,
+		arg.TenantID,
 	)
 	return err
 }
@@ -62,7 +81,7 @@ func (q *Queries) CreateBikeLocation(ctx context.Context, arg CreateBikeLocation
 }
 
 const getBike = `-- name: GetBike :one
-SELECT id, hardware_id, status, lat, lon, battery_level, image_url, last_heartbeat, current_ride_id, created_at, updated_at FROM bikes WHERE id = $1
+SELECT id, hardware_id, tenant_id, status, lat, lon, battery_level, image_url, last_heartbeat, current_ride_id, created_at, updated_at FROM bikes WHERE id = $1
 `
 
 func (q *Queries) GetBike(ctx context.Context, id string) (Bike, error) {
@@ -71,6 +90,7 @@ func (q *Queries) GetBike(ctx context.Context, id string) (Bike, error) {
 	err := row.Scan(
 		&i.ID,
 		&i.HardwareID,
+		&i.TenantID,
 		&i.Status,
 		&i.Lat,
 		&i.Lon,
@@ -85,7 +105,7 @@ func (q *Queries) GetBike(ctx context.Context, id string) (Bike, error) {
 }
 
 const listAllBikes = `-- name: ListAllBikes :many
-SELECT id, hardware_id, status, lat, lon, battery_level, image_url, last_heartbeat, current_ride_id, created_at, updated_at FROM bikes ORDER BY id
+SELECT id, hardware_id, tenant_id, status, lat, lon, battery_level, image_url, last_heartbeat, current_ride_id, created_at, updated_at FROM bikes ORDER BY id
 `
 
 func (q *Queries) ListAllBikes(ctx context.Context) ([]Bike, error) {
@@ -100,6 +120,7 @@ func (q *Queries) ListAllBikes(ctx context.Context) ([]Bike, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.HardwareID,
+			&i.TenantID,
 			&i.Status,
 			&i.Lat,
 			&i.Lon,
@@ -124,7 +145,7 @@ func (q *Queries) ListAllBikes(ctx context.Context) ([]Bike, error) {
 }
 
 const listAvailableBikes = `-- name: ListAvailableBikes :many
-SELECT id, hardware_id, status, lat, lon, battery_level, image_url, last_heartbeat, current_ride_id, created_at, updated_at FROM bikes 
+SELECT id, hardware_id, tenant_id, status, lat, lon, battery_level, image_url, last_heartbeat, current_ride_id, created_at, updated_at FROM bikes 
 WHERE status = 'available' 
 AND battery_level > 20
 ORDER BY id
@@ -142,6 +163,93 @@ func (q *Queries) ListAvailableBikes(ctx context.Context) ([]Bike, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.HardwareID,
+			&i.TenantID,
+			&i.Status,
+			&i.Lat,
+			&i.Lon,
+			&i.BatteryLevel,
+			&i.ImageUrl,
+			&i.LastHeartbeat,
+			&i.CurrentRideID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAvailableBikesByTenant = `-- name: ListAvailableBikesByTenant :many
+SELECT id, hardware_id, tenant_id, status, lat, lon, battery_level, image_url, last_heartbeat, current_ride_id, created_at, updated_at FROM bikes 
+WHERE tenant_id = $1
+AND status = 'available' 
+AND battery_level > 20
+ORDER BY id
+`
+
+func (q *Queries) ListAvailableBikesByTenant(ctx context.Context, tenantID uuid.NullUUID) ([]Bike, error) {
+	rows, err := q.db.QueryContext(ctx, listAvailableBikesByTenant, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Bike
+	for rows.Next() {
+		var i Bike
+		if err := rows.Scan(
+			&i.ID,
+			&i.HardwareID,
+			&i.TenantID,
+			&i.Status,
+			&i.Lat,
+			&i.Lon,
+			&i.BatteryLevel,
+			&i.ImageUrl,
+			&i.LastHeartbeat,
+			&i.CurrentRideID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBikesByTenant = `-- name: ListBikesByTenant :many
+SELECT id, hardware_id, tenant_id, status, lat, lon, battery_level, image_url, last_heartbeat, current_ride_id, created_at, updated_at FROM bikes 
+WHERE tenant_id = $1 
+ORDER BY id
+`
+
+func (q *Queries) ListBikesByTenant(ctx context.Context, tenantID uuid.NullUUID) ([]Bike, error) {
+	rows, err := q.db.QueryContext(ctx, listBikesByTenant, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Bike
+	for rows.Next() {
+		var i Bike
+		if err := rows.Scan(
+			&i.ID,
+			&i.HardwareID,
+			&i.TenantID,
 			&i.Status,
 			&i.Lat,
 			&i.Lon,
