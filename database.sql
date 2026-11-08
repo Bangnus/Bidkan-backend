@@ -146,3 +146,15 @@ CREATE TABLE IF NOT EXISTS reports (
     created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+-- 12. Performance Indexes
+CREATE INDEX IF NOT EXISTS idx_bikes_status_battery ON bikes (status, battery_level);
+CREATE INDEX IF NOT EXISTS idx_bike_locations_bike_created ON bike_locations (bike_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rides_user_status ON rides (user_id, status);
+CREATE INDEX IF NOT EXISTS idx_rides_bike_status ON rides (bike_id, status);
+CREATE INDEX IF NOT EXISTS idx_rides_user_created ON rides (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_created ON transactions (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_type_status ON transactions (user_id, type, status, created_at);
+CREATE INDEX IF NOT EXISTS idx_transactions_ref ON transactions (reference_id);
+CREATE INDEX IF NOT EXISTS idx_user_coupons_user_unused ON user_coupons (user_id, is_used);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications (user_id, created_at DESC);

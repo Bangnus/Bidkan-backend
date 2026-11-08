@@ -31,7 +31,22 @@ services:
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
 
-  # 3. กล่องสมองกล Go Backend (API & MQTT Listener)
+  # 3. Redis สำหรับ Caching พิกัดล่าสุด & User Rank & Configs
+  redis:
+    image: redis:7-alpine
+    container_name: bidkan-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 4. กล่องสมองกล Go Backend (API & MQTT Listener)
   backend:
     build:
       context: .
@@ -45,6 +60,8 @@ services:
         condition: service_healthy
       mqtt:
         condition: service_started
+      redis:
+        condition: service_healthy
     volumes:
       - .:/app  # เชื่อมโค้ดในเครื่องเข้ากับ Docker
     environment:
@@ -54,12 +71,6 @@ services:
       - REDIS_URL=redis:6379
       - PORT=${PORT}
 
-  # 4. Redis สำหรับ Caching พิกัดล่าสุดแบบเร็วๆ
-  redis:
-    image: redis:7-alpine
-    container_name: bidkan-redis
-    ports:
-      - "6379:6379"
   # 5. MQTTX Web UI สำหรับทดสอบผ่านเบราว์เซอร์
   mqttx:
     image: emqx/mqttx-web
@@ -70,3 +81,4 @@ services:
 
 volumes:
   pgdata:
+  redis_data:
