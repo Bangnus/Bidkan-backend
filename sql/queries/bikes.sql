@@ -51,3 +51,16 @@ SET status = $2,
     current_ride_id = $3,
     updated_at = NOW()
 WHERE id = $1;
+
+-- name: UpdateBikeOperationalStatus :exec
+UPDATE bikes
+SET status = $2,
+    updated_at = NOW()
+WHERE id = $1;
+
+-- name: ListAllBikesWithTenant :many
+SELECT b.id, b.hardware_id, b.tenant_id, COALESCE(t.slug, '') AS tenant_slug, COALESCE(t.name, '') AS tenant_name,
+       b.status, b.lat, b.lon, b.battery_level, b.last_heartbeat, b.created_at
+FROM bikes b
+LEFT JOIN tenants t ON b.tenant_id = t.id
+ORDER BY b.id;

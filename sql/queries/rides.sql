@@ -27,5 +27,14 @@ SELECT * FROM rides WHERE user_id = $1 ORDER BY start_time DESC;
 -- name: ListRidesByTenant :many
 SELECT * FROM rides WHERE tenant_id = $1 ORDER BY start_time DESC;
 
+-- name: ListRidesByTenantWithUser :many
+SELECT r.id, r.bike_id, r.user_id, u.username, u.phone_number, r.distance_km,
+       r.total_fare, r.platform_fee, r.partner_earnings, r.status, r.start_time, r.end_time
+FROM rides r
+JOIN users u ON r.user_id = u.id
+WHERE r.tenant_id = $1
+ORDER BY r.start_time DESC
+LIMIT 100;
+
 -- name: GetActiveRideByUser :one
 SELECT * FROM rides WHERE user_id = $1 AND status = 'ongoing' LIMIT 1;

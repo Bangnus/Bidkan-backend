@@ -144,6 +144,63 @@ func (q *Queries) ListAllBikes(ctx context.Context) ([]Bike, error) {
 	return items, nil
 }
 
+const listAllBikesWithTenant = `-- name: ListAllBikesWithTenant :many
+SELECT b.id, b.hardware_id, b.tenant_id, COALESCE(t.slug, '') AS tenant_slug, COALESCE(t.name, '') AS tenant_name,
+       b.status, b.lat, b.lon, b.battery_level, b.last_heartbeat, b.created_at
+FROM bikes b
+LEFT JOIN tenants t ON b.tenant_id = t.id
+ORDER BY b.id
+`
+
+type ListAllBikesWithTenantRow struct {
+	ID            string
+	HardwareID    string
+	TenantID      uuid.NullUUID
+	TenantSlug    string
+	TenantName    string
+	Status        string
+	Lat           float64
+	Lon           float64
+	BatteryLevel  int32
+	LastHeartbeat sql.NullTime
+	CreatedAt     time.Time
+}
+
+func (q *Queries) ListAllBikesWithTenant(ctx context.Context) ([]ListAllBikesWithTenantRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAllBikesWithTenant)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllBikesWithTenantRow
+	for rows.Next() {
+		var i ListAllBikesWithTenantRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.HardwareID,
+			&i.TenantID,
+			&i.TenantSlug,
+			&i.TenantName,
+			&i.Status,
+			&i.Lat,
+			&i.Lon,
+			&i.BatteryLevel,
+			&i.LastHeartbeat,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAvailableBikes = `-- name: ListAvailableBikes :many
 SELECT id, hardware_id, tenant_id, status, lat, lon, battery_level, image_url, last_heartbeat, current_ride_id, created_at, updated_at FROM bikes 
 WHERE status = 'available' 
@@ -271,6 +328,23 @@ func (q *Queries) ListBikesByTenant(ctx context.Context, tenantID uuid.NullUUID)
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateBikeOperationalStatus = `-- name: UpdateBikeOperationalStatus :exec
+UPDATE bikes
+SET status = $2,
+    updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateBikeOperationalStatusParams struct {
+	ID     string
+	Status string
+}
+
+func (q *Queries) UpdateBikeOperationalStatus(ctx context.Context, arg UpdateBikeOperationalStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateBikeOperationalStatus, arg.ID, arg.Status)
+	return err
 }
 
 const updateBikeRideStatus = `-- name: UpdateBikeRideStatus :exec

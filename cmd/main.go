@@ -21,6 +21,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/swagger"
 	"github.com/joho/godotenv"
 	"google.golang.org/api/option"
@@ -107,6 +108,7 @@ func main() {
 
 	// 5. Start Fiber Server
 	server := fiber.New()
+	server.Use(recover.New())
 	server.Use(cors.New())
 	server.Use(logger.New())
 
@@ -114,18 +116,7 @@ func main() {
 	
 	// Setup Multi-Tenant Module
 	tenantModule := app.NewTenantModule(db)
-	router.SetupSuperAdminRoutes(
-		server,
-		tenantModule.CreateTenantHandler,
-		tenantModule.ListTenantHandler,
-		tenantModule.AssignBikeHandler,
-	)
-	router.SetupCampusRoutes(
-		server,
-		tenantModule.CampusDashboardHandler,
-		tenantModule.CampusBikeListHandler,
-		tenantModule.CampusFieldOpsHandler,
-	)
+	tenantModule.SeedAndRegisterRoutes(server, db)
 
 	// Setup Modules
 	router.SetupUserRoutes(

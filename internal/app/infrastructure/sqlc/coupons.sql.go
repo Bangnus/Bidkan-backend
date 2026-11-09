@@ -61,6 +61,40 @@ func (q *Queries) CreateCoupon(ctx context.Context, arg CreateCouponParams) erro
 	return err
 }
 
+const createScopedCoupon = `-- name: CreateScopedCoupon :exec
+INSERT INTO coupons (id, tenant_id, scope, code, type, value, min_amount, start_at, max_uses, used_count, expired_at, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $10, NOW(), NOW())
+`
+
+type CreateScopedCouponParams struct {
+	ID        uuid.UUID
+	TenantID  uuid.NullUUID
+	Scope     string
+	Code      string
+	Type      string
+	Value     string
+	MinAmount sql.NullString
+	StartAt   time.Time
+	MaxUses   int32
+	ExpiredAt time.Time
+}
+
+func (q *Queries) CreateScopedCoupon(ctx context.Context, arg CreateScopedCouponParams) error {
+	_, err := q.db.ExecContext(ctx, createScopedCoupon,
+		arg.ID,
+		arg.TenantID,
+		arg.Scope,
+		arg.Code,
+		arg.Type,
+		arg.Value,
+		arg.MinAmount,
+		arg.StartAt,
+		arg.MaxUses,
+		arg.ExpiredAt,
+	)
+	return err
+}
+
 const getAvailableDiscountCoupon = `-- name: GetAvailableDiscountCoupon :one
 SELECT c.id, c.tenant_id, c.scope, c.code, c.type, c.value, c.min_amount, c.start_at, c.max_uses, c.used_count, c.expired_at, c.created_at, c.updated_at, uc.id as user_coupon_id 
 FROM user_coupons uc
@@ -257,6 +291,88 @@ UPDATE coupons SET used_count = used_count + 1, updated_at = NOW() WHERE id = $1
 func (q *Queries) IncrementCouponUsedCount(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, incrementCouponUsedCount, id)
 	return err
+}
+
+const listCouponsByTenant = `-- name: ListCouponsByTenant :many
+SELECT id, tenant_id, scope, code, type, value, min_amount, start_at, max_uses, used_count, expired_at, created_at, updated_at FROM coupons WHERE tenant_id = $1 ORDER BY created_at DESC
+`
+
+func (q *Queries) ListCouponsByTenant(ctx context.Context, tenantID uuid.NullUUID) ([]Coupon, error) {
+	rows, err := q.db.QueryContext(ctx, listCouponsByTenant, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Coupon
+	for rows.Next() {
+		var i Coupon
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Scope,
+			&i.Code,
+			&i.Type,
+			&i.Value,
+			&i.MinAmount,
+			&i.StartAt,
+			&i.MaxUses,
+			&i.UsedCount,
+			&i.ExpiredAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGlobalCoupons = `-- name: ListGlobalCoupons :many
+SELECT id, tenant_id, scope, code, type, value, min_amount, start_at, max_uses, used_count, expired_at, created_at, updated_at FROM coupons WHERE scope = 'global' ORDER BY created_at DESC
+`
+
+func (q *Queries) ListGlobalCoupons(ctx context.Context) ([]Coupon, error) {
+	rows, err := q.db.QueryContext(ctx, listGlobalCoupons)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Coupon
+	for rows.Next() {
+		var i Coupon
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Scope,
+			&i.Code,
+			&i.Type,
+			&i.Value,
+			&i.MinAmount,
+			&i.StartAt,
+			&i.MaxUses,
+			&i.UsedCount,
+			&i.ExpiredAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const markUserCouponAsUsed = `-- name: MarkUserCouponAsUsed :exec

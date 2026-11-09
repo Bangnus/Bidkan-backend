@@ -8,6 +8,7 @@ package sqlc
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -182,6 +183,67 @@ func (q *Queries) ListRidesByTenant(ctx context.Context, tenantID uuid.UUID) ([]
 			&i.EndTime,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRidesByTenantWithUser = `-- name: ListRidesByTenantWithUser :many
+SELECT r.id, r.bike_id, r.user_id, u.username, u.phone_number, r.distance_km,
+       r.total_fare, r.platform_fee, r.partner_earnings, r.status, r.start_time, r.end_time
+FROM rides r
+JOIN users u ON r.user_id = u.id
+WHERE r.tenant_id = $1
+ORDER BY r.start_time DESC
+LIMIT 100
+`
+
+type ListRidesByTenantWithUserRow struct {
+	ID              uuid.UUID
+	BikeID          string
+	UserID          uuid.UUID
+	Username        string
+	PhoneNumber     string
+	DistanceKm      float64
+	TotalFare       string
+	PlatformFee     string
+	PartnerEarnings string
+	Status          string
+	StartTime       time.Time
+	EndTime         sql.NullTime
+}
+
+func (q *Queries) ListRidesByTenantWithUser(ctx context.Context, tenantID uuid.UUID) ([]ListRidesByTenantWithUserRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRidesByTenantWithUser, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRidesByTenantWithUserRow
+	for rows.Next() {
+		var i ListRidesByTenantWithUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BikeID,
+			&i.UserID,
+			&i.Username,
+			&i.PhoneNumber,
+			&i.DistanceKm,
+			&i.TotalFare,
+			&i.PlatformFee,
+			&i.PartnerEarnings,
+			&i.Status,
+			&i.StartTime,
+			&i.EndTime,
 		); err != nil {
 			return nil, err
 		}

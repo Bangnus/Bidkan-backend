@@ -8,6 +8,7 @@ import (
 
 type User struct {
 	ID            uuid.UUID
+	TenantID      *uuid.UUID
 	PhoneNumber   string
 	Username      string
 	Password      string

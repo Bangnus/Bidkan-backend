@@ -31,7 +31,7 @@ func (s *Service) GetQueue(ctx context.Context, slug string) ([]*entity.BikeData
 		return nil, err
 	}
 
-	var queue []*entity.BikeData
+	queue := make([]*entity.BikeData, 0)
 	for _, b := range bikes {
 		if b.Battery < 20 {
 			queue = append(queue, b)

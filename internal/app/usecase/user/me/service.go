@@ -9,11 +9,13 @@ import (
 )
 
 type Response struct {
-	ID          string `json:"id"`
-	Username    string `json:"username"`
-	PhoneNumber string `json:"phone_number"`
-	Role        string `json:"role"`
-	Status      string `json:"status"`
+	ID            string `json:"id"`
+	Username      string `json:"username"`
+	PhoneNumber   string `json:"phone_number"`
+	Role          string `json:"role"`
+	Status        string `json:"status"`
+	WalletBalance string `json:"wallet_balance"`
+	ImageURL      string `json:"image_url"`
 }
 
 type Service interface {
@@ -41,10 +43,12 @@ func (s *service) GetMyProfile(ctx context.Context, userID string) (*Response, e
 	}
 
 	return &Response{
-		ID:          user.ID.String(),
-		Username:    user.Username,
-		PhoneNumber: user.PhoneNumber,
-		Role:        user.Role,
-		Status:      user.Status,
+		ID:            user.ID.String(),
+		Username:      user.Username,
+		PhoneNumber:   user.PhoneNumber,
+		Role:          user.Role,
+		Status:        user.Status,
+		WalletBalance: user.WalletBalance,
+		ImageURL:      user.ImageURL,
 	}, nil
 }

@@ -96,8 +96,14 @@ func (r *userPostgresRepository) UpdateProfileImage(ctx context.Context, id uuid
 }
 
 func (r *userPostgresRepository) mapUser(u sqlc.User) *entity.User {
+	var tenantID *uuid.UUID
+	if u.TenantID.Valid {
+		tID := u.TenantID.UUID
+		tenantID = &tID
+	}
 	return &entity.User{
 		ID:            u.ID,
+		TenantID:      tenantID,
 		PhoneNumber:   u.PhoneNumber,
 		Username:      u.Username,
 		Password:      u.Password,

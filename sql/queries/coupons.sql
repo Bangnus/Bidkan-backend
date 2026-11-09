@@ -40,3 +40,13 @@ ORDER BY uc.used_at DESC;
 -- name: CreateCoupon :exec
 INSERT INTO coupons (id, code, type, value, min_amount, start_at, max_uses, used_count, expired_at, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, NOW(), NOW());
+
+-- name: CreateScopedCoupon :exec
+INSERT INTO coupons (id, tenant_id, scope, code, type, value, min_amount, start_at, max_uses, used_count, expired_at, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $10, NOW(), NOW());
+
+-- name: ListGlobalCoupons :many
+SELECT * FROM coupons WHERE scope = 'global' ORDER BY created_at DESC;
+
+-- name: ListCouponsByTenant :many
+SELECT * FROM coupons WHERE tenant_id = $1 ORDER BY created_at DESC;

@@ -36,3 +36,62 @@ type TenantPayout struct {
 	CreatedAt         time.Time  `json:"created_at"`
 }
 
+type BikeWithTenant struct {
+	BikeID        string     `json:"bike_id"`
+	HardwareID    string     `json:"hardware_id"`
+	TenantID      *uuid.UUID `json:"tenant_id"`
+	TenantSlug    string     `json:"tenant_slug"`
+	TenantName    string     `json:"tenant_name"`
+	Status        string     `json:"status"`
+	Lat           float64    `json:"lat"`
+	Lon           float64    `json:"lon"`
+	Battery       int        `json:"battery"`
+	LastHeartbeat *time.Time `json:"last_heartbeat"`
+	CreatedAt     time.Time  `json:"created_at"`
+}
+
+type CampusRideDetail struct {
+	ID              uuid.UUID  `json:"id"`
+	BikeID          string     `json:"bike_id"`
+	UserID          uuid.UUID  `json:"user_id"`
+	Username        string     `json:"username"`
+	PhoneNumber     string     `json:"phone_number"`
+	DistanceKm      float64    `json:"distance_km"`
+	TotalFare       float64    `json:"total_fare"`
+	PlatformFee     float64    `json:"platform_fee"`
+	PartnerEarnings float64    `json:"partner_earnings"`
+	Status          string     `json:"status"`
+	StartTime       time.Time  `json:"start_time"`
+	EndTime         *time.Time `json:"end_time"`
+}
+
+type MaintenanceReport struct {
+	ID         uuid.UUID  `json:"id"`
+	BikeID     string     `json:"bike_id"`
+	ReportedBy uuid.UUID  `json:"reported_by"`
+	IssueType  string     `json:"issue_type"`
+	Status     string     `json:"status"`
+	ResolvedBy *uuid.UUID `json:"resolved_by"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+}
+
+type CampusStaff struct {
+	ID          uuid.UUID `json:"id"`
+	Username    string    `json:"username"`
+	PhoneNumber string    `json:"phone_number"`
+	Role        string    `json:"role"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type TenantZone struct {
+	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
+	Name      string    `json:"name"`
+	Type      string    `json:"type"`
+	Boundary  string    `json:"boundary"`
+	Radius    float64   `json:"radius"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}

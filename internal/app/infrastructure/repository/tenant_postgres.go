@@ -57,7 +57,7 @@ func (r *TenantPostgresRepository) List(ctx context.Context) ([]*entity.Tenant, 
 	if err != nil {
 		return nil, err
 	}
-	var res []*entity.Tenant
+	res := make([]*entity.Tenant, 0, len(rows))
 	for _, row := range rows {
 		res = append(res, mapTenantModelToEntity(row))
 	}
@@ -89,7 +89,7 @@ func (r *TenantPostgresRepository) ListBikesByTenant(ctx context.Context, tenant
 	if err != nil {
 		return nil, err
 	}
-	var res []*entity.BikeData
+	res := make([]*entity.BikeData, 0, len(rows))
 	for _, b := range rows {
 		var hb sql.NullTime
 		if b.LastHeartbeat.Valid {

@@ -52,7 +52,11 @@ func (s *service) Login(ctx context.Context, req Request) (*Response, error) {
 	}
 
 	// 4. สร้าง JWT Token
-	token, err := s.generateJWT(user.ID.String(), user.Role)
+	var tenantIDStr string
+	if user.TenantID != nil {
+		tenantIDStr = user.TenantID.String()
+	}
+	token, err := s.generateJWT(user.ID.String(), user.Role, tenantIDStr)
 	if err != nil {
 		return nil, errors.New("failed to generate token")
 	}
@@ -63,7 +67,7 @@ func (s *service) Login(ctx context.Context, req Request) (*Response, error) {
 	}, nil
 }
 
-func (s *service) generateJWT(userID string, role string) (string, error) {
+func (s *service) generateJWT(userID string, role string, tenantID string) (string, error) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		secret = "bidkan_secret_key_2024" // Default สำหรับ Dev
@@ -74,6 +78,9 @@ func (s *service) generateJWT(userID string, role string) (string, error) {
 		"role":    role,
 		"exp":     time.Now().Add(time.Hour * 24 * 7).Unix(), // อายุ 7 วัน
 		"iat":     time.Now().Unix(),
+	}
+	if tenantID != "" {
+		claims["tenant_id"] = tenantID
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

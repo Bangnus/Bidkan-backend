@@ -8,6 +8,8 @@ package sqlc
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const getBikeUsageStats = `-- name: GetBikeUsageStats :many
@@ -127,4 +129,62 @@ func (q *Queries) GetSystemSummary(ctx context.Context) (GetSystemSummaryRow, er
 		&i.TotalRevenue,
 	)
 	return i, err
+}
+
+const listReportsByTenant = `-- name: ListReportsByTenant :many
+SELECT r.id, r.bike_id, r.reported_by, r.issue_type, r.status, r.resolved_by, r.created_at, r.updated_at
+FROM reports r
+JOIN bikes b ON r.bike_id = b.id
+WHERE b.tenant_id = $1
+ORDER BY r.created_at DESC
+`
+
+func (q *Queries) ListReportsByTenant(ctx context.Context, tenantID uuid.NullUUID) ([]Report, error) {
+	rows, err := q.db.QueryContext(ctx, listReportsByTenant, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Report
+	for rows.Next() {
+		var i Report
+		if err := rows.Scan(
+			&i.ID,
+			&i.BikeID,
+			&i.ReportedBy,
+			&i.IssueType,
+			&i.Status,
+			&i.ResolvedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const resolveMaintenanceReport = `-- name: ResolveMaintenanceReport :exec
+UPDATE reports
+SET status = 'resolved',
+    resolved_by = $2,
+    updated_at = NOW()
+WHERE id = $1
+`
+
+type ResolveMaintenanceReportParams struct {
+	ID         uuid.UUID
+	ResolvedBy uuid.NullUUID
+}
+
+func (q *Queries) ResolveMaintenanceReport(ctx context.Context, arg ResolveMaintenanceReportParams) error {
+	_, err := q.db.ExecContext(ctx, resolveMaintenanceReport, arg.ID, arg.ResolvedBy)
+	return err
 }

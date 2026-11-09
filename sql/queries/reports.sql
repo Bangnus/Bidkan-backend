@@ -28,3 +28,17 @@ WHERE status = 'completed'
 GROUP BY DATE(start_time)
 ORDER BY date DESC
 LIMIT 7;
+
+-- name: ListReportsByTenant :many
+SELECT r.id, r.bike_id, r.reported_by, r.issue_type, r.status, r.resolved_by, r.created_at, r.updated_at
+FROM reports r
+JOIN bikes b ON r.bike_id = b.id
+WHERE b.tenant_id = $1
+ORDER BY r.created_at DESC;
+
+-- name: ResolveMaintenanceReport :exec
+UPDATE reports
+SET status = 'resolved',
+    resolved_by = $2,
+    updated_at = NOW()
+WHERE id = $1;

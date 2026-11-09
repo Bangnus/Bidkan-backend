@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -43,25 +44,33 @@ func TenantStaffOrAdmin() fiber.Handler {
 	}
 }
 
-// TenantScopeGuard ตรวจสอบให้มั่นใจว่า User เข้าถึงเฉพาะ Tenant ของตนเอง
-func TenantScopeGuard() fiber.Handler {
+// CampusSlugGuard ป้องกันไม่ให้ Tenant Admin หรือ Staff เข้าถึงข้อมูลของวิทยาเขตอื่น
+func CampusSlugGuard(tenantRepo domainRepo.TenantRepository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		role, _ := c.Locals("role").(string)
-		// Super Admin สามารถเข้าถึงได้ทุก Tenant
 		if role == "super_admin" || role == "admin" {
 			return c.Next()
 		}
 
 		userTenantID, _ := c.Locals("tenant_id").(string)
-		targetTenantID := c.Params("tenantId")
+		slug := c.Params("slug")
+		if slug == "" {
+			return c.Next()
+		}
 
-		if targetTenantID != "" && userTenantID != targetTenantID {
+		tenant, err := tenantRepo.GetBySlug(c.Context(), slug)
+		if err != nil {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "campus tenant not found",
+			})
+		}
+
+		if userTenantID != tenant.ID.String() {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "Forbidden: Cannot access other tenant resources",
+				"error": "Forbidden: You do not have access to this campus",
 			})
 		}
 
 		return c.Next()
 	}
 }
-
