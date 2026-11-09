@@ -11,6 +11,7 @@ type ZoneRepository interface {
     GetByID(ctx context.Context, id uuid.UUID) (*entity.Zone, error)
     ListAll(ctx context.Context) ([]entity.Zone, error)
     ListByType(ctx context.Context, zoneType string) ([]entity.Zone, error)
+    ListByTenantAndType(ctx context.Context, tenantID uuid.UUID, zoneType string) ([]entity.Zone, error)
     Update(ctx context.Context, zone *entity.Zone) error
     Delete(ctx context.Context, id uuid.UUID) error
 }

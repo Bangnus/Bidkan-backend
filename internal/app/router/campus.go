@@ -5,8 +5,10 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/middleware"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/bike_list"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/bike_manage"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/coupon_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/dashboard"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/field_ops"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/order_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/report_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/revenue_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/ride_list"
@@ -25,12 +27,14 @@ func SetupCampusRoutes(
 	rideListHandler ride_list.Handler,
 	revenueHandler revenue_manage.Handler,
 	staffHandler staff_manage.Handler,
+	couponHandler coupon_manage.Handler,
+	orderHandler order_manage.Handler,
 	fieldOpsHandler field_ops.Handler,
 	reportHandler report_manage.Handler,
 ) {
 	campus := app.Group("/api/v1/campus/:slug", middleware.AuthMiddleware(), middleware.CampusSlugGuard(tenantRepo))
 
-	// Admin Only Routes (Dashboard, Zones, Rides, Revenue, Staff)
+	// Admin Only Routes (Dashboard, Zones, Rides, Revenue, Staff, Coupons, Hardware Orders)
 	admin := campus.Group("", middleware.TenantAdminOnly())
 	admin.Get("/dashboard", dashboardHandler.Handle)
 	admin.Get("/zones", zoneHandler.HandleList)
@@ -42,6 +46,10 @@ func SetupCampusRoutes(
 	admin.Post("/stripe/onboard", revenueHandler.HandleStripeOnboard)
 	admin.Get("/staff", staffHandler.HandleList)
 	admin.Post("/staff", staffHandler.HandleCreate)
+	admin.Get("/coupons", couponHandler.HandleList)
+	admin.Post("/coupons", couponHandler.HandleCreate)
+	admin.Get("/orders", orderHandler.HandleList)
+	admin.Post("/orders", orderHandler.HandleCreate)
 
 	// Staff & Admin Routes (Fleet Status & Field Ops)
 	ops := campus.Group("", middleware.TenantStaffOrAdmin())

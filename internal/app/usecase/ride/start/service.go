@@ -2,17 +2,23 @@ package start
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
+	"github.com/Bangnus/Bidkan-backend/pkg/utils/geo"
 	"github.com/google/uuid"
 )
 
 type Request struct {
-	UserID uuid.UUID `json:"user_id" validate:"required"`
-	BikeID string    `json:"bike_id" validate:"required"`
+	UserID     uuid.UUID `json:"user_id" validate:"required"`
+	BikeID     string    `json:"bike_id" validate:"required"`
+	CampusSlug string    `json:"campus_slug"`
+	Lat        float64   `json:"lat"`
+	Lon        float64   `json:"lon"`
 }
 
 type Service interface {
@@ -20,29 +26,39 @@ type Service interface {
 }
 
 type service struct {
-	rideRepo repository.RideRepository
-	userRepo repository.UserRepository
-	bikeRepo repository.BikeRepository
+	rideRepo   repository.RideRepository
+	userRepo   repository.UserRepository
+	bikeRepo   repository.BikeRepository
+	tenantRepo repository.TenantRepository
+	zoneRepo   repository.ZoneRepository
 }
 
-func NewService(rideRepo repository.RideRepository, userRepo repository.UserRepository, bikeRepo repository.BikeRepository) Service {
+func NewService(
+	rideRepo repository.RideRepository,
+	userRepo repository.UserRepository,
+	bikeRepo repository.BikeRepository,
+	tenantRepo repository.TenantRepository,
+	zoneRepo repository.ZoneRepository,
+) Service {
 	return &service{
-		rideRepo: rideRepo,
-		userRepo: userRepo,
-		bikeRepo: bikeRepo,
+		rideRepo:   rideRepo,
+		userRepo:   userRepo,
+		bikeRepo:   bikeRepo,
+		tenantRepo: tenantRepo,
+		zoneRepo:   zoneRepo,
 	}
 }
 
 func (s *service) Start(ctx context.Context, req Request) (*entity.Ride, error) {
-	// 1. ตรวจสอบผู้ใช้
 	user, err := s.userRepo.GetByID(ctx, req.UserID)
 	if err != nil {
 		return nil, errors.New("user not found")
 	}
 
-	isStaff := user.Role == "staff" || user.Role == "admin"
+	isStaff := user.Role == "staff" || user.Role == "admin" ||
+		user.Role == "tenant_staff" || user.Role == "tenant_admin" ||
+		user.Role == "org_admin" || user.Role == "super_admin"
 
-	// 2. เช็คเงิน (ถ้าเป็น User ปกติ ต้องมีอย่างน้อย 20 บาท)
 	if !isStaff {
 		balance, _ := strconv.ParseFloat(user.WalletBalance, 64)
 		if balance < 20.0 {
@@ -50,19 +66,16 @@ func (s *service) Start(ctx context.Context, req Request) (*entity.Ride, error) 
 		}
 	}
 
-	// 3. เช็คว่ามีการเช่าค้างอยู่หรือไม่
 	active, _ := s.rideRepo.GetActiveRide(ctx, req.UserID)
 	if active != nil {
 		return nil, errors.New("you already have an ongoing ride")
 	}
 
-	// 4. เช็คสถานะรถจักรยาน
 	bike, err := s.bikeRepo.GetByID(ctx, req.BikeID)
 	if err != nil {
 		return nil, errors.New("bike not found")
 	}
 
-	// ถ้าไม่ใช่พนักงาน ต้องเช็คสถานะรถและแบตเตอรี่
 	if !isStaff {
 		if bike.Status != "available" {
 			return nil, errors.New("bike is not available")
@@ -72,7 +85,11 @@ func (s *service) Start(ctx context.Context, req Request) (*entity.Ride, error) 
 		}
 	}
 
-	// 5. เริ่มการเช่า/ซ่อม
+	tenant, err := s.resolveOperatingTenant(ctx, bike, req)
+	if err != nil {
+		return nil, err
+	}
+
 	rideType := "ride"
 	if isStaff {
 		rideType = "service"
@@ -80,24 +97,71 @@ func (s *service) Start(ctx context.Context, req Request) (*entity.Ride, error) 
 
 	rideID := uuid.New()
 	ride := &entity.Ride{
-		ID:       rideID,
-		UserID:   req.UserID,
-		BikeID:   req.BikeID,
-		StartLat: bike.Lat,
-		StartLon: bike.Lon,
-		Status:   "ongoing",
-		Type:     rideType,
+		ID:            rideID,
+		UserID:        req.UserID,
+		BikeID:        req.BikeID,
+		TenantID:      tenant.ID,
+		StartLat:      bike.Lat,
+		StartLon:      bike.Lon,
+		UnlockFee:     fmt.Sprintf("%.2f", tenant.UnlockFee),
+		RatePerMinute: fmt.Sprintf("%.2f", tenant.PerMinuteRate),
+		Status:        "ongoing",
+		Type:          rideType,
 	}
 
 	if err := s.rideRepo.Create(ctx, ride); err != nil {
 		return nil, errors.New("failed to start ride")
 	}
 
-	// 6. อัปเดตสถานะรถจักรยาน
-	bike.Status = "in_use"
-	rideIDStr := rideID.String()
-	bike.CurrentRideID = &rideIDStr
-	_ = s.bikeRepo.UpdateStatus(ctx, *bike) 
-
+	_ = s.bikeRepo.UpdateRideState(ctx, bike.BikeID, "in_use", &rideID)
 	return ride, nil
+}
+
+// resolveOperatingTenant attributes the ride (and therefore revenue) to the campus
+// where service actually occurs: operating GPS zone -> requested QR campus_slug -> bike home tenant.
+func (s *service) resolveOperatingTenant(ctx context.Context, bike *entity.BikeData, req Request) (*entity.Tenant, error) {
+	pt := geo.Point{Lat: req.Lat, Lon: req.Lon}
+	if pt.Lat == 0 && pt.Lon == 0 {
+		pt = geo.Point{Lat: bike.Lat, Lon: bike.Lon}
+	}
+	if (pt.Lat != 0 || pt.Lon != 0) && s.zoneRepo != nil {
+		if zones, err := s.zoneRepo.ListAll(ctx); err == nil {
+			for _, z := range zones {
+				if z.TenantID == nil || (z.Type != "riding_limit" && z.Type != "parking") {
+					continue
+				}
+				if pointInsideZone(pt, z.Boundary, z.Radius) {
+					if t, err := s.tenantRepo.GetByID(ctx, *z.TenantID); err == nil && t.Status == "active" {
+						return t, nil
+					}
+				}
+			}
+		}
+	}
+	if req.CampusSlug != "" {
+		if t, err := s.tenantRepo.GetBySlug(ctx, req.CampusSlug); err == nil {
+			return t, nil
+		}
+	}
+	if bike.TenantID != nil {
+		if t, err := s.tenantRepo.GetByID(ctx, *bike.TenantID); err == nil {
+			return t, nil
+		}
+	}
+	return nil, errors.New("bike is not assigned to any campus tenant")
+}
+
+func pointInsideZone(pt geo.Point, boundary string, radius float64) bool {
+	var points []geo.Point
+	if err := json.Unmarshal([]byte(boundary), &points); err != nil || len(points) == 0 {
+		var single geo.Point
+		if err := json.Unmarshal([]byte(boundary), &single); err != nil || (single.Lat == 0 && single.Lon == 0) {
+			return false
+		}
+		points = []geo.Point{single}
+	}
+	if radius > 0 {
+		return geo.IsPointInCircle(pt, points[0], radius)
+	}
+	return geo.IsPointInPolygon(pt, points)
 }

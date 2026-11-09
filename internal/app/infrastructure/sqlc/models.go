@@ -58,6 +58,20 @@ type Coupon struct {
 	UpdatedAt time.Time
 }
 
+type HardwareOrder struct {
+	ID          uuid.UUID
+	TenantID    uuid.UUID
+	OrderType   string
+	Quantity    int32
+	UnitPrice   string
+	TotalAmount string
+	Note        sql.NullString
+	Status      string
+	CreatedBy   uuid.NullUUID
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 type Notification struct {
 	ID        uuid.UUID
 	UserID    uuid.NullUUID
@@ -66,6 +80,17 @@ type Notification struct {
 	Type      string
 	IsRead    bool
 	CreatedAt time.Time
+}
+
+type Organization struct {
+	ID           uuid.UUID
+	Slug         string
+	Name         string
+	ContactEmail sql.NullString
+	ContactPhone sql.NullString
+	Status       string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 type Report struct {
@@ -104,13 +129,21 @@ type Ride struct {
 
 type Tenant struct {
 	ID                        uuid.UUID
+	OrganizationID            uuid.NullUUID
 	Slug                      string
 	Name                      string
 	StripeAccountID           sql.NullString
 	StripeOnboardingCompleted bool
 	PlatformFeePercent        string
+	AutoTieredGp              bool
 	UnlockFee                 string
 	PerMinuteRate             string
+	ParkingPenaltyFee         string
+	SimFeePerBike             string
+	ContactName               sql.NullString
+	ContactEmail              sql.NullString
+	ContactPhone              sql.NullString
+	Notes                     sql.NullString
 	Status                    string
 	CreatedAt                 time.Time
 	UpdatedAt                 time.Time
@@ -146,20 +179,21 @@ type Transaction struct {
 }
 
 type User struct {
-	ID            uuid.UUID
-	TenantID      uuid.NullUUID
-	PhoneNumber   sql.NullString
-	Email         sql.NullString
-	GoogleID      sql.NullString
-	Username      string
-	Password      string
-	WalletBalance string
-	Role          string
-	Status        string
-	ImageUrl      sql.NullString
-	FcmToken      sql.NullString
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID             uuid.UUID
+	TenantID       uuid.NullUUID
+	OrganizationID uuid.NullUUID
+	PhoneNumber    sql.NullString
+	Email          sql.NullString
+	GoogleID       sql.NullString
+	Username       string
+	Password       string
+	WalletBalance  string
+	Role           string
+	Status         string
+	ImageUrl       sql.NullString
+	FcmToken       sql.NullString
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type UserCoupon struct {

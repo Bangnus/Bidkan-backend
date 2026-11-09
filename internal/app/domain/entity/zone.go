@@ -7,6 +7,7 @@ import (
 
 type Zone struct {
 	ID        uuid.UUID
+	TenantID  *uuid.UUID
 	Name      string
 	Type      string
 	Boundary  string

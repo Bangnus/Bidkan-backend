@@ -25,6 +25,7 @@ func NewZoneRepository(db *sql.DB) repository.ZoneRepository {
 func (r *zonePostgresRepository) Create(ctx context.Context, zone *entity.Zone) error {
 	return r.queries.CreateZone(ctx, sqlc.CreateZoneParams{
 		ID:       zone.ID,
+		TenantID: toNullUUID(zone.TenantID),
 		Name:     zone.Name,
 		Type:     zone.Type,
 		Boundary: zone.Boundary,
@@ -45,11 +46,7 @@ func (r *zonePostgresRepository) ListAll(ctx context.Context) ([]entity.Zone, er
 	if err != nil {
 		return nil, err
 	}
-	var res []entity.Zone
-	for _, z := range zones {
-		res = append(res, *r.mapZone(z))
-	}
-	return res, nil
+	return r.mapZones(zones), nil
 }
 
 func (r *zonePostgresRepository) ListByType(ctx context.Context, zoneType string) ([]entity.Zone, error) {
@@ -57,11 +54,18 @@ func (r *zonePostgresRepository) ListByType(ctx context.Context, zoneType string
 	if err != nil {
 		return nil, err
 	}
-	var res []entity.Zone
-	for _, z := range zones {
-		res = append(res, *r.mapZone(z))
+	return r.mapZones(zones), nil
+}
+
+func (r *zonePostgresRepository) ListByTenantAndType(ctx context.Context, tenantID uuid.UUID, zoneType string) ([]entity.Zone, error) {
+	zones, err := r.queries.ListZonesByTenantAndType(ctx, sqlc.ListZonesByTenantAndTypeParams{
+		TenantID: uuid.NullUUID{UUID: tenantID, Valid: true},
+		Type:     zoneType,
+	})
+	if err != nil {
+		return nil, err
 	}
-	return res, nil
+	return r.mapZones(zones), nil
 }
 
 func (r *zonePostgresRepository) Update(ctx context.Context, zone *entity.Zone) error {
@@ -78,9 +82,23 @@ func (r *zonePostgresRepository) Delete(ctx context.Context, id uuid.UUID) error
 	return r.queries.DeleteZone(ctx, id)
 }
 
+func (r *zonePostgresRepository) mapZones(rows []sqlc.Zone) []entity.Zone {
+	res := make([]entity.Zone, 0, len(rows))
+	for _, z := range rows {
+		res = append(res, *r.mapZone(z))
+	}
+	return res
+}
+
 func (r *zonePostgresRepository) mapZone(z sqlc.Zone) *entity.Zone {
+	var tID *uuid.UUID
+	if z.TenantID.Valid {
+		u := z.TenantID.UUID
+		tID = &u
+	}
 	return &entity.Zone{
 		ID:        z.ID,
+		TenantID:  tID,
 		Name:      z.Name,
 		Type:      z.Type,
 		Boundary:  z.Boundary,

@@ -23,13 +23,24 @@ func NewRidePostgresRepository(db *sql.DB) repository.RideRepository {
 }
 
 func (r *ridePostgresRepository) Create(ctx context.Context, ride *entity.Ride) error {
+	unlock := ride.UnlockFee
+	if unlock == "" {
+		unlock = "0.00"
+	}
+	perMin := ride.RatePerMinute
+	if perMin == "" {
+		perMin = "0.00"
+	}
 	return r.queries.CreateRide(ctx, sqlc.CreateRideParams{
-		ID:       ride.ID,
-		UserID:   ride.UserID,
-		BikeID:   ride.BikeID,
-		StartLat: ride.StartLat,
-		StartLon: ride.StartLon,
-		Type:     ride.Type,
+		ID:            ride.ID,
+		UserID:        ride.UserID,
+		BikeID:        ride.BikeID,
+		TenantID:      ride.TenantID,
+		StartLat:      ride.StartLat,
+		StartLon:      ride.StartLon,
+		UnlockFee:     unlock,
+		RatePerMinute: perMin,
+		Type:          ride.Type,
 	})
 }
 
@@ -38,42 +49,29 @@ func (r *ridePostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*en
 	if err != nil {
 		return nil, err
 	}
-
-	ride := &entity.Ride{
-		ID:         res.ID,
-		UserID:     res.UserID,
-		BikeID:     res.BikeID,
-		StartTime:  res.StartTime,
-		StartLat:   res.StartLat,
-		StartLon:   res.StartLon,
-		DistanceKm: res.DistanceKm,
-		TotalFare:  res.TotalFare,
-		Status:     res.Status,
-		Type:       res.Type,
-		CreatedAt:  res.CreatedAt,
-		UpdatedAt:  res.UpdatedAt,
-	}
-
-	if res.EndTime.Valid {
-		ride.EndTime = &res.EndTime.Time
-	}
-	if res.EndLat.Valid {
-		ride.EndLat = &res.EndLat.Float64
-	}
-	if res.EndLon.Valid {
-		ride.EndLon = &res.EndLon.Float64
-	}
-
-	return ride, nil
+	return mapRideModel(res), nil
 }
 
-func (r *ridePostgresRepository) EndRide(ctx context.Context, id uuid.UUID, endLat, endLon, distance float64, fare string) error {
+func (r *ridePostgresRepository) EndRide(
+	ctx context.Context,
+	id uuid.UUID,
+	endLat, endLon, distance float64,
+	fare, platformFee, partnerEarnings string,
+) error {
+	if platformFee == "" {
+		platformFee = "0.00"
+	}
+	if partnerEarnings == "" {
+		partnerEarnings = "0.00"
+	}
 	return r.queries.EndRide(ctx, sqlc.EndRideParams{
-		ID:         id,
-		EndLat:     sql.NullFloat64{Float64: endLat, Valid: true},
-		EndLon:     sql.NullFloat64{Float64: endLon, Valid: true},
-		DistanceKm: distance,
-		TotalFare:  fare,
+		ID:              id,
+		EndLat:          sql.NullFloat64{Float64: endLat, Valid: true},
+		EndLon:          sql.NullFloat64{Float64: endLon, Valid: true},
+		DistanceKm:      distance,
+		TotalFare:       fare,
+		PlatformFee:     platformFee,
+		PartnerEarnings: partnerEarnings,
 	})
 }
 
@@ -82,32 +80,9 @@ func (r *ridePostgresRepository) ListByUser(ctx context.Context, userID uuid.UUI
 	if err != nil {
 		return nil, err
 	}
-	var res []entity.Ride
-	for _, resRide := range rides {
-		ride := entity.Ride{
-			ID:         resRide.ID,
-			UserID:     resRide.UserID,
-			BikeID:     resRide.BikeID,
-			StartTime:  resRide.StartTime,
-			StartLat:   resRide.StartLat,
-			StartLon:   resRide.StartLon,
-			DistanceKm: resRide.DistanceKm,
-			TotalFare:  resRide.TotalFare,
-			Status:     resRide.Status,
-			Type:       resRide.Type,
-			CreatedAt:  resRide.CreatedAt,
-			UpdatedAt:  resRide.UpdatedAt,
-		}
-		if resRide.EndTime.Valid {
-			ride.EndTime = &resRide.EndTime.Time
-		}
-		if resRide.EndLat.Valid {
-			ride.EndLat = &resRide.EndLat.Float64
-		}
-		if resRide.EndLon.Valid {
-			ride.EndLon = &resRide.EndLon.Float64
-		}
-		res = append(res, ride)
+	res := make([]entity.Ride, 0, len(rides))
+	for _, row := range rides {
+		res = append(res, *mapRideModel(row))
 	}
 	return res, nil
 }
@@ -117,22 +92,29 @@ func (r *ridePostgresRepository) GetActiveRide(ctx context.Context, userID uuid.
 	if err != nil {
 		return nil, err
 	}
+	return mapRideModel(res), nil
+}
 
+func mapRideModel(res sqlc.Ride) *entity.Ride {
 	ride := &entity.Ride{
-		ID:         res.ID,
-		UserID:     res.UserID,
-		BikeID:     res.BikeID,
-		StartTime:  res.StartTime,
-		StartLat:   res.StartLat,
-		StartLon:   res.StartLon,
-		DistanceKm: res.DistanceKm,
-		TotalFare:  res.TotalFare,
-		Status:     res.Status,
-		Type:       res.Type,
-		CreatedAt:  res.CreatedAt,
-		UpdatedAt:  res.UpdatedAt,
+		ID:              res.ID,
+		UserID:          res.UserID,
+		BikeID:          res.BikeID,
+		TenantID:        res.TenantID,
+		StartTime:       res.StartTime,
+		StartLat:        res.StartLat,
+		StartLon:        res.StartLon,
+		DistanceKm:      res.DistanceKm,
+		UnlockFee:       res.UnlockFee,
+		RatePerMinute:   res.RatePerMinute,
+		TotalFare:       res.TotalFare,
+		PlatformFee:     res.PlatformFee,
+		PartnerEarnings: res.PartnerEarnings,
+		Status:          res.Status,
+		Type:            res.Type,
+		CreatedAt:       res.CreatedAt,
+		UpdatedAt:       res.UpdatedAt,
 	}
-
 	if res.EndTime.Valid {
 		ride.EndTime = &res.EndTime.Time
 	}
@@ -142,6 +124,5 @@ func (r *ridePostgresRepository) GetActiveRide(ctx context.Context, userID uuid.
 	if res.EndLon.Valid {
 		ride.EndLon = &res.EndLon.Float64
 	}
-
-	return ride, nil
+	return ride
 }

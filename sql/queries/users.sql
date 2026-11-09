@@ -3,8 +3,18 @@ INSERT INTO users (id, phone_number, username, password, wallet_balance, role, s
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: CreateTenantUser :exec
-INSERT INTO users (id, tenant_id, phone_number, username, password, wallet_balance, role, status, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+INSERT INTO users (id, tenant_id, organization_id, phone_number, email, username, password, wallet_balance, role, status, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+
+-- name: ListTenantAdminsByTenant :many
+SELECT * FROM users
+WHERE tenant_id = $1 AND role IN ('tenant_admin', 'org_admin')
+ORDER BY created_at DESC;
+
+-- name: ListUsersByOrganization :many
+SELECT * FROM users
+WHERE organization_id = $1
+ORDER BY created_at DESC;
 
 -- name: GetUserByPhone :one
 SELECT * FROM users WHERE phone_number = $1;

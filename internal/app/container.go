@@ -48,6 +48,7 @@ func NewContainer(
 	bikeRepo := repository.NewBikePostgresRepository(db)
 	rideRepo := repository.NewRidePostgresRepository(db)
 	zoneRepo := repository.NewZoneRepository(db)
+	tenantRepo := repository.NewTenantPostgresRepository(db)
 	configRepo := repository.NewConfigRepository(db)
 	txRepo := repository.NewTransactionPostgresRepository(db)
 	spendingRepo := repository.NewUserMonthlySpendingRepository(db)
@@ -75,8 +76,8 @@ func NewContainer(
 	bikeListService := bikeList.NewService(bikeRepo)
 	bikeUpdateStatusService := bikeUpdateStatus.NewService(bikeRepo)
 
-	rideStartService := rideStart.NewService(rideRepo, userRepo, bikeRepo)
-	rideEndService := rideEnd.NewService(rideRepo, userRepo, bikeRepo, zoneRepo, configRepo, spendingRepo, rankCacheRepo, configCacheRepo, couponRepo, mqttPub, notiProvider, db)
+	rideStartService := rideStart.NewService(rideRepo, userRepo, bikeRepo, tenantRepo, zoneRepo)
+	rideEndService := rideEnd.NewService(rideRepo, userRepo, bikeRepo, zoneRepo, tenantRepo, configRepo, spendingRepo, rankCacheRepo, configCacheRepo, couponRepo, mqttPub, notiProvider, db)
 
 	zoneListService := zoneList.NewService(zoneRepo)
 	zoneCreateService := zoneCreate.NewService(zoneRepo)

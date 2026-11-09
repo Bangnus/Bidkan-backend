@@ -15,4 +15,5 @@ type SuperAdminRepository interface {
 	CreatePayout(ctx context.Context, p *entity.TenantPayout) error
 	ListGlobalCoupons(ctx context.Context) ([]*entity.Coupon, error)
 	CreateGlobalCoupon(ctx context.Context, c *entity.Coupon) error
+	ActivatePendingAdmins(ctx context.Context, tenantID uuid.UUID, orgID *uuid.UUID) error
 }

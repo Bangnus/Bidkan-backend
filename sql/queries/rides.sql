@@ -38,3 +38,40 @@ LIMIT 100;
 
 -- name: GetActiveRideByUser :one
 SELECT * FROM rides WHERE user_id = $1 AND status = 'ongoing' LIMIT 1;
+
+-- name: GetTenantTodayStats :one
+SELECT
+    COUNT(*)::INT AS total_trips,
+    COALESCE(SUM(total_fare), 0)::TEXT AS gross_volume,
+    COALESCE(SUM(partner_earnings), 0)::TEXT AS net_earnings,
+    COALESCE(SUM(platform_fee), 0)::TEXT AS gp_fee
+FROM rides
+WHERE tenant_id = $1
+  AND start_time >= CURRENT_DATE
+  AND type <> 'service';
+
+-- name: GetTenantCompletedStats :one
+SELECT
+    COUNT(*)::INT AS total_rides,
+    COALESCE(SUM(total_fare), 0)::TEXT AS gross_amount,
+    COALESCE(SUM(platform_fee), 0)::TEXT AS platform_fee_amount,
+    COALESCE(SUM(partner_earnings), 0)::TEXT AS net_payout_amount
+FROM rides
+WHERE tenant_id = $1
+  AND status = 'completed'
+  AND type <> 'service';
+
+-- name: GetTenantUnsettledStats :one
+SELECT
+    COUNT(*)::INT AS unsettled_rides,
+    COALESCE(SUM(r.total_fare), 0)::TEXT AS unsettled_gross,
+    COALESCE(SUM(r.platform_fee), 0)::TEXT AS unsettled_gp_fee,
+    COALESCE(SUM(r.partner_earnings), 0)::TEXT AS unsettled_net
+FROM rides r
+WHERE r.tenant_id = $1
+  AND r.status = 'completed'
+  AND r.type <> 'service'
+  AND COALESCE(r.end_time, r.updated_at) > COALESCE(
+      (SELECT MAX(tp.period_end) FROM tenant_payouts tp WHERE tp.tenant_id = $1 AND tp.status = 'completed'),
+      '1970-01-01'::timestamp
+  );

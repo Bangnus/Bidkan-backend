@@ -7,9 +7,10 @@ import (
 )
 
 type User struct {
-	ID            uuid.UUID
-	TenantID      *uuid.UUID
-	PhoneNumber   string
+	ID             uuid.UUID
+	TenantID       *uuid.UUID
+	OrganizationID *uuid.UUID
+	PhoneNumber    string
 	Email         string
 	Username      string
 	Password      string

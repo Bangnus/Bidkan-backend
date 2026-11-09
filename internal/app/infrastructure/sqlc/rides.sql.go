@@ -149,6 +149,103 @@ func (q *Queries) GetRide(ctx context.Context, id uuid.UUID) (Ride, error) {
 	return i, err
 }
 
+const getTenantCompletedStats = `-- name: GetTenantCompletedStats :one
+SELECT
+    COUNT(*)::INT AS total_rides,
+    COALESCE(SUM(total_fare), 0)::TEXT AS gross_amount,
+    COALESCE(SUM(platform_fee), 0)::TEXT AS platform_fee_amount,
+    COALESCE(SUM(partner_earnings), 0)::TEXT AS net_payout_amount
+FROM rides
+WHERE tenant_id = $1
+  AND status = 'completed'
+  AND type <> 'service'
+`
+
+type GetTenantCompletedStatsRow struct {
+	TotalRides        int32
+	GrossAmount       string
+	PlatformFeeAmount string
+	NetPayoutAmount   string
+}
+
+func (q *Queries) GetTenantCompletedStats(ctx context.Context, tenantID uuid.UUID) (GetTenantCompletedStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, getTenantCompletedStats, tenantID)
+	var i GetTenantCompletedStatsRow
+	err := row.Scan(
+		&i.TotalRides,
+		&i.GrossAmount,
+		&i.PlatformFeeAmount,
+		&i.NetPayoutAmount,
+	)
+	return i, err
+}
+
+const getTenantTodayStats = `-- name: GetTenantTodayStats :one
+SELECT
+    COUNT(*)::INT AS total_trips,
+    COALESCE(SUM(total_fare), 0)::TEXT AS gross_volume,
+    COALESCE(SUM(partner_earnings), 0)::TEXT AS net_earnings,
+    COALESCE(SUM(platform_fee), 0)::TEXT AS gp_fee
+FROM rides
+WHERE tenant_id = $1
+  AND start_time >= CURRENT_DATE
+  AND type <> 'service'
+`
+
+type GetTenantTodayStatsRow struct {
+	TotalTrips  int32
+	GrossVolume string
+	NetEarnings string
+	GpFee       string
+}
+
+func (q *Queries) GetTenantTodayStats(ctx context.Context, tenantID uuid.UUID) (GetTenantTodayStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, getTenantTodayStats, tenantID)
+	var i GetTenantTodayStatsRow
+	err := row.Scan(
+		&i.TotalTrips,
+		&i.GrossVolume,
+		&i.NetEarnings,
+		&i.GpFee,
+	)
+	return i, err
+}
+
+const getTenantUnsettledStats = `-- name: GetTenantUnsettledStats :one
+SELECT
+    COUNT(*)::INT AS unsettled_rides,
+    COALESCE(SUM(r.total_fare), 0)::TEXT AS unsettled_gross,
+    COALESCE(SUM(r.platform_fee), 0)::TEXT AS unsettled_gp_fee,
+    COALESCE(SUM(r.partner_earnings), 0)::TEXT AS unsettled_net
+FROM rides r
+WHERE r.tenant_id = $1
+  AND r.status = 'completed'
+  AND r.type <> 'service'
+  AND COALESCE(r.end_time, r.updated_at) > COALESCE(
+      (SELECT MAX(tp.period_end) FROM tenant_payouts tp WHERE tp.tenant_id = $1 AND tp.status = 'completed'),
+      '1970-01-01'::timestamp
+  )
+`
+
+type GetTenantUnsettledStatsRow struct {
+	UnsettledRides int32
+	UnsettledGross string
+	UnsettledGpFee string
+	UnsettledNet   string
+}
+
+func (q *Queries) GetTenantUnsettledStats(ctx context.Context, tenantID uuid.UUID) (GetTenantUnsettledStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, getTenantUnsettledStats, tenantID)
+	var i GetTenantUnsettledStatsRow
+	err := row.Scan(
+		&i.UnsettledRides,
+		&i.UnsettledGross,
+		&i.UnsettledGpFee,
+		&i.UnsettledNet,
+	)
+	return i, err
+}
+
 const listRidesByTenant = `-- name: ListRidesByTenant :many
 SELECT id, user_id, bike_id, tenant_id, start_lat, start_lon, end_lat, end_lon, distance_km, unlock_fee, rate_per_minute, total_fare, platform_fee, partner_earnings, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE tenant_id = $1 ORDER BY start_time DESC
 `

@@ -12,39 +12,99 @@ import (
 	"github.com/google/uuid"
 )
 
+const assignTenantOrganization = `-- name: AssignTenantOrganization :exec
+UPDATE tenants
+SET organization_id = $2,
+    updated_at = NOW()
+WHERE id = $1
+`
+
+type AssignTenantOrganizationParams struct {
+	ID             uuid.UUID
+	OrganizationID uuid.NullUUID
+}
+
+func (q *Queries) AssignTenantOrganization(ctx context.Context, arg AssignTenantOrganizationParams) error {
+	_, err := q.db.ExecContext(ctx, assignTenantOrganization, arg.ID, arg.OrganizationID)
+	return err
+}
+
+const countBikesByOrganization = `-- name: CountBikesByOrganization :one
+SELECT COUNT(*)::INT
+FROM bikes b
+JOIN tenants t ON b.tenant_id = t.id
+WHERE t.organization_id = $1
+`
+
+func (q *Queries) CountBikesByOrganization(ctx context.Context, organizationID uuid.NullUUID) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countBikesByOrganization, organizationID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countBikesByTenant = `-- name: CountBikesByTenant :one
+SELECT COUNT(*)::INT FROM bikes WHERE tenant_id = $1
+`
+
+func (q *Queries) CountBikesByTenant(ctx context.Context, tenantID uuid.NullUUID) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countBikesByTenant, tenantID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createTenant = `-- name: CreateTenant :exec
 INSERT INTO tenants (
-    id, slug, name, platform_fee_percent, unlock_fee, per_minute_rate, status, created_at, updated_at
+    id, organization_id, slug, name, platform_fee_percent, auto_tiered_gp, unlock_fee, per_minute_rate,
+    parking_penalty_fee, sim_fee_per_bike, contact_name, contact_email, contact_phone, notes, status, created_at, updated_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8,
+    $9, $10, $11, $12, $13, $14, $15, NOW(), NOW()
 )
 `
 
 type CreateTenantParams struct {
 	ID                 uuid.UUID
+	OrganizationID     uuid.NullUUID
 	Slug               string
 	Name               string
 	PlatformFeePercent string
+	AutoTieredGp       bool
 	UnlockFee          string
 	PerMinuteRate      string
+	ParkingPenaltyFee  string
+	SimFeePerBike      string
+	ContactName        sql.NullString
+	ContactEmail       sql.NullString
+	ContactPhone       sql.NullString
+	Notes              sql.NullString
 	Status             string
 }
 
 func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) error {
 	_, err := q.db.ExecContext(ctx, createTenant,
 		arg.ID,
+		arg.OrganizationID,
 		arg.Slug,
 		arg.Name,
 		arg.PlatformFeePercent,
+		arg.AutoTieredGp,
 		arg.UnlockFee,
 		arg.PerMinuteRate,
+		arg.ParkingPenaltyFee,
+		arg.SimFeePerBike,
+		arg.ContactName,
+		arg.ContactEmail,
+		arg.ContactPhone,
+		arg.Notes,
 		arg.Status,
 	)
 	return err
 }
 
 const getTenantByID = `-- name: GetTenantByID :one
-SELECT id, slug, name, stripe_account_id, stripe_onboarding_completed, platform_fee_percent, unlock_fee, per_minute_rate, status, created_at, updated_at FROM tenants WHERE id = $1
+SELECT id, organization_id, slug, name, stripe_account_id, stripe_onboarding_completed, platform_fee_percent, auto_tiered_gp, unlock_fee, per_minute_rate, parking_penalty_fee, sim_fee_per_bike, contact_name, contact_email, contact_phone, notes, status, created_at, updated_at FROM tenants WHERE id = $1
 `
 
 func (q *Queries) GetTenantByID(ctx context.Context, id uuid.UUID) (Tenant, error) {
@@ -52,13 +112,21 @@ func (q *Queries) GetTenantByID(ctx context.Context, id uuid.UUID) (Tenant, erro
 	var i Tenant
 	err := row.Scan(
 		&i.ID,
+		&i.OrganizationID,
 		&i.Slug,
 		&i.Name,
 		&i.StripeAccountID,
 		&i.StripeOnboardingCompleted,
 		&i.PlatformFeePercent,
+		&i.AutoTieredGp,
 		&i.UnlockFee,
 		&i.PerMinuteRate,
+		&i.ParkingPenaltyFee,
+		&i.SimFeePerBike,
+		&i.ContactName,
+		&i.ContactEmail,
+		&i.ContactPhone,
+		&i.Notes,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -67,7 +135,7 @@ func (q *Queries) GetTenantByID(ctx context.Context, id uuid.UUID) (Tenant, erro
 }
 
 const getTenantBySlug = `-- name: GetTenantBySlug :one
-SELECT id, slug, name, stripe_account_id, stripe_onboarding_completed, platform_fee_percent, unlock_fee, per_minute_rate, status, created_at, updated_at FROM tenants WHERE slug = $1
+SELECT id, organization_id, slug, name, stripe_account_id, stripe_onboarding_completed, platform_fee_percent, auto_tiered_gp, unlock_fee, per_minute_rate, parking_penalty_fee, sim_fee_per_bike, contact_name, contact_email, contact_phone, notes, status, created_at, updated_at FROM tenants WHERE slug = $1
 `
 
 func (q *Queries) GetTenantBySlug(ctx context.Context, slug string) (Tenant, error) {
@@ -75,13 +143,21 @@ func (q *Queries) GetTenantBySlug(ctx context.Context, slug string) (Tenant, err
 	var i Tenant
 	err := row.Scan(
 		&i.ID,
+		&i.OrganizationID,
 		&i.Slug,
 		&i.Name,
 		&i.StripeAccountID,
 		&i.StripeOnboardingCompleted,
 		&i.PlatformFeePercent,
+		&i.AutoTieredGp,
 		&i.UnlockFee,
 		&i.PerMinuteRate,
+		&i.ParkingPenaltyFee,
+		&i.SimFeePerBike,
+		&i.ContactName,
+		&i.ContactEmail,
+		&i.ContactPhone,
+		&i.Notes,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -90,7 +166,7 @@ func (q *Queries) GetTenantBySlug(ctx context.Context, slug string) (Tenant, err
 }
 
 const getTenantByStripeAccountID = `-- name: GetTenantByStripeAccountID :one
-SELECT id, slug, name, stripe_account_id, stripe_onboarding_completed, platform_fee_percent, unlock_fee, per_minute_rate, status, created_at, updated_at FROM tenants WHERE stripe_account_id = $1
+SELECT id, organization_id, slug, name, stripe_account_id, stripe_onboarding_completed, platform_fee_percent, auto_tiered_gp, unlock_fee, per_minute_rate, parking_penalty_fee, sim_fee_per_bike, contact_name, contact_email, contact_phone, notes, status, created_at, updated_at FROM tenants WHERE stripe_account_id = $1
 `
 
 func (q *Queries) GetTenantByStripeAccountID(ctx context.Context, stripeAccountID sql.NullString) (Tenant, error) {
@@ -98,13 +174,21 @@ func (q *Queries) GetTenantByStripeAccountID(ctx context.Context, stripeAccountI
 	var i Tenant
 	err := row.Scan(
 		&i.ID,
+		&i.OrganizationID,
 		&i.Slug,
 		&i.Name,
 		&i.StripeAccountID,
 		&i.StripeOnboardingCompleted,
 		&i.PlatformFeePercent,
+		&i.AutoTieredGp,
 		&i.UnlockFee,
 		&i.PerMinuteRate,
+		&i.ParkingPenaltyFee,
+		&i.SimFeePerBike,
+		&i.ContactName,
+		&i.ContactEmail,
+		&i.ContactPhone,
+		&i.Notes,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -113,7 +197,7 @@ func (q *Queries) GetTenantByStripeAccountID(ctx context.Context, stripeAccountI
 }
 
 const listTenants = `-- name: ListTenants :many
-SELECT id, slug, name, stripe_account_id, stripe_onboarding_completed, platform_fee_percent, unlock_fee, per_minute_rate, status, created_at, updated_at FROM tenants ORDER BY created_at DESC
+SELECT id, organization_id, slug, name, stripe_account_id, stripe_onboarding_completed, platform_fee_percent, auto_tiered_gp, unlock_fee, per_minute_rate, parking_penalty_fee, sim_fee_per_bike, contact_name, contact_email, contact_phone, notes, status, created_at, updated_at FROM tenants ORDER BY created_at DESC
 `
 
 func (q *Queries) ListTenants(ctx context.Context) ([]Tenant, error) {
@@ -127,13 +211,68 @@ func (q *Queries) ListTenants(ctx context.Context) ([]Tenant, error) {
 		var i Tenant
 		if err := rows.Scan(
 			&i.ID,
+			&i.OrganizationID,
 			&i.Slug,
 			&i.Name,
 			&i.StripeAccountID,
 			&i.StripeOnboardingCompleted,
 			&i.PlatformFeePercent,
+			&i.AutoTieredGp,
 			&i.UnlockFee,
 			&i.PerMinuteRate,
+			&i.ParkingPenaltyFee,
+			&i.SimFeePerBike,
+			&i.ContactName,
+			&i.ContactEmail,
+			&i.ContactPhone,
+			&i.Notes,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTenantsByOrganization = `-- name: ListTenantsByOrganization :many
+SELECT id, organization_id, slug, name, stripe_account_id, stripe_onboarding_completed, platform_fee_percent, auto_tiered_gp, unlock_fee, per_minute_rate, parking_penalty_fee, sim_fee_per_bike, contact_name, contact_email, contact_phone, notes, status, created_at, updated_at FROM tenants WHERE organization_id = $1 ORDER BY name ASC
+`
+
+func (q *Queries) ListTenantsByOrganization(ctx context.Context, organizationID uuid.NullUUID) ([]Tenant, error) {
+	rows, err := q.db.QueryContext(ctx, listTenantsByOrganization, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Tenant
+	for rows.Next() {
+		var i Tenant
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.Slug,
+			&i.Name,
+			&i.StripeAccountID,
+			&i.StripeOnboardingCompleted,
+			&i.PlatformFeePercent,
+			&i.AutoTieredGp,
+			&i.UnlockFee,
+			&i.PerMinuteRate,
+			&i.ParkingPenaltyFee,
+			&i.SimFeePerBike,
+			&i.ContactName,
+			&i.ContactEmail,
+			&i.ContactPhone,
+			&i.Notes,
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -156,6 +295,9 @@ UPDATE tenants
 SET unlock_fee = $2,
     per_minute_rate = $3,
     platform_fee_percent = $4,
+    auto_tiered_gp = $5,
+    parking_penalty_fee = $6,
+    sim_fee_per_bike = $7,
     updated_at = NOW()
 WHERE id = $1
 `
@@ -165,6 +307,9 @@ type UpdateTenantRatesParams struct {
 	UnlockFee          string
 	PerMinuteRate      string
 	PlatformFeePercent string
+	AutoTieredGp       bool
+	ParkingPenaltyFee  string
+	SimFeePerBike      string
 }
 
 func (q *Queries) UpdateTenantRates(ctx context.Context, arg UpdateTenantRatesParams) error {
@@ -173,6 +318,9 @@ func (q *Queries) UpdateTenantRates(ctx context.Context, arg UpdateTenantRatesPa
 		arg.UnlockFee,
 		arg.PerMinuteRate,
 		arg.PlatformFeePercent,
+		arg.AutoTieredGp,
+		arg.ParkingPenaltyFee,
+		arg.SimFeePerBike,
 	)
 	return err
 }

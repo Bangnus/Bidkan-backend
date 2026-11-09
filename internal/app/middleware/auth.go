@@ -55,6 +55,9 @@ func AuthMiddleware() fiber.Handler {
 			if tenantID, exists := claims["tenant_id"]; exists && tenantID != nil {
 				c.Locals("tenant_id", tenantID)
 			}
+			if orgID, exists := claims["organization_id"]; exists && orgID != nil {
+				c.Locals("organization_id", orgID)
+			}
 		}
 
 		return c.Next()

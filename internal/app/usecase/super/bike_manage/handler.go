@@ -47,5 +47,8 @@ func (h *Handler) HandleCreate(c *fiber.Ctx) error {
 	if err := h.superRepo.CreateBikeWithTenant(c.Context(), req.BikeID, req.HardwareID, tenantID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
+	if tenantID != nil {
+		_, _ = h.tenantRepo.RecalculateTieredGP(c.Context(), *tenantID)
+	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "bike provisioned successfully"})
 }

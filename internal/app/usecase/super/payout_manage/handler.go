@@ -2,6 +2,7 @@ package payout_manage
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,18 +16,39 @@ import (
 )
 
 type TriggerPayoutRequest struct {
-	TenantSlug  string  `json:"tenant_slug"`
-	GrossAmount float64 `json:"gross_amount"`
-	TotalRides  int     `json:"total_rides"`
+	TenantSlug    string  `json:"tenant_slug"`
+	GrossAmount   float64 `json:"gross_amount"`
+	TotalRides    int     `json:"total_rides"`
+	AutoCalculate bool    `json:"auto_calculate"`
+	IncludeSimFee bool    `json:"include_sim_fee"`
+}
+
+type UnsettledTenantSummary struct {
+	TenantID        uuid.UUID         `json:"tenant_id"`
+	TenantSlug      string            `json:"tenant_slug"`
+	TenantName      string            `json:"tenant_name"`
+	GPTier          entity.GPTierInfo `json:"gp_tier"`
+	HasStripe       bool              `json:"has_stripe"`
+	CampusBikes     int               `json:"campus_bikes"`
+	MonthlySimFee   float64           `json:"monthly_sim_fee"`
+	UnsettledRides  int               `json:"unsettled_rides"`
+	UnsettledGross  float64           `json:"unsettled_gross"`
+	UnsettledGPFee  float64           `json:"unsettled_gp_fee"`
+	UnsettledNet    float64           `json:"unsettled_net"`
 }
 
 type Handler struct {
 	superRepo  domainRepo.SuperAdminRepository
 	tenantRepo domainRepo.TenantRepository
+	campusRepo domainRepo.CampusOpsRepository
 }
 
-func NewHandler(superRepo domainRepo.SuperAdminRepository, tenantRepo domainRepo.TenantRepository) Handler {
-	return Handler{superRepo: superRepo, tenantRepo: tenantRepo}
+func NewHandler(
+	superRepo domainRepo.SuperAdminRepository,
+	tenantRepo domainRepo.TenantRepository,
+	campusRepo domainRepo.CampusOpsRepository,
+) Handler {
+	return Handler{superRepo: superRepo, tenantRepo: tenantRepo, campusRepo: campusRepo}
 }
 
 func (h *Handler) HandleListAll(c *fiber.Ctx) error {
@@ -34,13 +56,41 @@ func (h *Handler) HandleListAll(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{"data": payouts})
+
+	tenants, _ := h.tenantRepo.List(c.Context())
+	unsettled := make([]UnsettledTenantSummary, 0, len(tenants))
+	for _, t := range tenants {
+		st, _ := h.campusRepo.GetUnsettledStats(c.Context(), t.ID)
+		if st == nil {
+			st = &entity.RideStatsSummary{}
+		}
+		bikes, _ := h.tenantRepo.ListBikesByTenant(c.Context(), t.ID)
+		fleetCnt, _ := h.tenantRepo.CountFleetForTenant(c.Context(), t.ID)
+		unsettled = append(unsettled, UnsettledTenantSummary{
+			TenantID:       t.ID,
+			TenantSlug:     t.Slug,
+			TenantName:     t.Name,
+			GPTier:         entity.CalculateTieredGP(fleetCnt),
+			HasStripe:      t.StripeOnboardingCompleted,
+			CampusBikes:    len(bikes),
+			MonthlySimFee:  float64(len(bikes)) * t.SimFeePerBike,
+			UnsettledRides: st.TotalRides,
+			UnsettledGross: st.GrossAmount,
+			UnsettledGPFee: st.GPFeeAmount,
+			UnsettledNet:   st.NetAmount,
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"data":      payouts,
+		"unsettled": unsettled,
+	})
 }
 
 func (h *Handler) HandleTriggerPayout(c *fiber.Ctx) error {
 	var req TriggerPayoutRequest
-	if err := c.BodyParser(&req); err != nil || req.TenantSlug == "" || req.GrossAmount <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "tenant_slug and positive gross_amount are required"})
+	if err := c.BodyParser(&req); err != nil || req.TenantSlug == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "tenant_slug is required"})
 	}
 
 	tenant, err := h.tenantRepo.GetBySlug(c.Context(), req.TenantSlug)
@@ -48,11 +98,32 @@ func (h *Handler) HandleTriggerPayout(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "tenant not found"})
 	}
 
-	gpFee := req.GrossAmount * (tenant.PlatformFeePercent / 100.0)
-	netAmount := req.GrossAmount - gpFee
+	gross := req.GrossAmount
+	rides := req.TotalRides
+	gpFee := math.Round((gross*(tenant.PlatformFeePercent/100.0))*100) / 100
+
+	if req.AutoCalculate || gross <= 0 {
+		st, err := h.campusRepo.GetUnsettledStats(c.Context(), tenant.ID)
+		if err != nil || st.GrossAmount <= 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ยังไม่มีรายได้ค้างโอนจากทริปที่จบแล้วในรอบบัญชีนี้"})
+		}
+		gross = st.GrossAmount
+		rides = st.TotalRides
+		gpFee = st.GPFeeAmount
+	}
+
+	if req.IncludeSimFee && tenant.SimFeePerBike > 0 {
+		bikes, _ := h.tenantRepo.ListBikesByTenant(c.Context(), tenant.ID)
+		gpFee += float64(len(bikes)) * tenant.SimFeePerBike
+	}
+
+	netAmount := math.Round((gross-gpFee)*100) / 100
+	if netAmount < 0 {
+		netAmount = 0
+	}
 
 	transferID := fmt.Sprintf("tr_stripe_%s", uuid.NewString()[:8])
-	if key := os.Getenv("STRIPE_SECRET_KEY"); key != "" && tenant.StripeAccountID != nil {
+	if key := os.Getenv("STRIPE_SECRET_KEY"); key != "" && tenant.StripeAccountID != nil && netAmount > 0 {
 		if id, err := executeStripeTransfer(key, *tenant.StripeAccountID, netAmount); err == nil {
 			transferID = id
 		}
@@ -63,8 +134,8 @@ func (h *Handler) HandleTriggerPayout(c *fiber.Ctx) error {
 		ID:                uuid.New(),
 		TenantID:          tenant.ID,
 		StripeTransferID:  &transferID,
-		TotalRides:        req.TotalRides,
-		GrossAmount:       req.GrossAmount,
+		TotalRides:        rides,
+		GrossAmount:       gross,
 		PlatformFeeAmount: gpFee,
 		NetPayoutAmount:   netAmount,
 		Status:            "completed",
@@ -85,7 +156,7 @@ func (h *Handler) HandleTriggerPayout(c *fiber.Ctx) error {
 
 func executeStripeTransfer(secretKey, destinationAccount string, amountTHB float64) (string, error) {
 	form := url.Values{}
-	form.Set("amount", fmt.Sprintf("%d", int64(amountTHB*100))) // Satang
+	form.Set("amount", fmt.Sprintf("%d", int64(amountTHB*100)))
 	form.Set("currency", "thb")
 	form.Set("destination", destinationAccount)
 

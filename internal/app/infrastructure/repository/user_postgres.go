@@ -129,19 +129,25 @@ func (r *userPostgresRepository) mapUser(u sqlc.User) *entity.User {
 		tID := u.TenantID.UUID
 		tenantID = &tID
 	}
+	var orgID *uuid.UUID
+	if u.OrganizationID.Valid {
+		oID := u.OrganizationID.UUID
+		orgID = &oID
+	}
 	return &entity.User{
-		ID:            u.ID,
-		TenantID:      tenantID,
-		PhoneNumber:   u.PhoneNumber.String,
-		Email:         u.Email.String,
-		Username:      u.Username,
-		Password:      u.Password,
-		WalletBalance: u.WalletBalance,
-		Role:          u.Role,
-		Status:        u.Status,
-		ImageURL:      u.ImageUrl.String,
-		FcmToken:      u.FcmToken.String,
-		CreatedAt:     u.CreatedAt,
-		UpdatedAt:     u.UpdatedAt,
+		ID:             u.ID,
+		TenantID:       tenantID,
+		OrganizationID: orgID,
+		PhoneNumber:    u.PhoneNumber.String,
+		Email:          u.Email.String,
+		Username:       u.Username,
+		Password:       u.Password,
+		WalletBalance:  u.WalletBalance,
+		Role:           u.Role,
+		Status:         u.Status,
+		ImageURL:       u.ImageUrl.String,
+		FcmToken:       u.FcmToken.String,
+		CreatedAt:      u.CreatedAt,
+		UpdatedAt:      u.UpdatedAt,
 	}
 }

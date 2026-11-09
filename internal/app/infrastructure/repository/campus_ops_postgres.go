@@ -122,68 +122,63 @@ func (r *CampusOpsPostgresRepository) ListStaffByTenant(ctx context.Context, ten
 	if err != nil {
 		return nil, err
 	}
+	return mapCampusStaffRows(rows), nil
+}
+
+func (r *CampusOpsPostgresRepository) ListAdminsByTenant(ctx context.Context, tenantID uuid.UUID) ([]*entity.CampusStaff, error) {
+	rows, err := r.queries.ListTenantAdminsByTenant(ctx, uuid.NullUUID{UUID: tenantID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+	return mapCampusStaffRows(rows), nil
+}
+
+func (r *CampusOpsPostgresRepository) CreateStaffForTenant(ctx context.Context, u *entity.User, tenantID uuid.UUID) error {
+	return r.queries.CreateTenantUser(ctx, sqlc.CreateTenantUserParams{
+		ID:             u.ID,
+		TenantID:       uuid.NullUUID{UUID: tenantID, Valid: true},
+		OrganizationID: toNullUUID(u.OrganizationID),
+		PhoneNumber:    toNullString(u.PhoneNumber),
+		Email:          toNullString(u.Email),
+		Username:       u.Username,
+		Password:       u.Password,
+		WalletBalance:  u.WalletBalance,
+		Role:           u.Role,
+		Status:         u.Status,
+		CreatedAt:      u.CreatedAt,
+		UpdatedAt:      u.UpdatedAt,
+	})
+}
+
+func (r *CampusOpsPostgresRepository) CreateBackofficeUser(ctx context.Context, u *entity.User) error {
+	return r.queries.CreateTenantUser(ctx, sqlc.CreateTenantUserParams{
+		ID:             u.ID,
+		TenantID:       toNullUUID(u.TenantID),
+		OrganizationID: toNullUUID(u.OrganizationID),
+		PhoneNumber:    toNullString(u.PhoneNumber),
+		Email:          toNullString(u.Email),
+		Username:       u.Username,
+		Password:       u.Password,
+		WalletBalance:  u.WalletBalance,
+		Role:           u.Role,
+		Status:         u.Status,
+		CreatedAt:      u.CreatedAt,
+		UpdatedAt:      u.UpdatedAt,
+	})
+}
+
+func mapCampusStaffRows(rows []sqlc.User) []*entity.CampusStaff {
 	res := make([]*entity.CampusStaff, 0, len(rows))
 	for _, u := range rows {
 		res = append(res, &entity.CampusStaff{
 			ID:          u.ID,
 			Username:    u.Username,
+			Email:       u.Email.String,
 			PhoneNumber: u.PhoneNumber.String,
 			Role:        u.Role,
 			Status:      u.Status,
 			CreatedAt:   u.CreatedAt,
 		})
 	}
-	return res, nil
-}
-
-func (r *CampusOpsPostgresRepository) CreateStaffForTenant(ctx context.Context, u *entity.User, tenantID uuid.UUID) error {
-	return r.queries.CreateTenantUser(ctx, sqlc.CreateTenantUserParams{
-		ID:            u.ID,
-		TenantID:      uuid.NullUUID{UUID: tenantID, Valid: true},
-		PhoneNumber:   sql.NullString{String: u.PhoneNumber, Valid: u.PhoneNumber != ""},
-		Username:      u.Username,
-		Password:      u.Password,
-		WalletBalance: u.WalletBalance,
-		Role:          u.Role,
-		Status:        u.Status,
-		CreatedAt:     u.CreatedAt,
-		UpdatedAt:     u.UpdatedAt,
-	})
-}
-
-func (r *CampusOpsPostgresRepository) ListReportsByTenant(ctx context.Context, tenantID uuid.UUID) ([]*entity.MaintenanceReport, error) {
-	rows, err := r.queries.ListReportsByTenant(ctx, uuid.NullUUID{UUID: tenantID, Valid: true})
-	if err != nil {
-		return nil, err
-	}
-	res := make([]*entity.MaintenanceReport, 0, len(rows))
-	for _, row := range rows {
-		var resolvedBy *uuid.UUID
-		if row.ResolvedBy.Valid {
-			u := row.ResolvedBy.UUID
-			resolvedBy = &u
-		}
-		res = append(res, &entity.MaintenanceReport{
-			ID:         row.ID,
-			BikeID:     row.BikeID,
-			ReportedBy: row.ReportedBy,
-			IssueType:  row.IssueType,
-			Status:     row.Status,
-			ResolvedBy: resolvedBy,
-			CreatedAt:  row.CreatedAt,
-			UpdatedAt:  row.UpdatedAt,
-		})
-	}
-	return res, nil
-}
-
-func (r *CampusOpsPostgresRepository) ResolveReport(ctx context.Context, reportID uuid.UUID, resolvedBy *uuid.UUID) error {
-	var nullUser uuid.NullUUID
-	if resolvedBy != nil {
-		nullUser = uuid.NullUUID{UUID: *resolvedBy, Valid: true}
-	}
-	return r.queries.ResolveMaintenanceReport(ctx, sqlc.ResolveMaintenanceReportParams{
-		ID:         reportID,
-		ResolvedBy: nullUser,
-	})
+	return res
 }

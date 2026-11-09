@@ -24,16 +24,26 @@ func SetupSuperAdminRoutes(
 ) {
 	super := app.Group("/api/v1/super", middleware.AuthMiddleware(), middleware.SuperAdminOnly())
 
-	// Tenants
+	// Organizations
+	super.Get("/organizations", manageTenantHandler.HandleListOrganizations)
+	super.Post("/organizations", manageTenantHandler.HandleCreateOrganization)
+
+	// Tenants & University Admins
 	super.Get("/tenants", listTenantHandler.Handle)
 	super.Post("/tenants", createTenantHandler.Handle)
 	super.Patch("/tenants/:id/status", manageTenantHandler.HandleUpdateStatus)
 	super.Patch("/tenants/:id/rates", manageTenantHandler.HandleUpdateRates)
+	super.Get("/tenants/:id/admins", manageTenantHandler.HandleListAdmins)
+	super.Post("/tenants/:id/admins", manageTenantHandler.HandleCreateAdmin)
 
 	// Bikes Fleet Provisioning
 	super.Get("/bikes", manageBikeHandler.HandleListAll)
 	super.Post("/bikes", manageBikeHandler.HandleCreate)
 	super.Post("/bikes/assign", assignBikeHandler.Handle)
+
+	// Hardware Orders (Bikes & Spare Parts)
+	super.Get("/orders", manageTenantHandler.HandleListOrders)
+	super.Patch("/orders/:id", manageTenantHandler.HandleUpdateOrderStatus)
 
 	// Stripe Payouts
 	super.Get("/payouts", payoutHandler.HandleListAll)

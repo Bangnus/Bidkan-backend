@@ -10,7 +10,7 @@ import (
 type RideRepository interface {
 	Create(ctx context.Context, ride *entity.Ride) error
 	GetByID(ctx context.Context, id uuid.UUID) (*entity.Ride, error)
-	EndRide(ctx context.Context, id uuid.UUID, endLat, endLon, distance float64, fare string) error
+	EndRide(ctx context.Context, id uuid.UUID, endLat, endLon, distance float64, fare, platformFee, partnerEarnings string) error
 	ListByUser(ctx context.Context, userID uuid.UUID) ([]entity.Ride, error)
 	GetActiveRide(ctx context.Context, userID uuid.UUID) (*entity.Ride, error)
 }

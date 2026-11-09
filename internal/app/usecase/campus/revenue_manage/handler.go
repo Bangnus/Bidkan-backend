@@ -3,14 +3,16 @@ package revenue_manage
 import (
 	"fmt"
 
+	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
 
 type UpdateRatesRequest struct {
-	UnlockFee     float64 `json:"unlock_fee"`
-	PerMinuteRate float64 `json:"per_minute_rate"`
+	UnlockFee         float64  `json:"unlock_fee"`
+	PerMinuteRate     float64  `json:"per_minute_rate"`
+	ParkingPenaltyFee *float64 `json:"parking_penalty_fee"`
 }
 
 type Handler struct {
@@ -32,20 +34,32 @@ func (h *Handler) HandleGetRevenue(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	var totalGross, totalFee, totalNet float64
-	for _, p := range payouts {
-		totalGross += p.GrossAmount
-		totalFee += p.PlatformFeeAmount
-		totalNet += p.NetPayoutAmount
+	completedStats, _ := h.campusRepo.GetCompletedStats(c.Context(), tenant.ID)
+	unsettledStats, _ := h.campusRepo.GetUnsettledStats(c.Context(), tenant.ID)
+	if completedStats == nil {
+		completedStats = &entity.RideStatsSummary{}
 	}
+	if unsettledStats == nil {
+		unsettledStats = &entity.RideStatsSummary{}
+	}
+
+	fleetCount, _ := h.tenantRepo.CountFleetForTenant(c.Context(), tenant.ID)
+	campusBikes, _ := h.tenantRepo.ListBikesByTenant(c.Context(), tenant.ID)
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"data": fiber.Map{
-			"tenant":       tenant,
-			"total_gross":  totalGross,
-			"total_gp_fee": totalFee,
-			"total_net":    totalNet,
-			"payouts":      payouts,
+			"tenant":            tenant,
+			"gp_tier":           entity.CalculateTieredGP(fleetCount),
+			"campus_bike_count": len(campusBikes),
+			"monthly_sim_fee":   float64(len(campusBikes)) * tenant.SimFeePerBike,
+			"total_gross":       completedStats.GrossAmount,
+			"total_gp_fee":      completedStats.GPFeeAmount,
+			"total_net":         completedStats.NetAmount,
+			"unsettled_rides":   unsettledStats.TotalRides,
+			"unsettled_gross":   unsettledStats.GrossAmount,
+			"unsettled_gp_fee":  unsettledStats.GPFeeAmount,
+			"unsettled_net":     unsettledStats.NetAmount,
+			"payouts":           payouts,
 		},
 	})
 }
@@ -59,7 +73,20 @@ func (h *Handler) HandleUpdateRates(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
-	if err := h.tenantRepo.UpdateRates(c.Context(), tenant.ID, req.UnlockFee, req.PerMinuteRate, tenant.PlatformFeePercent); err != nil {
+	penalty := tenant.ParkingPenaltyFee
+	if req.ParkingPenaltyFee != nil {
+		penalty = *req.ParkingPenaltyFee
+	}
+	if err := h.tenantRepo.UpdateRatesFull(
+		c.Context(),
+		tenant.ID,
+		req.UnlockFee,
+		req.PerMinuteRate,
+		tenant.PlatformFeePercent,
+		penalty,
+		tenant.SimFeePerBike,
+		tenant.AutoTieredGP,
+	); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "campus pricing rates updated"})

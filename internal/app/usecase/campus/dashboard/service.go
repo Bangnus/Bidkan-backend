@@ -9,22 +9,24 @@ import (
 )
 
 type DashboardData struct {
-	Tenant             *entity.Tenant `json:"tenant"`
-	TotalBikes         int            `json:"total_bikes"`
-	AvailableBikes     int            `json:"available_bikes"`
-	InUseBikes         int            `json:"in_use_bikes"`
-	LowBatteryBikes    int            `json:"low_battery_bikes"`
-	TotalTripsToday    int            `json:"total_trips_today"`
-	GrossVolumeToday   float64        `json:"gross_volume_today"`
-	NetEarningsToday   float64        `json:"net_earnings_today"`
+	Tenant           *entity.Tenant    `json:"tenant"`
+	GPTier           entity.GPTierInfo `json:"gp_tier"`
+	TotalBikes       int               `json:"total_bikes"`
+	AvailableBikes   int               `json:"available_bikes"`
+	InUseBikes       int               `json:"in_use_bikes"`
+	LowBatteryBikes  int               `json:"low_battery_bikes"`
+	TotalTripsToday  int               `json:"total_trips_today"`
+	GrossVolumeToday float64           `json:"gross_volume_today"`
+	NetEarningsToday float64           `json:"net_earnings_today"`
 }
 
 type Service struct {
-	repo domainRepo.TenantRepository
+	repo       domainRepo.TenantRepository
+	campusRepo domainRepo.CampusOpsRepository
 }
 
-func NewService(repo domainRepo.TenantRepository) *Service {
-	return &Service{repo: repo}
+func NewService(repo domainRepo.TenantRepository, campusRepo domainRepo.CampusOpsRepository) *Service {
+	return &Service{repo: repo, campusRepo: campusRepo}
 }
 
 func (s *Service) Execute(ctx context.Context, slug string) (*DashboardData, error) {
@@ -39,36 +41,40 @@ func (s *Service) Execute(ctx context.Context, slug string) (*DashboardData, err
 	}
 
 	total := len(bikes)
-	available := 0
-	inUse := 0
-	lowBattery := 0
-
+	available, inUse, lowBattery := 0, 0, 0
 	for _, b := range bikes {
 		if b.Battery < 20 {
 			lowBattery++
 		}
-		if b.Status == "available" {
+		switch b.Status {
+		case "available":
 			available++
-		} else if b.Status == "in_use" {
+		case "in_use":
 			inUse++
 		}
 	}
 
-	// Calculate simulated revenue metrics for the day
-	tripsToday := total * 5
-	grossVolume := float64(tripsToday) * 25.0
-	partnerShare := (100.0 - tenant.PlatformFeePercent) / 100.0
-	netEarnings := grossVolume * partnerShare
+	todayStats := &entity.RideStatsSummary{}
+	if s.campusRepo != nil {
+		if st, err := s.campusRepo.GetTodayStats(ctx, tenant.ID); err == nil && st != nil {
+			todayStats = st
+		}
+	}
+
+	fleetCount := total
+	if cnt, err := s.repo.CountFleetForTenant(ctx, tenant.ID); err == nil && cnt > 0 {
+		fleetCount = cnt
+	}
 
 	return &DashboardData{
 		Tenant:           tenant,
+		GPTier:           entity.CalculateTieredGP(fleetCount),
 		TotalBikes:       total,
 		AvailableBikes:   available,
 		InUseBikes:       inUse,
 		LowBatteryBikes:  lowBattery,
-		TotalTripsToday:  tripsToday,
-		GrossVolumeToday: grossVolume,
-		NetEarningsToday: netEarnings,
+		TotalTripsToday:  todayStats.TotalRides,
+		GrossVolumeToday: todayStats.GrossAmount,
+		NetEarningsToday: todayStats.NetAmount,
 	}, nil
 }
-

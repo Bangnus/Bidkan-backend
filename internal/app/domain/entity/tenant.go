@@ -7,17 +7,25 @@ import (
 )
 
 type Tenant struct {
-	ID                        uuid.UUID `json:"id"`
-	Slug                      string    `json:"slug"`
-	Name                      string    `json:"name"`
-	StripeAccountID           *string   `json:"stripe_account_id"`
-	StripeOnboardingCompleted bool      `json:"stripe_onboarding_completed"`
-	PlatformFeePercent        float64   `json:"platform_fee_percent"`
-	UnlockFee                 float64   `json:"unlock_fee"`
-	PerMinuteRate             float64   `json:"per_minute_rate"`
-	Status                    string    `json:"status"`
-	CreatedAt                 time.Time `json:"created_at"`
-	UpdatedAt                 time.Time `json:"updated_at"`
+	ID                        uuid.UUID  `json:"id"`
+	OrganizationID            *uuid.UUID `json:"organization_id,omitempty"`
+	Slug                      string     `json:"slug"`
+	Name                      string     `json:"name"`
+	StripeAccountID           *string    `json:"stripe_account_id"`
+	StripeOnboardingCompleted bool       `json:"stripe_onboarding_completed"`
+	PlatformFeePercent        float64    `json:"platform_fee_percent"`
+	AutoTieredGP              bool       `json:"auto_tiered_gp"`
+	UnlockFee                 float64    `json:"unlock_fee"`
+	PerMinuteRate             float64    `json:"per_minute_rate"`
+	ParkingPenaltyFee         float64    `json:"parking_penalty_fee"`
+	SimFeePerBike             float64    `json:"sim_fee_per_bike"`
+	ContactName               string     `json:"contact_name,omitempty"`
+	ContactEmail              string     `json:"contact_email,omitempty"`
+	ContactPhone              string     `json:"contact_phone,omitempty"`
+	Notes                     string     `json:"notes,omitempty"`
+	Status                    string     `json:"status"`
+	CreatedAt                 time.Time  `json:"created_at"`
+	UpdatedAt                 time.Time  `json:"updated_at"`
 }
 
 type TenantPayout struct {
@@ -79,6 +87,7 @@ type MaintenanceReport struct {
 type CampusStaff struct {
 	ID          uuid.UUID `json:"id"`
 	Username    string    `json:"username"`
+	Email       string    `json:"email"`
 	PhoneNumber string    `json:"phone_number"`
 	Role        string    `json:"role"`
 	Status      string    `json:"status"`
