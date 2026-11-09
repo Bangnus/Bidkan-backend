@@ -70,6 +70,8 @@ services:
       - MQTT_BROKER=tcp://mqtt:1883
       - REDIS_URL=redis:6379
       - PORT=${PORT}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
 
   # 5. MQTTX Web UI สำหรับทดสอบผ่านเบราว์เซอร์
   mqttx:
