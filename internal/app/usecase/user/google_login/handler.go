@@ -43,3 +43,4 @@ func (h *handler) Handle(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(res)
 }
+

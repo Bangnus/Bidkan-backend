@@ -175,3 +175,4 @@ func (s *service) generateJWT(userID, role, tenantID string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(secret))
 }
+
