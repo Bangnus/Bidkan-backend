@@ -2,6 +2,7 @@ package auth
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
@@ -12,6 +13,7 @@ import (
 )
 
 type LoginRequest struct {
+	Email    string `json:"email"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
@@ -27,21 +29,28 @@ func NewHandler(userRepo domainRepo.UserRepository, tenantRepo domainRepo.Tenant
 
 func (h *Handler) HandleLogin(c *fiber.Ctx) error {
 	var req LoginRequest
-	if err := c.BodyParser(&req); err != nil || req.Username == "" || req.Password == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "username and password are required"})
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	identifier := strings.TrimSpace(req.Email)
+	if identifier == "" {
+		identifier = strings.TrimSpace(req.Username)
+	}
+	if identifier == "" || req.Password == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "email and password are required"})
 	}
 
-	user, err := h.userRepo.GetByUsername(c.Context(), req.Username)
+	user, err := h.userRepo.GetByIdentifier(c.Context(), identifier)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid username or password"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "อีเมลหรือรหัสผ่านไม่ถูกต้อง"})
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid username or password"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "อีเมลหรือรหัสผ่านไม่ถูกต้อง"})
 	}
 
 	if user.Role == "user" {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "backoffice access denied for end-users"})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "ไม่มีสิทธิ์เข้าใช้งานระบบ Backoffice"})
 	}
 
 	var tenantIDStr, tenantSlug, tenantName string
@@ -60,6 +69,7 @@ func (h *Handler) HandleLogin(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"token":       token,
+		"email":       user.Email,
 		"username":    user.Username,
 		"role":        user.Role,
 		"tenant_id":   tenantIDStr,
@@ -91,6 +101,7 @@ func (h *Handler) HandleMe(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"id":          user.ID,
+		"email":       user.Email,
 		"username":    user.Username,
 		"role":        user.Role,
 		"tenant_id":   tenantIDStr,

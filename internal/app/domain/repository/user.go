@@ -12,9 +12,11 @@ type UserRepository interface {
 	GetByPhone(ctx context.Context, phone string) (*entity.User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*entity.User, error)
 	GetByUsername(ctx context.Context, username string) (*entity.User, error)
+	GetByIdentifier(ctx context.Context, identifier string) (*entity.User, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error
 	UpdateBalance(ctx context.Context, id uuid.UUID, newBalance string) error
 	AddBalance(ctx context.Context, id uuid.UUID, amount string) error
 	DeductBalance(ctx context.Context, id uuid.UUID, amount string) error
 	UpdateProfileImage(ctx context.Context, id uuid.UUID, imageURL string) error
+	UpsertGoogleUser(ctx context.Context, googleID, email, name, imageURL string, tenantID *uuid.UUID) (*entity.User, error)
 }

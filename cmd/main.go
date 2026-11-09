@@ -123,6 +123,7 @@ func main() {
 		server, 
 		container.CreateUserHandler, 
 		container.LoginHandler, 
+		container.GoogleLoginHandler,
 		container.MeHandler, 
 		container.VerifyFirebaseHandler,
 		container.UpdateProfileHandler,

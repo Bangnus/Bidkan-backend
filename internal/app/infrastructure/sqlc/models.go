@@ -148,7 +148,9 @@ type Transaction struct {
 type User struct {
 	ID            uuid.UUID
 	TenantID      uuid.NullUUID
-	PhoneNumber   string
+	PhoneNumber   sql.NullString
+	Email         sql.NullString
+	GoogleID      sql.NullString
 	Username      string
 	Password      string
 	WalletBalance string

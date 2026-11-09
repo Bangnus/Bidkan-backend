@@ -212,7 +212,7 @@ type ListRidesByTenantWithUserRow struct {
 	BikeID          string
 	UserID          uuid.UUID
 	Username        string
-	PhoneNumber     string
+	PhoneNumber     sql.NullString
 	DistanceKm      float64
 	TotalFare       string
 	PlatformFee     string

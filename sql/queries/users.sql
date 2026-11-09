@@ -18,6 +18,9 @@ UPDATE users SET wallet_balance = $1, updated_at = NOW() WHERE id = $2;
 -- name: GetUserByUsername :one
 SELECT * FROM users WHERE username = $1;
 
+-- name: GetUserByIdentifier :one
+SELECT * FROM users WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1) LIMIT 1;
+
 -- name: GetUserByID :one
 SELECT * FROM users WHERE id = $1;
 
@@ -42,3 +45,20 @@ UPDATE users SET wallet_balance = wallet_balance - $1, updated_at = NOW() WHERE 
 
 -- name: UpdateUserProfileImage :exec
 UPDATE users SET image_url = $1, updated_at = NOW() WHERE id = $2;
+
+-- name: GetUserByEmail :one
+SELECT * FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1;
+
+-- name: GetUserByGoogleID :one
+SELECT * FROM users WHERE google_id = $1 LIMIT 1;
+
+-- name: UpsertGoogleUser :one
+INSERT INTO users (id, tenant_id, google_id, email, username, phone_number, password, wallet_balance, role, status, image_url, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, 'google_oauth', 0.00, 'user', 'active', $7, NOW(), NOW())
+ON CONFLICT (email) DO UPDATE SET
+    google_id = COALESCE(users.google_id, EXCLUDED.google_id),
+    username = EXCLUDED.username,
+    image_url = COALESCE(EXCLUDED.image_url, users.image_url),
+    tenant_id = COALESCE(users.tenant_id, EXCLUDED.tenant_id),
+    updated_at = NOW()
+RETURNING *;

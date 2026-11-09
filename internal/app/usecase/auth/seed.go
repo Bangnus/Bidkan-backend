@@ -31,12 +31,13 @@ func SeedDemoData(ctx context.Context, db *sql.DB) {
 	pw := string(hash)
 
 	_, _ = db.ExecContext(ctx, `
-		INSERT INTO users (id, tenant_id, phone_number, username, password, wallet_balance, role, status)
+		INSERT INTO users (id, tenant_id, phone_number, email, username, password, wallet_balance, role, status)
 		VALUES
-		  ($1, NULL, '0800000001', 'superadmin', $4, 0.00, 'super_admin', 'active'),
-		  ($2, $5, '0800000002', 'ku_admin', $4, 0.00, 'tenant_admin', 'active'),
-		  ($3, $5, '0800000003', 'ku_staff', $4, 0.00, 'tenant_staff', 'active')
-		ON CONFLICT (phone_number) DO NOTHING
+		  ($1, NULL, '0800000001', 'superadmin@bidkan.com', 'superadmin', $4, 0.00, 'super_admin', 'active'),
+		  ($2, $5, '0800000002', 'ku_admin@bidkan.com', 'ku_admin', $4, 0.00, 'tenant_admin', 'active'),
+		  ($3, $5, '0800000003', 'ku_staff@bidkan.com', 'ku_staff', $4, 0.00, 'tenant_staff', 'active')
+		ON CONFLICT (phone_number) DO UPDATE SET
+		  email = COALESCE(users.email, EXCLUDED.email)
 	`, uuid.New(), uuid.New(), uuid.New(), pw, kuID)
 
 	// 3. Seed Sample Bikes

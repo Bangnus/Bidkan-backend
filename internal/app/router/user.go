@@ -3,13 +3,13 @@ package router
 import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/middleware"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/create"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/google_login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/logout"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/me"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/rank"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/update_profile"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify_firebase"
-
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -17,6 +17,7 @@ func SetupUserRoutes(
 	app *fiber.App,
 	createHandler create.Handler,
 	loginHandler login.Handler,
+	googleLoginHandler google_login.Handler,
 	meHandler me.Handler,
 	verifyFirebaseHandler verify_firebase.Handler,
 	updateProfileHandler update_profile.Handler,
@@ -30,6 +31,8 @@ func SetupUserRoutes(
 	v1.Post("/users", createHandler.Handle)
 	v1.Post("/users/verify/firebase", verifyFirebaseHandler.Handle)
 	v1.Post("/users/login", loginHandler.Handle)
+	v1.Post("/users/google-login", googleLoginHandler.Handle)
+	v1.Post("/auth/google", googleLoginHandler.Handle)
 
 	// Protected Routes (ต้องใช้ Token)
 	userGroup := v1.Group("/users", middleware.AuthMiddleware())

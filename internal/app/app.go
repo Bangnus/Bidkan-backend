@@ -1,57 +1,35 @@
 package app
 
 import (
-	"database/sql"
-
-	"github.com/redis/go-redis/v9"
 	domainService "github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
-	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/repository"
-	
-	// User
+	bikeCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/create"
+	bikeList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/list"
+	bikeUpdateStatus "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/update_status"
+	configUsecase "github.com/Bangnus/Bidkan-backend/internal/app/usecase/config"
+	couponCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/coupon/create"
+	couponListMy "github.com/Bangnus/Bidkan-backend/internal/app/usecase/coupon/list_my"
+	couponRedeem "github.com/Bangnus/Bidkan-backend/internal/app/usecase/coupon/redeem"
+	notiBroadcast "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/broadcast"
+	notiList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/list"
+	notiUpdateToken "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/update_token"
+	reportSummary "github.com/Bangnus/Bidkan-backend/internal/app/usecase/report/summary"
+	rideEnd "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/end"
+	rideStart "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/start"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/create"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/google_login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/logout"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/me"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/rank"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/update_profile"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify_firebase"
-	
-	// Bike
-	bikeCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/create"
-	bikeList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/list"
-	bikeUpdateStatus "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/update_status"
-	
-	// Ride
-	rideStart "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/start"
-	rideEnd "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/end"
-
-	// Zone
-	zoneList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/zone/list"
-	zoneCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/zone/create"
-
-	// Report
-	reportSummary "github.com/Bangnus/Bidkan-backend/internal/app/usecase/report/summary"
-
-	// Notification
-	notiBroadcast "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/broadcast"
-	notiList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/list"
-	notiUpdateToken "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/update_token"
-
-	// Coupon
-	couponRedeem "github.com/Bangnus/Bidkan-backend/internal/app/usecase/coupon/redeem"
-	couponCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/coupon/create"
-	couponListMy "github.com/Bangnus/Bidkan-backend/internal/app/usecase/coupon/list_my"
-
-	// Wallet & Payment
-	"github.com/Bangnus/Bidkan-backend/pkg/payment"
 	walletTopup "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/topup"
 	walletTransfer "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/transfer"
 	walletVerify "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/verify_receiver"
 	walletWebhook "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/webhook"
-
-	// Config
-	configUsecase "github.com/Bangnus/Bidkan-backend/internal/app/usecase/config"
+	zoneCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/zone/create"
+	zoneList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/zone/list"
 )
 
 type Container struct {
@@ -59,6 +37,7 @@ type Container struct {
 	CreateUserHandler     create.Handler
 	VerifyFirebaseHandler verify_firebase.Handler
 	LoginHandler          login.Handler
+	GoogleLoginHandler    google_login.Handler
 	MeHandler             me.Handler
 	RankHandler           rank.Handler
 	UpdateProfileHandler  update_profile.Handler
@@ -71,147 +50,36 @@ type Container struct {
 	WebhookHandler        walletWebhook.Handler
 
 	// Bike
-	CreateBikeHandler     bikeCreate.Handler
-	ListBikeHandler       bikeList.Handler
+	CreateBikeHandler       bikeCreate.Handler
+	ListBikeHandler         bikeList.Handler
 	UpdateBikeStatusHandler bikeUpdateStatus.Handler
 
 	// Ride
-	StartRideHandler      rideStart.Handler
-	EndRideHandler        rideEnd.Handler
+	StartRideHandler rideStart.Handler
+	EndRideHandler   rideEnd.Handler
 
 	// Zone
-	ListZoneHandler       zoneList.Handler
-	CreateZoneHandler     zoneCreate.Handler
-	
+	ListZoneHandler   zoneList.Handler
+	CreateZoneHandler zoneCreate.Handler
+
 	// Notification
 	NotiBroadcastHandler   notiBroadcast.Handler
 	NotiListHandler        notiList.Handler
 	NotiUpdateTokenHandler notiUpdateToken.Handler
 
 	// Coupon
-	RedeemCouponHandler   couponRedeem.Handler
-	CreateCouponHandler   couponCreate.Handler
-	ListMyCouponHandler   couponListMy.Handler
+	RedeemCouponHandler couponRedeem.Handler
+	CreateCouponHandler couponCreate.Handler
+	ListMyCouponHandler couponListMy.Handler
 
 	// Report
-	ReportSummaryHandler  reportSummary.Handler
+	ReportSummaryHandler reportSummary.Handler
 
 	// Config
-	ConfigHandler         configUsecase.Handler
+	ConfigHandler configUsecase.Handler
 
 	// External
-	SmsProvider           domainService.SmsProvider
-	NotiProvider          domainService.NotificationProvider
-	MqttPublisher         mqtt.Publisher
-}
-
-func NewContainer(
-	db *sql.DB,
-	rdb *redis.Client,
-	smsProvider domainService.SmsProvider,
-	notiProvider domainService.NotificationProvider,
-	mqttPub mqtt.Publisher,
-) *Container {
-	// --- Repositories ---
-	userRepo := repository.NewUserPostgresRepository(db)
-	bikeRepo := repository.NewBikePostgresRepository(db)
-	rideRepo := repository.NewRidePostgresRepository(db)
-	zoneRepo := repository.NewZoneRepository(db)
-	configRepo := repository.NewConfigRepository(db)
-	txRepo := repository.NewTransactionPostgresRepository(db)
-	spendingRepo := repository.NewUserMonthlySpendingRepository(db)
-	reportRepo := repository.NewReportPostgresRepository(db)
-	couponRepo := repository.NewCouponPostgresRepository(db)
-
-	// --- Cache (Redis) ---
-	rankCacheRepo := repository.NewUserRankRedisRepository(rdb)
-	configCacheRepo := repository.NewConfigRedisRepository(rdb)
-
-	// --- Services ---
-	// User
-	createService := create.NewService(userRepo)
-	verifyFirebaseService := verify_firebase.NewService(userRepo, smsProvider)
-	loginService := login.NewService(userRepo)
-	meService := me.NewService(userRepo)
-	rankService := rank.NewService(spendingRepo, rankCacheRepo)
-	updateProfileService := update_profile.NewService(userRepo)
-
-	// Payment
-	paySvc := payment.NewPaySolutionsService()
-
-	// Wallet
-	topupService := walletTopup.NewService(txRepo, userRepo, paySvc)
-	transferService := walletTransfer.NewService(db, userRepo, txRepo, mqttPub, notiProvider)
-	verifyService := walletVerify.NewService(userRepo)
-	webhookService := walletWebhook.NewService(txRepo, userRepo)
-
-	// Bike
-	bikeCreateService := bikeCreate.NewService(bikeRepo)
-	bikeListService := bikeList.NewService(bikeRepo)
-	bikeUpdateStatusService := bikeUpdateStatus.NewService(bikeRepo)
-
-	// Ride
-	rideStartService := rideStart.NewService(rideRepo, userRepo, bikeRepo)
-	rideEndService := rideEnd.NewService(rideRepo, userRepo, bikeRepo, zoneRepo, configRepo, spendingRepo, rankCacheRepo, configCacheRepo, couponRepo, mqttPub, notiProvider, db)
-
-	// Zone
-	zoneListService := zoneList.NewService(zoneRepo)
-	zoneCreateService := zoneCreate.NewService(zoneRepo)
-
-	// Notification
-	notiBroadcastService := notiBroadcast.NewService(db, mqttPub, notiProvider)
-	notiListService := notiList.NewService(db)
-	updateTokenService := notiUpdateToken.NewService(db)
-
-	// Coupon
-	couponRedeemService := couponRedeem.NewService(db, couponRepo, userRepo, mqttPub)
-	couponCreateService := couponCreate.NewService(db)
-	couponListMyService := couponListMy.NewService(db)
-
-	// Report
-	reportSummaryService := reportSummary.NewService(reportRepo)
-
-	// Config
-	configService := configUsecase.NewService(configRepo)
-
-	// --- Handlers ---
-	return &Container{
-		CreateUserHandler:     create.NewHandler(createService),
-		VerifyFirebaseHandler: verify_firebase.NewHandler(verifyFirebaseService),
-		LoginHandler:          login.NewHandler(loginService),
-		MeHandler:             me.NewHandler(meService),
-		RankHandler:           rank.NewHandler(rankService),
-		UpdateProfileHandler:  update_profile.NewHandler(updateProfileService),
-		LogoutHandler:         logout.NewHandler(),
-
-		// Wallet
-		TopupHandler:          walletTopup.NewHandler(topupService),
-		TransferHandler:       walletTransfer.NewHandler(transferService),
-		VerifyReceiverHandler: walletVerify.NewHandler(verifyService),
-		WebhookHandler:        walletWebhook.NewHandler(webhookService),
-
-		// Bike
-		CreateBikeHandler:     bikeCreate.NewHandler(bikeCreateService),
-
-		ListBikeHandler:       bikeList.NewHandler(bikeListService),
-		UpdateBikeStatusHandler: bikeUpdateStatus.NewHandler(bikeUpdateStatusService),
-
-		StartRideHandler:      rideStart.NewHandler(rideStartService),
-		EndRideHandler:        rideEnd.NewHandler(rideEndService),
-
-		ListZoneHandler:       zoneList.NewHandler(zoneListService),
-		CreateZoneHandler:     zoneCreate.NewHandler(zoneCreateService),
-		
-		NotiBroadcastHandler:  notiBroadcast.NewHandler(notiBroadcastService),
-		NotiListHandler:       notiList.NewHandler(notiListService),
-		NotiUpdateTokenHandler: notiUpdateToken.NewHandler(updateTokenService),
-
-		ReportSummaryHandler:  reportSummary.NewHandler(reportSummaryService),
-
-		RedeemCouponHandler:   couponRedeem.NewHandler(couponRedeemService),
-		CreateCouponHandler:   couponCreate.NewHandler(couponCreateService),
-		ListMyCouponHandler:   couponListMy.NewHandler(couponListMyService),
-
-		ConfigHandler:         configUsecase.NewHandler(configService),
-	}
+	SmsProvider   domainService.SmsProvider
+	NotiProvider  domainService.NotificationProvider
+	MqttPublisher mqtt.Publisher
 }

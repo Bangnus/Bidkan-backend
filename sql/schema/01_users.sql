@@ -1,7 +1,9 @@
 CREATE TABLE users (
     id             UUID PRIMARY KEY,
     tenant_id      UUID REFERENCES tenants(id) ON DELETE SET NULL,
-    phone_number   VARCHAR(20) UNIQUE NOT NULL,
+    phone_number   VARCHAR(20) UNIQUE,
+    email          VARCHAR(255) UNIQUE,
+    google_id      VARCHAR(255) UNIQUE,
     username       VARCHAR(255) NOT NULL,
     password       VARCHAR(255) NOT NULL,
     wallet_balance DECIMAL(10,2) NOT NULL DEFAULT 0.00,
