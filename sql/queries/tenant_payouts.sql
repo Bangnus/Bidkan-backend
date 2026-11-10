@@ -25,3 +25,12 @@ SET status = $2,
     processed_at = NOW()
 WHERE id = $1;
 
+-- name: GetTenantPayoutByTransferID :one
+SELECT * FROM tenant_payouts WHERE stripe_transfer_id = $1 LIMIT 1;
+
+-- name: HasInFlightPayoutForTenant :one
+SELECT EXISTS (
+    SELECT 1 FROM tenant_payouts
+    WHERE tenant_id = $1 AND status IN ('pending', 'processing')
+)::BOOLEAN;
+

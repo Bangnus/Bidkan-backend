@@ -127,6 +127,12 @@ type Ride struct {
 	UpdatedAt       time.Time
 }
 
+type StripeWebhookEvent struct {
+	EventID     string
+	EventType   string
+	ProcessedAt time.Time
+}
+
 type Tenant struct {
 	ID                        uuid.UUID
 	OrganizationID            uuid.NullUUID

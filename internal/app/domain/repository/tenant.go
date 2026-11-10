@@ -11,6 +11,8 @@ type TenantRepository interface {
 	Create(ctx context.Context, tenant *entity.Tenant) error
 	GetByID(ctx context.Context, id uuid.UUID) (*entity.Tenant, error)
 	GetBySlug(ctx context.Context, slug string) (*entity.Tenant, error)
+	GetByStripeAccountID(ctx context.Context, stripeAccountID string) (*entity.Tenant, error)
+	UpdateStripeStatus(ctx context.Context, id uuid.UUID, stripeAccountID string, completed bool) error
 	List(ctx context.Context) ([]*entity.Tenant, error)
 	ListByOrganization(ctx context.Context, orgID uuid.UUID) ([]*entity.Tenant, error)
 	UpdateRates(ctx context.Context, id uuid.UUID, unlockFee, perMinuteRate, platformFee float64) error

@@ -1,8 +1,10 @@
 package app
 
 import (
+	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
 	domainService "github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
+	infraStripe "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/stripe"
 	bikeCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/create"
 	bikeList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/list"
 	bikeUpdateStatus "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/update_status"
@@ -22,8 +24,11 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/logout"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/me"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/rank"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/refresh"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/update_profile"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify_firebase"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/stripe_webhook"
+	walletStripeTopup "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/stripe_topup"
 	walletTopup "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/topup"
 	walletTransfer "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/transfer"
 	walletVerify "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/verify_receiver"
@@ -33,21 +38,27 @@ import (
 )
 
 type Container struct {
+	UserRepo   domainRepo.UserRepository
+	TenantRepo domainRepo.TenantRepository
+
 	// User
 	CreateUserHandler     create.Handler
 	VerifyFirebaseHandler verify_firebase.Handler
 	LoginHandler          login.Handler
 	GoogleLoginHandler    google_login.Handler
+	RefreshUserHandler    refresh.Handler
 	MeHandler             me.Handler
 	RankHandler           rank.Handler
 	UpdateProfileHandler  update_profile.Handler
 	LogoutHandler         logout.Handler
 
 	// Wallet
-	TopupHandler          walletTopup.Handler
-	TransferHandler       walletTransfer.Handler
+	TopupHandler         walletTopup.Handler
+	StripeTopupHandler   walletStripeTopup.Handler
+	TransferHandler      walletTransfer.Handler
 	VerifyReceiverHandler walletVerify.Handler
-	WebhookHandler        walletWebhook.Handler
+	WebhookHandler       walletWebhook.Handler
+	StripeWebhookHandler stripe_webhook.Handler
 
 	// Bike
 	CreateBikeHandler       bikeCreate.Handler
@@ -82,4 +93,5 @@ type Container struct {
 	SmsProvider   domainService.SmsProvider
 	NotiProvider  domainService.NotificationProvider
 	MqttPublisher mqtt.Publisher
+	StripeClient  infraStripe.Client
 }

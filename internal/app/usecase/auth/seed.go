@@ -10,6 +10,14 @@ import (
 )
 
 func SeedDemoData(ctx context.Context, db *sql.DB) {
+	_, _ = db.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+			event_id     VARCHAR(100) PRIMARY KEY,
+			event_type   VARCHAR(100) NOT NULL,
+			processed_at TIMESTAMP NOT NULL DEFAULT NOW()
+		)
+	`)
+
 	kuOrgID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 	kuID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	kuBkkID := uuid.MustParse("11111111-1111-1111-1111-111111111112")
@@ -29,9 +37,9 @@ func SeedDemoData(ctx context.Context, db *sql.DB) {
 	_, err = db.ExecContext(ctx, `
 		INSERT INTO tenants (id, organization_id, slug, name, stripe_account_id, stripe_onboarding_completed, platform_fee_percent, auto_tiered_gp, unlock_fee, per_minute_rate, parking_penalty_fee, status)
 		VALUES
-		  ($1, $4, 'ku', 'ม.เกษตรศาสตร์ (วิทยาเขตกำแพงแสน)', 'acct_demo_ku_01', true, 18.00, true, 5.00, 1.50, 50.00, 'active'),
+		  ($1, $4, 'ku', 'ม.เกษตรศาสตร์ (วิทยาเขตกำแพงแสน)', NULL, false, 18.00, true, 5.00, 1.50, 50.00, 'active'),
 		  ($2, $4, 'ku-bkk', 'ม.เกษตรศาสตร์ (วิทยาเขตบางเขน)', NULL, false, 18.00, true, 5.00, 1.50, 50.00, 'active'),
-		  ($3, NULL, 'cmu', 'มหาวิทยาลัยเชียงใหม่', 'acct_demo_cmu_01', true, 18.00, true, 5.00, 1.50, 50.00, 'active')
+		  ($3, NULL, 'cmu', 'มหาวิทยาลัยเชียงใหม่', NULL, false, 18.00, true, 5.00, 1.50, 50.00, 'active')
 		ON CONFLICT (slug) DO NOTHING
 	`, kuID, kuBkkID, cmuID, kuOrgID)
 	if err != nil {
@@ -39,6 +47,7 @@ func SeedDemoData(ctx context.Context, db *sql.DB) {
 		return
 	}
 	_, _ = db.ExecContext(ctx, `UPDATE tenants SET organization_id = $1 WHERE slug = 'ku' AND organization_id IS NULL`, kuOrgID)
+	_, _ = db.ExecContext(ctx, `UPDATE tenants SET stripe_account_id = NULL, stripe_onboarding_completed = false WHERE stripe_account_id LIKE 'acct_demo_%'`)
 
 	// 3. Seed Backoffice Accounts (password: password123)
 	hash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)

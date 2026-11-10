@@ -6,6 +6,8 @@ import (
 	domainService "github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/repository"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/security"
+	infraStripe "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/stripe"
 	bikeCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/create"
 	bikeList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/list"
 	bikeUpdateStatus "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/update_status"
@@ -25,8 +27,11 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/logout"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/me"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/rank"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/refresh"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/update_profile"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify_firebase"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/stripe_webhook"
+	walletStripeTopup "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/stripe_topup"
 	walletTopup "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/topup"
 	walletTransfer "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/transfer"
 	walletVerify "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/verify_receiver"
@@ -40,15 +45,22 @@ import (
 func NewContainer(
 	db *sql.DB,
 	rdb *redis.Client,
+	secCfg *security.Config,
+	sessions security.SessionStore,
 	smsProvider domainService.SmsProvider,
 	notiProvider domainService.NotificationProvider,
 	mqttPub mqtt.Publisher,
+	stripeClient infraStripe.Client,
 ) *Container {
+	if stripeClient == nil {
+		stripeClient = infraStripe.NewClient(nil)
+	}
 	userRepo := repository.NewUserPostgresRepository(db)
 	bikeRepo := repository.NewBikePostgresRepository(db)
 	rideRepo := repository.NewRidePostgresRepository(db)
 	zoneRepo := repository.NewZoneRepository(db)
 	tenantRepo := repository.NewTenantPostgresRepository(db)
+	superRepo := repository.NewSuperAdminPostgresRepository(db)
 	configRepo := repository.NewConfigRepository(db)
 	txRepo := repository.NewTransactionPostgresRepository(db)
 	spendingRepo := repository.NewUserMonthlySpendingRepository(db)
@@ -60,8 +72,9 @@ func NewContainer(
 
 	createService := create.NewService(userRepo)
 	verifyFirebaseService := verify_firebase.NewService(userRepo, smsProvider)
-	loginService := login.NewService(userRepo)
-	googleLoginService := google_login.NewService(userRepo)
+	loginService := login.NewService(userRepo, secCfg, sessions)
+	googleLoginService := google_login.NewService(userRepo, tenantRepo, secCfg, sessions)
+	refreshService := refresh.NewService(userRepo, secCfg, sessions)
 	meService := me.NewService(userRepo)
 	rankService := rank.NewService(spendingRepo, rankCacheRepo)
 	updateProfileService := update_profile.NewService(userRepo)
@@ -71,6 +84,7 @@ func NewContainer(
 	transferService := walletTransfer.NewService(db, userRepo, txRepo, mqttPub, notiProvider)
 	verifyService := walletVerify.NewService(userRepo)
 	webhookService := walletWebhook.NewService(txRepo, userRepo)
+	stripeWebhookSvc := stripe_webhook.NewService(tenantRepo, superRepo, txRepo, userRepo)
 
 	bikeCreateService := bikeCreate.NewService(bikeRepo)
 	bikeListService := bikeList.NewService(bikeRepo)
@@ -94,18 +108,24 @@ func NewContainer(
 	configService := configUsecase.NewService(configRepo)
 
 	return &Container{
+		UserRepo:                userRepo,
+		TenantRepo:              tenantRepo,
 		CreateUserHandler:       create.NewHandler(createService),
 		VerifyFirebaseHandler:   verify_firebase.NewHandler(verifyFirebaseService),
 		LoginHandler:            login.NewHandler(loginService),
 		GoogleLoginHandler:      google_login.NewHandler(googleLoginService),
+		RefreshUserHandler:      refresh.NewHandler(refreshService),
 		MeHandler:               me.NewHandler(meService),
 		RankHandler:             rank.NewHandler(rankService),
 		UpdateProfileHandler:    update_profile.NewHandler(updateProfileService),
-		LogoutHandler:           logout.NewHandler(),
+		LogoutHandler:           logout.NewHandler(secCfg, sessions),
 		TopupHandler:            walletTopup.NewHandler(topupService),
+		StripeTopupHandler:      walletStripeTopup.NewHandler(txRepo, userRepo, stripeClient),
 		TransferHandler:         walletTransfer.NewHandler(transferService),
 		VerifyReceiverHandler:   walletVerify.NewHandler(verifyService),
-		WebhookHandler:          walletWebhook.NewHandler(webhookService),
+		WebhookHandler:          walletWebhook.NewHandler(webhookService, secCfg.PaySolutionsWebhookSecret),
+		StripeWebhookHandler:    stripe_webhook.NewHandler(stripeWebhookSvc, stripeClient),
+		StripeClient:            stripeClient,
 		CreateBikeHandler:       bikeCreate.NewHandler(bikeCreateService),
 		ListBikeHandler:         bikeList.NewHandler(bikeListService),
 		UpdateBikeStatusHandler: bikeUpdateStatus.NewHandler(bikeUpdateStatusService),

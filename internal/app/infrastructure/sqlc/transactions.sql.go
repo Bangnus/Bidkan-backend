@@ -13,6 +13,27 @@ import (
 	"github.com/google/uuid"
 )
 
+const completeTransactionIfPending = `-- name: CompleteTransactionIfPending :execrows
+UPDATE transactions
+SET status = 'completed',
+    gateway_ref = COALESCE($2, gateway_ref),
+    updated_at = NOW()
+WHERE id = $1 AND status = 'pending'
+`
+
+type CompleteTransactionIfPendingParams struct {
+	ID         uuid.UUID
+	GatewayRef sql.NullString
+}
+
+func (q *Queries) CompleteTransactionIfPending(ctx context.Context, arg CompleteTransactionIfPendingParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, completeTransactionIfPending, arg.ID, arg.GatewayRef)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const createTransaction = `-- name: CreateTransaction :exec
 INSERT INTO transactions (id, user_id, amount, type, status, reference_id, gateway_ref, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
@@ -60,6 +81,28 @@ func (q *Queries) GetTotalSpendingInWindow(ctx context.Context, arg GetTotalSpen
 	var column_1 string
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const getTransactionByGatewayRef = `-- name: GetTransactionByGatewayRef :one
+SELECT id, user_id, amount, type, status, reference_id, gateway_ref, description, created_at, updated_at FROM transactions WHERE gateway_ref = $1 LIMIT 1
+`
+
+func (q *Queries) GetTransactionByGatewayRef(ctx context.Context, gatewayRef sql.NullString) (Transaction, error) {
+	row := q.db.QueryRowContext(ctx, getTransactionByGatewayRef, gatewayRef)
+	var i Transaction
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Amount,
+		&i.Type,
+		&i.Status,
+		&i.ReferenceID,
+		&i.GatewayRef,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getTransactionByID = `-- name: GetTransactionByID :one

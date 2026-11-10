@@ -1,8 +1,8 @@
 package list
 
 import (
+	"github.com/Bangnus/Bidkan-backend/internal/app/middleware"
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 )
 
 type Handler interface {
@@ -25,7 +25,7 @@ func NewHandler(svc Service) Handler {
 // @Success 200 {array} NotificationInfo "รายการแจ้งเตือน"
 // @Router /v1/notifications [get]
 func (h *handler) Handle(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userId").(uuid.UUID)
+	userID, ok := middleware.GetAuthUserID(c)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
 	}

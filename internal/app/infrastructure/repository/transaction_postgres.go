@@ -46,6 +46,48 @@ func (r *transactionPostgresRepository) GetByID(ctx context.Context, id uuid.UUI
 	return &tx, nil
 }
 
+func (r *transactionPostgresRepository) GetByGatewayRef(ctx context.Context, gatewayRef string) (*entity.Transaction, error) {
+	row, err := r.queries.GetTransactionByGatewayRef(ctx, sql.NullString{String: gatewayRef, Valid: gatewayRef != ""})
+	if err != nil {
+		return nil, err
+	}
+	var refID uuid.NullUUID
+	if row.ReferenceID.Valid {
+		if parsed, parseErr := uuid.Parse(row.ReferenceID.String); parseErr == nil {
+			refID = uuid.NullUUID{UUID: parsed, Valid: true}
+		}
+	}
+	tx := entity.Transaction{
+		ID:          row.ID,
+		UserID:      row.UserID,
+		Amount:      row.Amount,
+		Type:        row.Type,
+		Status:      row.Status,
+		ReferenceID: refID,
+		CreatedAt:   row.CreatedAt,
+		UpdatedAt:   row.UpdatedAt,
+	}
+	if row.GatewayRef.Valid {
+		tx.GatewayRef = &row.GatewayRef.String
+	}
+	return &tx, nil
+}
+
+func (r *transactionPostgresRepository) CompleteIfPending(ctx context.Context, id uuid.UUID, gatewayRef *string) (bool, error) {
+	var ref sql.NullString
+	if gatewayRef != nil && *gatewayRef != "" {
+		ref = sql.NullString{String: *gatewayRef, Valid: true}
+	}
+	rows, err := r.queries.CompleteTransactionIfPending(ctx, sqlc.CompleteTransactionIfPendingParams{
+		ID:         id,
+		GatewayRef: ref,
+	})
+	if err != nil {
+		return false, err
+	}
+	return rows > 0, nil
+}
+
 func (r *transactionPostgresRepository) ListByUser(ctx context.Context, userID uuid.UUID) ([]entity.Transaction, error) {
 	rows, err := r.db.QueryContext(ctx, "SELECT id, user_id, amount, type, status, reference_id, gateway_ref, created_at, updated_at FROM transactions WHERE user_id = $1 ORDER BY created_at DESC", userID)
 	if err != nil {

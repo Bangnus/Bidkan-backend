@@ -1,12 +1,10 @@
 package revenue_manage
 
 import (
-	"fmt"
-
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
+	infraStripe "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/stripe"
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 )
 
 type UpdateRatesRequest struct {
@@ -18,10 +16,22 @@ type UpdateRatesRequest struct {
 type Handler struct {
 	tenantRepo domainRepo.TenantRepository
 	campusRepo domainRepo.CampusOpsRepository
+	stripe     infraStripe.Client
 }
 
-func NewHandler(tenantRepo domainRepo.TenantRepository, campusRepo domainRepo.CampusOpsRepository) Handler {
-	return Handler{tenantRepo: tenantRepo, campusRepo: campusRepo}
+func NewHandler(
+	tenantRepo domainRepo.TenantRepository,
+	campusRepo domainRepo.CampusOpsRepository,
+	stripeClient infraStripe.Client,
+) Handler {
+	if stripeClient == nil {
+		stripeClient = infraStripe.NewClient(nil)
+	}
+	return Handler{
+		tenantRepo: tenantRepo,
+		campusRepo: campusRepo,
+		stripe:     stripeClient,
+	}
 }
 
 func (h *Handler) HandleGetRevenue(c *fiber.Ctx) error {
@@ -48,18 +58,20 @@ func (h *Handler) HandleGetRevenue(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"data": fiber.Map{
-			"tenant":            tenant,
-			"gp_tier":           entity.CalculateTieredGP(fleetCount),
-			"campus_bike_count": len(campusBikes),
-			"monthly_sim_fee":   float64(len(campusBikes)) * tenant.SimFeePerBike,
-			"total_gross":       completedStats.GrossAmount,
-			"total_gp_fee":      completedStats.GPFeeAmount,
-			"total_net":         completedStats.NetAmount,
-			"unsettled_rides":   unsettledStats.TotalRides,
-			"unsettled_gross":   unsettledStats.GrossAmount,
-			"unsettled_gp_fee":  unsettledStats.GPFeeAmount,
-			"unsettled_net":     unsettledStats.NetAmount,
-			"payouts":           payouts,
+			"tenant":                      tenant,
+			"gp_tier":                     entity.CalculateTieredGP(fleetCount),
+			"campus_bike_count":           len(campusBikes),
+			"monthly_sim_fee":             float64(len(campusBikes)) * tenant.SimFeePerBike,
+			"stripe_configured":           h.stripe.IsConfigured(),
+			"stripe_connect_account_type": h.stripe.Config().ConnectAccountType,
+			"total_gross":                 completedStats.GrossAmount,
+			"total_gp_fee":                completedStats.GPFeeAmount,
+			"total_net":                   completedStats.NetAmount,
+			"unsettled_rides":             unsettledStats.TotalRides,
+			"unsettled_gross":             unsettledStats.GrossAmount,
+			"unsettled_gp_fee":            unsettledStats.GPFeeAmount,
+			"unsettled_net":               unsettledStats.NetAmount,
+			"payouts":                     payouts,
 		},
 	})
 }
@@ -90,22 +102,4 @@ func (h *Handler) HandleUpdateRates(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "campus pricing rates updated"})
-}
-
-func (h *Handler) HandleStripeOnboard(c *fiber.Ctx) error {
-	tenant, err := h.tenantRepo.GetBySlug(c.Context(), c.Params("slug"))
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "campus tenant not found"})
-	}
-	acctID := fmt.Sprintf("acct_%s_%s", tenant.Slug, uuid.NewString()[:6])
-	if tenant.StripeAccountID != nil && *tenant.StripeAccountID != "" {
-		acctID = *tenant.StripeAccountID
-	}
-	if err := h.campusRepo.CompleteStripeOnboarding(c.Context(), tenant.ID, acctID); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-	}
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message":           "Stripe Connect onboarding completed",
-		"stripe_account_id": acctID,
-	})
 }

@@ -1,6 +1,7 @@
 package broadcast
 
 import (
+	"github.com/Bangnus/Bidkan-backend/internal/app/middleware"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -27,8 +28,8 @@ func NewHandler(svc Service) Handler {
 // @Failure 403 {object} map[string]string "ไม่มีสิทธิ์ (เฉพาะแอดมินเท่านั้น)"
 // @Router /v1/admin/notifications/broadcast [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
-	role := c.Locals("role").(string)
-	if role != "admin" {
+	role := middleware.GetAuthRole(c)
+	if role != "super_admin" && role != "org_admin" && role != "tenant_admin" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "admin only"})
 	}
 

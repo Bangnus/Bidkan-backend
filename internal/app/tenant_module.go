@@ -6,6 +6,8 @@ import (
 
 	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/repository"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/security"
+	infraStripe "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/stripe"
 	"github.com/Bangnus/Bidkan-backend/internal/app/router"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/auth"
 	campusBikeList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/bike_list"
@@ -33,6 +35,7 @@ import (
 
 type TenantModule struct {
 	TenantRepo              domainRepo.TenantRepository
+	OrgRepo                 domainRepo.OrganizationRepository
 	AuthHandler             auth.Handler
 	PartnerApplyHandler     partner_apply.Handler
 	OrgManageHandler        orgManage.Handler
@@ -56,7 +59,10 @@ type TenantModule struct {
 	CampusReportHandler     campusReportManage.Handler
 }
 
-func NewTenantModule(db *sql.DB) *TenantModule {
+func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.SessionStore, stripeClient infraStripe.Client) *TenantModule {
+	if stripeClient == nil {
+		stripeClient = infraStripe.NewClient(nil)
+	}
 	userRepo := repository.NewUserPostgresRepository(db)
 	orgRepo := repository.NewOrganizationPostgresRepository(db)
 	tenantRepo := repository.NewTenantPostgresRepository(db)
@@ -66,7 +72,8 @@ func NewTenantModule(db *sql.DB) *TenantModule {
 
 	return &TenantModule{
 		TenantRepo:              tenantRepo,
-		AuthHandler:             auth.NewHandler(userRepo, tenantRepo, orgRepo),
+		OrgRepo:                 orgRepo,
+		AuthHandler:             auth.NewHandler(userRepo, tenantRepo, orgRepo, secCfg, sessions),
 		PartnerApplyHandler:     partner_apply.NewHandler(orgRepo, tenantRepo, campusRepo, orderRepo),
 		OrgManageHandler:        orgManage.NewHandler(orgRepo, tenantRepo, campusRepo),
 		CreateTenantHandler:     superTenantCreate.NewHandler(superTenantCreate.NewService(tenantRepo, orgRepo, campusRepo)),
@@ -74,14 +81,14 @@ func NewTenantModule(db *sql.DB) *TenantModule {
 		ManageTenantHandler:     superTenantManage.NewHandler(tenantRepo, superRepo, orgRepo, campusRepo, orderRepo),
 		AssignBikeHandler:       superBikeAssign.NewHandler(superBikeAssign.NewService(tenantRepo)),
 		ManageBikeHandler:       superBikeManage.NewHandler(superRepo, tenantRepo),
-		PayoutManageHandler:     superPayoutManage.NewHandler(superRepo, tenantRepo, campusRepo),
+		PayoutManageHandler:     superPayoutManage.NewHandler(superRepo, tenantRepo, campusRepo, stripeClient),
 		CouponManageHandler:     superCouponManage.NewHandler(superRepo),
 		CampusDashboardHandler:  campusDashboard.NewHandler(campusDashboard.NewService(tenantRepo, campusRepo)),
 		CampusBikeListHandler:   campusBikeList.NewHandler(campusBikeList.NewService(tenantRepo)),
 		CampusBikeManageHandler: campusBikeManage.NewHandler(campusRepo),
 		CampusZoneHandler:       campusZoneManage.NewHandler(tenantRepo, campusRepo),
 		CampusRideListHandler:   campusRideList.NewHandler(tenantRepo, campusRepo),
-		CampusRevenueHandler:    campusRevenueManage.NewHandler(tenantRepo, campusRepo),
+		CampusRevenueHandler:    campusRevenueManage.NewHandler(tenantRepo, campusRepo, stripeClient),
 		CampusStaffHandler:      campusStaffManage.NewHandler(tenantRepo, campusRepo),
 		CampusCouponHandler:     campusCouponManage.NewHandler(tenantRepo, campusRepo),
 		CampusOrderHandler:      campusOrderManage.NewHandler(tenantRepo, orderRepo),
@@ -90,12 +97,13 @@ func NewTenantModule(db *sql.DB) *TenantModule {
 	}
 }
 
-func (m *TenantModule) SeedAndRegisterRoutes(server *fiber.App, db *sql.DB) {
+func (m *TenantModule) SeedAndRegisterRoutes(server *fiber.App, db *sql.DB, authMW fiber.Handler, sessions security.SessionStore) {
 	auth.SeedDemoData(context.Background(), db)
-	router.SetupAuthRoutes(server, m.AuthHandler, m.PartnerApplyHandler)
-	router.SetupOrgRoutes(server, m.OrgManageHandler)
+	router.SetupAuthRoutes(server, authMW, sessions, m.AuthHandler, m.PartnerApplyHandler)
+	router.SetupOrgRoutes(server, authMW, m.OrgRepo, m.OrgManageHandler)
 	router.SetupSuperAdminRoutes(
 		server,
+		authMW,
 		m.CreateTenantHandler,
 		m.ListTenantHandler,
 		m.ManageTenantHandler,
@@ -106,6 +114,7 @@ func (m *TenantModule) SeedAndRegisterRoutes(server *fiber.App, db *sql.DB) {
 	)
 	router.SetupCampusRoutes(
 		server,
+		authMW,
 		m.TenantRepo,
 		m.CampusDashboardHandler,
 		m.CampusBikeListHandler,

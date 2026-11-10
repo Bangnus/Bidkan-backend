@@ -1,7 +1,11 @@
 package webhook
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"log"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -11,11 +15,12 @@ type Handler interface {
 }
 
 type handler struct {
-	service Service
+	service       Service
+	webhookSecret string
 }
 
-func NewHandler(service Service) Handler {
-	return &handler{service: service}
+func NewHandler(service Service, webhookSecret string) Handler {
+	return &handler{service: service, webhookSecret: strings.TrimSpace(webhookSecret)}
 }
 
 // @Summary PaySolutions Webhook (ระบบรับแจ้งชำระเงิน)
@@ -26,23 +31,36 @@ func NewHandler(service Service) Handler {
 // @Success 200 {object} map[string]interface{} "รับข้อมูลสำเร็จ"
 // @Router /v1/wallet/webhook/paysolutions [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
-	var payload PaySolutionsWebhookPayload
+	sigHeader := strings.TrimSpace(c.Get("X-PaySolutions-Signature"))
+	if !verifyWebhookSignature(c.Body(), sigHeader, h.webhookSecret) {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid webhook signature"})
+	}
 
-	// PaySolutions อาจจะส่งมาเป็น Form-data หรือ JSON 
-	// หากเป็น Form-data อาจจะต้องใช้ c.BodyParser หรือดึงค่าทีละตัว (สมมติว่าเป็น JSON ไปก่อน)
+	var payload PaySolutionsWebhookPayload
 	if err := c.BodyParser(&payload); err != nil {
 		log.Printf("Webhook Error: invalid payload format: %v", err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid payload"})
 	}
 
-	// เรียก Service เพื่อประมวลผลยอดเงิน
-	err := h.service.ProcessCallback(c.Context(), payload)
-	if err != nil {
+	if err := h.service.ProcessCallback(c.Context(), payload); err != nil {
 		log.Printf("Webhook Error: %v", err)
-		// ถึงแม้จะ error ภายใน (เช่น หายอดไม่เจอ) ปกติมักจะคืน 200 กลับไปให้ Gateway เพื่อไม่ให้มันยิงซ้ำ
-		// แต่เพื่อความปลอดภัย ให้คืน 200 หรือ 400 ตามความเหมาะสม
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "processed with error", "detail": err.Error()})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	return c.JSON(fiber.Map{"message": "success"})
+}
+
+func verifyWebhookSignature(rawBody []byte, signatureHex, secret string) bool {
+	if secret == "" || signatureHex == "" {
+		return false
+	}
+	cleaned := strings.TrimPrefix(strings.ToLower(signatureHex), "sha256=")
+	sigBytes, err := hex.DecodeString(cleaned)
+	if err != nil {
+		return false
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(rawBody)
+	expected := mac.Sum(nil)
+	return hmac.Equal(sigBytes, expected)
 }

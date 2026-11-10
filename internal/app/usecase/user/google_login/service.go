@@ -2,18 +2,19 @@ package google_login
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/security"
 	"github.com/google/uuid"
 	"google.golang.org/api/idtoken"
+)
+
+var (
+	ErrInvalidGoogleToken = errors.New("invalid or unverified google token")
+	ErrAccountRestricted  = errors.New("account is restricted or cannot sign in as rider")
 )
 
 type Request struct {
@@ -22,17 +23,20 @@ type Request struct {
 }
 
 type Response struct {
-	Token string       `json:"token"`
-	Role  string       `json:"role"`
-	User  *entity.User `json:"user"`
+	Token        string       `json:"token"`
+	AccessToken  string       `json:"access_token"`
+	RefreshToken string       `json:"refresh_token"`
+	ExpiresIn    int64        `json:"expires_in"`
+	Role         string       `json:"role"`
+	User         *entity.User `json:"user"`
 }
 
 type GoogleClaims struct {
-	Sub           string `json:"sub"`
-	Email         string `json:"email"`
-	EmailVerified bool   `json:"email_verified"`
-	Name          string `json:"name"`
-	Picture       string `json:"picture"`
+	Sub           string
+	Email         string
+	EmailVerified bool
+	Name          string
+	Picture       string
 }
 
 type Service interface {
@@ -40,16 +44,29 @@ type Service interface {
 }
 
 type service struct {
-	userRepo repository.UserRepository
+	userRepo   repository.UserRepository
+	tenantRepo repository.TenantRepository
+	secCfg     *security.Config
+	sessions   security.SessionStore
 }
 
-func NewService(userRepo repository.UserRepository) Service {
-	return &service{userRepo: userRepo}
+func NewService(
+	userRepo repository.UserRepository,
+	tenantRepo repository.TenantRepository,
+	secCfg *security.Config,
+	sessions security.SessionStore,
+) Service {
+	return &service{
+		userRepo:   userRepo,
+		tenantRepo: tenantRepo,
+		secCfg:     secCfg,
+		sessions:   sessions,
+	}
 }
 
 func (s *service) Login(ctx context.Context, req Request) (*Response, error) {
-	if req.Credential == "" {
-		return nil, errors.New("missing google credential")
+	if strings.TrimSpace(req.Credential) == "" {
+		return nil, ErrInvalidGoogleToken
 	}
 
 	claims, err := s.verifyGoogleToken(ctx, req.Credential)
@@ -57,10 +74,7 @@ func (s *service) Login(ctx context.Context, req Request) (*Response, error) {
 		return nil, err
 	}
 
-	// 2. ตรวจสอบแยกมหาวิทยาลัย (Auto-detect Domain หรือ General Email)
-	tenantID := s.resolveTenantID(claims.Email, req.CampusSlug)
-
-	// 3. Upsert ผู้ใช้ลง Database
+	tenantID := s.resolveTenantID(ctx, claims.Email, req.CampusSlug)
 	user, err := s.userRepo.UpsertGoogleUser(
 		ctx,
 		claims.Sub,
@@ -73,106 +87,103 @@ func (s *service) Login(ctx context.Context, req Request) (*Response, error) {
 		return nil, err
 	}
 
-	// 4. ออก JWT Token ของระบบ BidKan
+	if user.Role != "user" || user.Status != "active" {
+		return nil, ErrAccountRestricted
+	}
+
 	var tenantIDStr string
 	if user.TenantID != nil {
 		tenantIDStr = user.TenantID.String()
 	}
-	token, err := s.generateJWT(user.ID.String(), user.Role, tenantIDStr)
+
+	pair, err := security.IssueTokenPair(s.secCfg, security.IssueInput{
+		UserID:   user.ID.String(),
+		Role:     user.Role,
+		AppScope: security.ScopeRider,
+		TenantID: tenantIDStr,
+	})
 	if err != nil {
 		return nil, errors.New("failed to generate token")
 	}
 
+	if s.sessions != nil {
+		err = s.sessions.CreateRefreshSession(ctx, pair.RefreshJTI, security.RefreshRecord{
+			UserID:    user.ID.String(),
+			FamilyID:  pair.FamilyID,
+			AppScope:  security.ScopeRider,
+			Role:      user.Role,
+			TenantID:  tenantIDStr,
+			ExpiresAt: pair.RefreshExpiresAt,
+		}, s.secCfg.RefreshTokenTTL)
+		if err != nil {
+			return nil, errors.New("failed to persist session")
+		}
+	}
+
 	return &Response{
-		Token: token,
-		Role:  user.Role,
-		User:  user,
+		Token:        pair.AccessToken,
+		AccessToken:  pair.AccessToken,
+		RefreshToken: pair.RefreshToken,
+		ExpiresIn:    pair.ExpiresIn,
+		Role:         user.Role,
+		User:         user,
 	}, nil
 }
 
 func (s *service) verifyGoogleToken(ctx context.Context, credential string) (*GoogleClaims, error) {
-	clientID := os.Getenv("GOOGLE_CLIENT_ID")
-	if clientID != "" {
-		payload, err := idtoken.Validate(ctx, credential, clientID)
-		if err == nil && payload != nil {
-			name, _ := payload.Claims["name"].(string)
-			email, _ := payload.Claims["email"].(string)
-			picture, _ := payload.Claims["picture"].(string)
-			return &GoogleClaims{
-				Sub:     payload.Subject,
-				Email:   email,
-				Name:    name,
-				Picture: picture,
-			}, nil
+	if s.secCfg == nil || strings.TrimSpace(s.secCfg.GoogleClientID) == "" {
+		return nil, errors.New("google OAuth is not configured on server")
+	}
+
+	payload, err := idtoken.Validate(ctx, credential, s.secCfg.GoogleClientID)
+	if err != nil || payload == nil {
+		return nil, ErrInvalidGoogleToken
+	}
+
+	email, _ := payload.Claims["email"].(string)
+	emailVerified, _ := payload.Claims["email_verified"].(bool)
+	name, _ := payload.Claims["name"].(string)
+	picture, _ := payload.Claims["picture"].(string)
+
+	if payload.Subject == "" || email == "" || !emailVerified {
+		return nil, ErrInvalidGoogleToken
+	}
+
+	if name == "" {
+		name = strings.Split(email, "@")[0]
+	}
+
+	return &GoogleClaims{
+		Sub:           payload.Subject,
+		Email:         email,
+		EmailVerified: emailVerified,
+		Name:          name,
+		Picture:       picture,
+	}, nil
+}
+
+func (s *service) resolveTenantID(ctx context.Context, email, campusSlug string) *uuid.UUID {
+	lowerEmail := strings.ToLower(strings.TrimSpace(email))
+	slug := strings.ToLower(strings.TrimSpace(campusSlug))
+
+	switch {
+	case strings.HasSuffix(lowerEmail, "ku.th") || strings.HasSuffix(lowerEmail, "ku.ac.th"):
+		slug = "ku"
+	case strings.HasSuffix(lowerEmail, "cmu.ac.th"):
+		slug = "cmu"
+	case slug == "":
+		slug = "ku"
+	}
+
+	if s.tenantRepo != nil {
+		if t, err := s.tenantRepo.GetBySlug(ctx, slug); err == nil && t != nil {
+			id := t.ID
+			return &id
+		}
+		if fallback, err := s.tenantRepo.GetBySlug(ctx, "ku"); err == nil && fallback != nil {
+			id := fallback.ID
+			return &id
 		}
 	}
-
-	// Fallback: ถอด JWT Payload สำหรับ Dev Mode
-	parts := strings.Split(credential, ".")
-	if len(parts) < 2 {
-		return nil, errors.New("invalid google token format")
-	}
-	payloadSegment := parts[1]
-	if l := len(payloadSegment) % 4; l > 0 {
-		payloadSegment += strings.Repeat("=", 4-l)
-	}
-	raw, err := base64.URLEncoding.DecodeString(payloadSegment)
-	if err != nil {
-		return nil, errors.New("failed to decode google payload")
-	}
-
-	var claims GoogleClaims
-	if err := json.Unmarshal(raw, &claims); err != nil {
-		return nil, errors.New("failed to parse google claims")
-	}
-	return &claims, nil
+	return nil
 }
-
-func (s *service) resolveTenantID(email, campusSlug string) *uuid.UUID {
-	lowerEmail := strings.ToLower(email)
-
-	// 1. ตรวจจับจาก Email Domain ของมหาวิทยาลัย
-	if strings.HasSuffix(lowerEmail, "ku.th") || strings.HasSuffix(lowerEmail, "ku.ac.th") {
-		id := uuid.MustParse("11111111-1111-1111-1111-111111111111")
-		return &id
-	}
-	if strings.HasSuffix(lowerEmail, "cmu.ac.th") {
-		id := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-		return &id
-	}
-
-	// 2. อีเมลทั่วไป (@gmail.com / บุคคลภายนอก) ที่ระบุ campus_slug มา
-	switch strings.ToLower(campusSlug) {
-	case "cmu":
-		id := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-		return &id
-	case "ku":
-		id := uuid.MustParse("11111111-1111-1111-1111-111111111111")
-		return &id
-	}
-
-	// 3. อีเมลทั่วไปที่ไม่ระบุ ให้อยู่มหาวิทยาลัยหลัก (KU กำแพงแสน)
-	defaultID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
-	return &defaultID
-}
-
-func (s *service) generateJWT(userID, role, tenantID string) (string, error) {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		secret = "bidkan_secret_key_2024"
-	}
-
-	claims := jwt.MapClaims{
-		"user_id": userID,
-		"role":    role,
-		"exp":     time.Now().Add(time.Hour * 24 * 7).Unix(),
-		"iat":     time.Now().Unix(),
-	}
-	if tenantID != "" {
-		claims["tenant_id"] = tenantID
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
-}
-

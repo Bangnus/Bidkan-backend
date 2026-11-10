@@ -1,89 +1,45 @@
 package payout_manage
 
 import (
-	"fmt"
-	"math"
-	"net/http"
-	"net/url"
-	"os"
-	"strings"
-	"time"
+	"errors"
 
-	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
+	infraStripe "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/stripe"
 	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
 
-type TriggerPayoutRequest struct {
-	TenantSlug    string  `json:"tenant_slug"`
-	GrossAmount   float64 `json:"gross_amount"`
-	TotalRides    int     `json:"total_rides"`
-	AutoCalculate bool    `json:"auto_calculate"`
-	IncludeSimFee bool    `json:"include_sim_fee"`
-}
-
-type UnsettledTenantSummary struct {
-	TenantID        uuid.UUID         `json:"tenant_id"`
-	TenantSlug      string            `json:"tenant_slug"`
-	TenantName      string            `json:"tenant_name"`
-	GPTier          entity.GPTierInfo `json:"gp_tier"`
-	HasStripe       bool              `json:"has_stripe"`
-	CampusBikes     int               `json:"campus_bikes"`
-	MonthlySimFee   float64           `json:"monthly_sim_fee"`
-	UnsettledRides  int               `json:"unsettled_rides"`
-	UnsettledGross  float64           `json:"unsettled_gross"`
-	UnsettledGPFee  float64           `json:"unsettled_gp_fee"`
-	UnsettledNet    float64           `json:"unsettled_net"`
-}
-
 type Handler struct {
-	superRepo  domainRepo.SuperAdminRepository
-	tenantRepo domainRepo.TenantRepository
-	campusRepo domainRepo.CampusOpsRepository
+	svc Service
 }
 
 func NewHandler(
 	superRepo domainRepo.SuperAdminRepository,
 	tenantRepo domainRepo.TenantRepository,
 	campusRepo domainRepo.CampusOpsRepository,
+	stripeClient infraStripe.Client,
 ) Handler {
-	return Handler{superRepo: superRepo, tenantRepo: tenantRepo, campusRepo: campusRepo}
+	return Handler{svc: NewService(superRepo, tenantRepo, campusRepo, stripeClient)}
+}
+
+func NewHandlerWithService(svc Service) Handler {
+	return Handler{svc: svc}
+}
+
+func (h *Handler) Service() Service {
+	return h.svc
 }
 
 func (h *Handler) HandleListAll(c *fiber.Ctx) error {
-	payouts, err := h.superRepo.ListAllPayouts(c.Context())
+	payouts, unsettled, configured, autoEnabled, err := h.svc.ListOverview(c.Context())
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
-
-	tenants, _ := h.tenantRepo.List(c.Context())
-	unsettled := make([]UnsettledTenantSummary, 0, len(tenants))
-	for _, t := range tenants {
-		st, _ := h.campusRepo.GetUnsettledStats(c.Context(), t.ID)
-		if st == nil {
-			st = &entity.RideStatsSummary{}
-		}
-		bikes, _ := h.tenantRepo.ListBikesByTenant(c.Context(), t.ID)
-		fleetCnt, _ := h.tenantRepo.CountFleetForTenant(c.Context(), t.ID)
-		unsettled = append(unsettled, UnsettledTenantSummary{
-			TenantID:       t.ID,
-			TenantSlug:     t.Slug,
-			TenantName:     t.Name,
-			GPTier:         entity.CalculateTieredGP(fleetCnt),
-			HasStripe:      t.StripeOnboardingCompleted,
-			CampusBikes:    len(bikes),
-			MonthlySimFee:  float64(len(bikes)) * t.SimFeePerBike,
-			UnsettledRides: st.TotalRides,
-			UnsettledGross: st.GrossAmount,
-			UnsettledGPFee: st.GPFeeAmount,
-			UnsettledNet:   st.NetAmount,
-		})
-	}
-
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"data":      payouts,
-		"unsettled": unsettled,
+		"data":                payouts,
+		"unsettled":           unsettled,
+		"stripe_configured":   configured,
+		"auto_payout_enabled": autoEnabled,
 	})
 }
 
@@ -92,85 +48,53 @@ func (h *Handler) HandleTriggerPayout(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil || req.TenantSlug == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "tenant_slug is required"})
 	}
-
-	tenant, err := h.tenantRepo.GetBySlug(c.Context(), req.TenantSlug)
+	payout, err := h.svc.TriggerPayout(c.Context(), req)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "tenant not found"})
-	}
-
-	gross := req.GrossAmount
-	rides := req.TotalRides
-	gpFee := math.Round((gross*(tenant.PlatformFeePercent/100.0))*100) / 100
-
-	if req.AutoCalculate || gross <= 0 {
-		st, err := h.campusRepo.GetUnsettledStats(c.Context(), tenant.ID)
-		if err != nil || st.GrossAmount <= 0 {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ยังไม่มีรายได้ค้างโอนจากทริปที่จบแล้วในรอบบัญชีนี้"})
-		}
-		gross = st.GrossAmount
-		rides = st.TotalRides
-		gpFee = st.GPFeeAmount
-	}
-
-	if req.IncludeSimFee && tenant.SimFeePerBike > 0 {
-		bikes, _ := h.tenantRepo.ListBikesByTenant(c.Context(), tenant.ID)
-		gpFee += float64(len(bikes)) * tenant.SimFeePerBike
-	}
-
-	netAmount := math.Round((gross-gpFee)*100) / 100
-	if netAmount < 0 {
-		netAmount = 0
-	}
-
-	transferID := fmt.Sprintf("tr_stripe_%s", uuid.NewString()[:8])
-	if key := os.Getenv("STRIPE_SECRET_KEY"); key != "" && tenant.StripeAccountID != nil && netAmount > 0 {
-		if id, err := executeStripeTransfer(key, *tenant.StripeAccountID, netAmount); err == nil {
-			transferID = id
-		}
-	}
-
-	now := time.Now()
-	payout := &entity.TenantPayout{
-		ID:                uuid.New(),
-		TenantID:          tenant.ID,
-		StripeTransferID:  &transferID,
-		TotalRides:        rides,
-		GrossAmount:       gross,
-		PlatformFeeAmount: gpFee,
-		NetPayoutAmount:   netAmount,
-		Status:            "completed",
-		PeriodStart:       now.AddDate(0, 0, -7),
-		PeriodEnd:         now,
-		ProcessedAt:       &now,
-		CreatedAt:         now,
-	}
-
-	if err := h.superRepo.CreatePayout(c.Context(), payout); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return writeServiceError(c, err)
 	}
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "Stripe Auto-Payout completed",
+		"message": "Stripe Payout completed",
 		"data":    payout,
 	})
 }
 
-func executeStripeTransfer(secretKey, destinationAccount string, amountTHB float64) (string, error) {
-	form := url.Values{}
-	form.Set("amount", fmt.Sprintf("%d", int64(amountTHB*100)))
-	form.Set("currency", "thb")
-	form.Set("destination", destinationAccount)
-
-	req, err := http.NewRequest("POST", "https://api.stripe.com/v1/transfers", strings.NewReader(form.Encode()))
+func (h *Handler) HandleRetryPayout(c *fiber.Ctx) error {
+	payoutID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return "", err
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid payout id"})
 	}
-	req.SetBasicAuth(secretKey, "")
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	payout, err := h.svc.RetryPayout(c.Context(), payoutID)
+	if err != nil {
+		return writeServiceError(c, err)
+	}
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Stripe Payout retry completed",
+		"data":    payout,
+	})
+}
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil || resp.StatusCode >= 400 {
-		return "", fmt.Errorf("stripe api error")
+func (h *Handler) HandleRunAuto(c *fiber.Ctx) error {
+	res, err := h.svc.RunAutoPayouts(c.Context())
+	if err != nil {
+		return writeServiceError(c, err)
 	}
-	defer resp.Body.Close()
-	return fmt.Sprintf("tr_live_%s", uuid.NewString()[:8]), nil
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Auto-Payout batch executed",
+		"data":    res,
+	})
+}
+
+func writeServiceError(c *fiber.Ctx, err error) error {
+	var svcErr *ServiceError
+	if errors.As(err, &svcErr) {
+		payload := fiber.Map{"error": svcErr.Msg}
+		if svcErr.Code != "" {
+			payload["code"] = svcErr.Code
+		}
+		if svcErr.Payout != nil {
+			payload["data"] = svcErr.Payout
+		}
+		return c.Status(svcErr.Status).JSON(payload)
+	}
+	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 }

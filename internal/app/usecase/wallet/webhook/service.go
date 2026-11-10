@@ -3,7 +3,7 @@ package webhook
 import (
 	"context"
 	"errors"
-	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
@@ -11,10 +11,10 @@ import (
 )
 
 type PaySolutionsWebhookPayload struct {
-	OrderNo    string  `json:"order_no"`
-	RefNo      string  `json:"ref_no"` // รหัสอ้างอิงของระบบ Payment
-	Status     string  `json:"status"` // เช่น "CP" (Completed), "FA" (Failed)
-	Amount     float64 `json:"amount"`
+	OrderNo string  `json:"order_no"`
+	RefNo   string  `json:"ref_no"` // รหัสอ้างอิงของระบบ Payment
+	Status  string  `json:"status"` // เช่น "CP" (Completed), "FA" (Failed)
+	Amount  float64 `json:"amount"`
 }
 
 type Service interface {
@@ -34,51 +34,44 @@ func NewService(txRepo repository.TransactionRepository, userRepo repository.Use
 }
 
 func (s *service) ProcessCallback(ctx context.Context, payload PaySolutionsWebhookPayload) error {
-	// 1. แปลง OrderNo กลับเป็น Transaction ID
 	txID, err := uuid.Parse(payload.OrderNo)
 	if err != nil {
 		return errors.New("invalid order_no format")
 	}
 
-	// 2. ค้นหา Transaction
 	tx, err := s.txRepo.GetByID(ctx, txID)
 	if err != nil || tx == nil {
 		return errors.New("transaction not found")
 	}
 
-	// ถ้า Transaction นี้ถูกดำเนินการไปแล้ว ไม่ต้องทำซ้ำ
 	if tx.Status == "completed" {
 		return nil
 	}
+	if tx.Status != "pending" {
+		return errors.New("transaction is no longer pending")
+	}
 
-	// 3. เช็คสถานะการชำระเงินจาก PaySolutions (อิงตามสมมติฐานว่า CP = Completed)
-	if payload.Status == "CP" { // Completed
-		// อัปเดตสถานะ Transaction เป็นสำเร็จ
-		err = s.txRepo.UpdateStatus(ctx, tx.ID, "completed", &payload.RefNo)
-		if err != nil {
+	expectedAmount, err := strconv.ParseFloat(tx.Amount, 64)
+	if err != nil || expectedAmount <= 0 {
+		return errors.New("invalid stored transaction amount")
+	}
+
+	if payload.Status == "CP" {
+		if math.Abs(expectedAmount-payload.Amount) > 0.01 {
+			return errors.New("webhook amount does not match transaction")
+		}
+
+		if err := s.txRepo.UpdateStatus(ctx, tx.ID, "completed", &payload.RefNo); err != nil {
 			return errors.New("failed to update transaction status")
 		}
 
-		// ดึงข้อมูล User เพื่อเอา Balance ปัจจุบัน
-		user, err := s.userRepo.GetByID(ctx, tx.UserID)
-		if err != nil {
-			return errors.New("user not found")
+		// Atomic DB increment using stored expected transaction amount
+		if err := s.userRepo.AddBalance(ctx, tx.UserID, tx.Amount); err != nil {
+			return errors.New("failed to credit user balance")
 		}
-
-		currentBalance, _ := strconv.ParseFloat(user.WalletBalance, 64)
-		newBalance := currentBalance + payload.Amount
-
-		// บันทึกเงินเข้ากระเป๋า
-		err = s.userRepo.UpdateBalance(ctx, user.ID, fmt.Sprintf("%.2f", newBalance))
-		if err != nil {
-			return errors.New("failed to update user balance")
-		}
-
-	} else {
-		// จ่ายไม่สำเร็จ
-		_ = s.txRepo.UpdateStatus(ctx, tx.ID, "failed", &payload.RefNo)
-		return errors.New("payment failed")
+		return nil
 	}
 
-	return nil
+	_ = s.txRepo.UpdateStatus(ctx, tx.ID, "failed", &payload.RefNo)
+	return errors.New("payment failed")
 }

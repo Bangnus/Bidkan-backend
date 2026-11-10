@@ -1,113 +1,142 @@
 package middleware
 
 import (
-	"os"
 	"strings"
+	"time"
 
+	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/security"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
-func AuthMiddleware() fiber.Handler {
+type AuthDeps struct {
+	Config   *security.Config
+	Sessions security.SessionStore
+	UserRepo domainRepo.UserRepository
+}
+
+func AuthMiddleware(deps AuthDeps) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		// 1. ดึง Token จาก Header "Authorization"
-		authHeader := c.Get("Authorization")
-		if authHeader == "" {
+		tokenString, ok := extractBearerToken(c)
+		if !ok {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Missing Authorization header",
+				"error": "Missing or invalid Authorization header. Use 'Bearer <token>'",
 			})
 		}
 
-		// บังคับตามมาตรฐาน RFC 6750: ต้องขึ้นต้นด้วย "Bearer " เท่านั้น
-		if !strings.HasPrefix(authHeader, "Bearer ") {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Invalid Authorization format. Use 'Bearer <token>'",
-			})
-		}
-
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-
-		// 2. ตรวจสอบความถูกต้องของ Token
-		secret := os.Getenv("JWT_SECRET")
-		if secret == "" {
-			secret = "bidkan_secret_key_2024"
-		}
-
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// ตรวจสอบ Signing Method เพื่อป้องกันปัญหาระดับต่ำ (Alg: None Attack)
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fiber.ErrUnauthorized
-			}
-			return []byte(secret), nil
-		})
-
-		if err != nil || !token.Valid {
+		claims, err := security.ParseAndVerifyToken(deps.Config, tokenString, security.TokenTypeAccess, "")
+		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Invalid or expired token",
 			})
 		}
 
-		// 3. ดึงข้อมูลจาก Claims
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if ok && token.Valid {
-			c.Locals("user_id", claims["user_id"])
-			c.Locals("role", claims["role"])
-			if tenantID, exists := claims["tenant_id"]; exists && tenantID != nil {
-				c.Locals("tenant_id", tenantID)
-			}
-			if orgID, exists := claims["organization_id"]; exists && orgID != nil {
-				c.Locals("organization_id", orgID)
+		if deps.Sessions != nil {
+			revoked, err := deps.Sessions.IsAccessBlacklisted(c.Context(), claims.ID)
+			if err == nil && revoked {
+				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+					"error": "Token has been revoked",
+				})
 			}
 		}
 
+		role := claims.Role
+		tenantID := claims.TenantID
+		orgID := claims.OrganizationID
+
+		if deps.UserRepo != nil {
+			uid, err := uuid.Parse(claims.UserID)
+			if err != nil {
+				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid user subject"})
+			}
+			user, err := deps.UserRepo.GetByID(c.Context(), uid)
+			if err != nil || user == nil {
+				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "User account not found"})
+			}
+			if user.Status != "active" {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Account is suspended or inactive"})
+			}
+			if user.Role != claims.Role {
+				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Session permissions changed; please sign in again"})
+			}
+			role = user.Role
+			if user.TenantID != nil {
+				tenantID = user.TenantID.String()
+			}
+			if user.OrganizationID != nil {
+				orgID = user.OrganizationID.String()
+			}
+		}
+
+		setAuthLocals(c, claims, role, tenantID, orgID)
 		return c.Next()
 	}
 }
 
-// OptionalAuthMiddleware อนุญาตให้เรียก API ได้ทั้งแบบมี Token และไม่มี Token
-// หากมี Token จะเซ็ต user_id, role ลงใน Locals เพื่อให้ Handler นำไปใช้ต่อได้
-func OptionalAuthMiddleware() fiber.Handler {
+func OptionalAuthMiddleware(deps AuthDeps) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		authHeader := c.Get("Authorization")
-		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		tokenString, ok := extractBearerToken(c)
+		if !ok {
 			return c.Next()
 		}
-
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		secret := os.Getenv("JWT_SECRET")
-		if secret == "" {
-			secret = "bidkan_secret_key_2024"
+		claims, err := security.ParseAndVerifyToken(deps.Config, tokenString, security.TokenTypeAccess, "")
+		if err != nil {
+			return c.Next()
 		}
-
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fiber.ErrUnauthorized
-			}
-			return []byte(secret), nil
-		})
-
-		if err == nil && token != nil && token.Valid {
-			if claims, ok := token.Claims.(jwt.MapClaims); ok {
-				c.Locals("user_id", claims["user_id"])
-				c.Locals("role", claims["role"])
-				if tenantID, exists := claims["tenant_id"]; exists && tenantID != nil {
-					c.Locals("tenant_id", tenantID)
-				}
+		if deps.Sessions != nil {
+			if revoked, err := deps.Sessions.IsAccessBlacklisted(c.Context(), claims.ID); err == nil && revoked {
+				return c.Next()
 			}
 		}
+		setAuthLocals(c, claims, claims.Role, claims.TenantID, claims.OrganizationID)
+		return c.Next()
+	}
+}
 
+func RequireScope(expectedScope string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		scope := GetAuthScope(c)
+		if scope != expectedScope {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": "Forbidden: token not valid for this application scope",
+			})
+		}
 		return c.Next()
 	}
 }
 
 func AdminOnly() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		role := c.Locals("role")
-		if role != "admin" {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "Forbidden: Admin access only",
-			})
-		}
-		return c.Next()
+	return BackofficeRoleGuard("super_admin", "org_admin", "tenant_admin")
+}
+
+func extractBearerToken(c *fiber.Ctx) (string, bool) {
+	authHeader := c.Get("Authorization")
+	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		return "", false
+	}
+	token := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+	if token == "" {
+		return "", false
+	}
+	return token, true
+}
+
+func setAuthLocals(c *fiber.Ctx, claims *security.AuthClaims, role, tenantID, orgID string) {
+	c.Locals("user_id", claims.UserID)
+	c.Locals("role", role)
+	c.Locals("app_scope", claims.AppScope)
+	c.Locals("jti", claims.ID)
+	c.Locals("family_id", claims.FamilyID)
+	if claims.ExpiresAt != nil {
+		c.Locals("token_exp", claims.ExpiresAt.Time)
+	} else {
+		c.Locals("token_exp", time.Now())
+	}
+	if tenantID != "" {
+		c.Locals("tenant_id", tenantID)
+	}
+	if orgID != "" {
+		c.Locals("organization_id", orgID)
 	}
 }

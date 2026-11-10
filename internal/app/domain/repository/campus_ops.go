@@ -16,6 +16,7 @@ type CampusOpsRepository interface {
 	GetTodayStats(ctx context.Context, tenantID uuid.UUID) (*entity.RideStatsSummary, error)
 	GetCompletedStats(ctx context.Context, tenantID uuid.UUID) (*entity.RideStatsSummary, error)
 	GetUnsettledStats(ctx context.Context, tenantID uuid.UUID) (*entity.RideStatsSummary, error)
+	GetUnsettledPeriod(ctx context.Context, tenantID uuid.UUID) (*entity.RideStatsSummary, error)
 	ListPayoutsByTenant(ctx context.Context, tenantID uuid.UUID) ([]*entity.TenantPayout, error)
 	CompleteStripeOnboarding(ctx context.Context, tenantID uuid.UUID, stripeAccountID string) error
 	ListStaffByTenant(ctx context.Context, tenantID uuid.UUID) ([]*entity.CampusStaff, error)

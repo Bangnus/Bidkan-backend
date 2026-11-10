@@ -34,8 +34,10 @@ type HardwareOrder struct {
 }
 
 type RideStatsSummary struct {
-	TotalRides  int     `json:"total_rides"`
-	GrossAmount float64 `json:"gross_amount"`
-	GPFeeAmount float64 `json:"gp_fee_amount"`
-	NetAmount   float64 `json:"net_amount"`
+	TotalRides  int        `json:"total_rides"`
+	GrossAmount float64    `json:"gross_amount"`
+	GPFeeAmount float64    `json:"gp_fee_amount"`
+	NetAmount   float64    `json:"net_amount"`
+	PeriodStart *time.Time `json:"period_start,omitempty"`
+	PeriodEnd   *time.Time `json:"period_end,omitempty"`
 }

@@ -112,9 +112,6 @@ func (h *Handler) HandleOverview(c *fiber.Ctx) error {
 
 func (h *Handler) canAccessOrg(c *fiber.Ctx, orgID uuid.UUID) bool {
 	role, _ := c.Locals("role").(string)
-	if role == "super_admin" || role == "admin" {
-		return true
-	}
 	userOrgID, _ := c.Locals("organization_id").(string)
-	return role == "org_admin" && userOrgID == orgID.String()
+	return role == "org_admin" && userOrgID != "" && userOrgID == orgID.String()
 }

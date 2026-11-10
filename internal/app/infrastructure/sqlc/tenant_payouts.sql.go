@@ -75,6 +75,45 @@ func (q *Queries) GetTenantPayoutByID(ctx context.Context, id uuid.UUID) (Tenant
 	return i, err
 }
 
+const getTenantPayoutByTransferID = `-- name: GetTenantPayoutByTransferID :one
+SELECT id, tenant_id, stripe_transfer_id, total_rides, gross_amount, platform_fee_amount, net_payout_amount, status, error_message, period_start, period_end, processed_at, created_at FROM tenant_payouts WHERE stripe_transfer_id = $1 LIMIT 1
+`
+
+func (q *Queries) GetTenantPayoutByTransferID(ctx context.Context, stripeTransferID sql.NullString) (TenantPayout, error) {
+	row := q.db.QueryRowContext(ctx, getTenantPayoutByTransferID, stripeTransferID)
+	var i TenantPayout
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.StripeTransferID,
+		&i.TotalRides,
+		&i.GrossAmount,
+		&i.PlatformFeeAmount,
+		&i.NetPayoutAmount,
+		&i.Status,
+		&i.ErrorMessage,
+		&i.PeriodStart,
+		&i.PeriodEnd,
+		&i.ProcessedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const hasInFlightPayoutForTenant = `-- name: HasInFlightPayoutForTenant :one
+SELECT EXISTS (
+    SELECT 1 FROM tenant_payouts
+    WHERE tenant_id = $1 AND status IN ('pending', 'processing')
+)::BOOLEAN
+`
+
+func (q *Queries) HasInFlightPayoutForTenant(ctx context.Context, tenantID uuid.UUID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasInFlightPayoutForTenant, tenantID)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const listAllPayouts = `-- name: ListAllPayouts :many
 SELECT id, tenant_id, stripe_transfer_id, total_rides, gross_amount, platform_fee_amount, net_payout_amount, status, error_message, period_start, period_end, processed_at, created_at FROM tenant_payouts
 ORDER BY period_end DESC

@@ -1,8 +1,8 @@
 package transfer
 
 import (
+	"github.com/Bangnus/Bidkan-backend/internal/app/middleware"
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 )
 
 type Handler interface {
@@ -29,7 +29,7 @@ func NewHandler(svc Service) Handler {
 // @Failure 500 {object} map[string]string "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์"
 // @Router /v1/wallet/transfer [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
-	senderID, ok := c.Locals("userId").(uuid.UUID)
+	senderID, ok := middleware.GetAuthUserID(c)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
 	}
@@ -42,7 +42,7 @@ func (h *handler) Handle(c *fiber.Ctx) error {
 	req.SenderID = senderID
 
 	if err := h.svc.Execute(c.Context(), req); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	return c.JSON(fiber.Map{

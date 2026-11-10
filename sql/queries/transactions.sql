@@ -5,10 +5,20 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW());
 -- name: GetTransactionByID :one
 SELECT * FROM transactions WHERE id = $1;
 
+-- name: GetTransactionByGatewayRef :one
+SELECT * FROM transactions WHERE gateway_ref = $1 LIMIT 1;
+
 -- name: UpdateTransactionStatus :exec
 UPDATE transactions
 SET status = $2, gateway_ref = COALESCE($3, gateway_ref), updated_at = NOW()
 WHERE id = $1;
+
+-- name: CompleteTransactionIfPending :execrows
+UPDATE transactions
+SET status = 'completed',
+    gateway_ref = COALESCE($2, gateway_ref),
+    updated_at = NOW()
+WHERE id = $1 AND status = 'pending';
 
 -- name: GetTotalSpendingInWindow :one
 SELECT COALESCE(SUM(ABS(amount)), 0)::TEXT

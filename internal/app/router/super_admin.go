@@ -1,6 +1,7 @@
 package router
 
 import (
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/security"
 	"github.com/Bangnus/Bidkan-backend/internal/app/middleware"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/super/bike_assign"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/super/bike_manage"
@@ -14,6 +15,7 @@ import (
 
 func SetupSuperAdminRoutes(
 	app *fiber.App,
+	authMW fiber.Handler,
 	createTenantHandler tenant_create.Handler,
 	listTenantHandler tenant_list.Handler,
 	manageTenantHandler tenant_manage.Handler,
@@ -22,7 +24,12 @@ func SetupSuperAdminRoutes(
 	payoutHandler payout_manage.Handler,
 	couponHandler coupon_manage.Handler,
 ) {
-	super := app.Group("/api/v1/super", middleware.AuthMiddleware(), middleware.SuperAdminOnly())
+	super := app.Group(
+		"/api/v1/super",
+		authMW,
+		middleware.RequireScope(security.ScopeBackoffice),
+		middleware.SuperAdminOnly(),
+	)
 
 	// Organizations
 	super.Get("/organizations", manageTenantHandler.HandleListOrganizations)
@@ -48,6 +55,8 @@ func SetupSuperAdminRoutes(
 	// Stripe Payouts
 	super.Get("/payouts", payoutHandler.HandleListAll)
 	super.Post("/payouts/trigger", payoutHandler.HandleTriggerPayout)
+	super.Post("/payouts/run-auto", payoutHandler.HandleRunAuto)
+	super.Post("/payouts/:id/retry", payoutHandler.HandleRetryPayout)
 
 	// Global Coupons
 	super.Get("/coupons", couponHandler.HandleList)

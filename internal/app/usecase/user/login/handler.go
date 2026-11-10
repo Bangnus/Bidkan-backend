@@ -1,6 +1,8 @@
 package login
 
 import (
+	"errors"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
@@ -40,6 +42,12 @@ func (h *handler) Handle(c *fiber.Ctx) error {
 
 	res, err := h.service.Login(c.Context(), req)
 	if err != nil {
+		if errors.Is(err, ErrTooManyAttempts) {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"error": err.Error()})
+		}
+		if errors.Is(err, ErrForbiddenScope) {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": err.Error()})
+		}
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 	}
 

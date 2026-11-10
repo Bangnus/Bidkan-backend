@@ -1,6 +1,8 @@
 package google_login
 
 import (
+	"errors"
+
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -24,7 +26,8 @@ func NewHandler(service Service) Handler {
 // @Param request body Request true "Google OAuth Credential"
 // @Success 200 {object} Response "เข้าสู่ระบบสำเร็จ พร้อม JWT Token"
 // @Failure 400 {object} map[string]string "ข้อมูลไม่ถูกต้อง"
-// @Failure 500 {object} map[string]string "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์"
+// @Failure 401 {object} map[string]string "Google Token ไม่ถูกต้อง"
+// @Failure 403 {object} map[string]string "บัญชีถูกระงับหรือไม่มีสิทธิ์ใช้งาน"
 // @Router /v1/users/google-login [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
 	var req Request
@@ -36,11 +39,16 @@ func (h *handler) Handle(c *fiber.Ctx) error {
 
 	res, err := h.service.Login(c.Context(), req)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		if errors.Is(err, ErrAccountRestricted) {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": err.Error()})
+		}
+		if errors.Is(err, ErrInvalidGoogleToken) {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(res)
 }
-

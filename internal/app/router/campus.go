@@ -2,6 +2,7 @@ package router
 
 import (
 	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/security"
 	"github.com/Bangnus/Bidkan-backend/internal/app/middleware"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/bike_list"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/bike_manage"
@@ -19,6 +20,7 @@ import (
 
 func SetupCampusRoutes(
 	app *fiber.App,
+	authMW fiber.Handler,
 	tenantRepo domainRepo.TenantRepository,
 	dashboardHandler dashboard.Handler,
 	bikeListHandler bike_list.Handler,
@@ -32,7 +34,12 @@ func SetupCampusRoutes(
 	fieldOpsHandler field_ops.Handler,
 	reportHandler report_manage.Handler,
 ) {
-	campus := app.Group("/api/v1/campus/:slug", middleware.AuthMiddleware(), middleware.CampusSlugGuard(tenantRepo))
+	campus := app.Group(
+		"/api/v1/campus/:slug",
+		authMW,
+		middleware.RequireScope(security.ScopeBackoffice),
+		middleware.CampusSlugGuard(tenantRepo),
+	)
 	adminOnly := middleware.TenantAdminOnly()
 	staffOrAdmin := middleware.TenantStaffOrAdmin()
 
@@ -44,7 +51,9 @@ func SetupCampusRoutes(
 	campus.Get("/rides", adminOnly, rideListHandler.HandleList)
 	campus.Get("/revenue", adminOnly, revenueHandler.HandleGetRevenue)
 	campus.Patch("/rates", adminOnly, revenueHandler.HandleUpdateRates)
+	campus.Get("/stripe/status", adminOnly, revenueHandler.HandleGetStripeStatus)
 	campus.Post("/stripe/onboard", adminOnly, revenueHandler.HandleStripeOnboard)
+	campus.Post("/stripe/login-link", adminOnly, revenueHandler.HandleStripeLoginLink)
 	campus.Get("/staff", adminOnly, staffHandler.HandleList)
 	campus.Post("/staff", adminOnly, staffHandler.HandleCreate)
 	campus.Get("/coupons", adminOnly, couponHandler.HandleList)

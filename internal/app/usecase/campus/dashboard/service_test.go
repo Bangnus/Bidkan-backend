@@ -26,6 +26,12 @@ func (s *stubTenantRepo) GetBySlug(_ context.Context, slug string) (*entity.Tena
 	}
 	return s.tenant, nil
 }
+func (s *stubTenantRepo) GetByStripeAccountID(context.Context, string) (*entity.Tenant, error) {
+	return nil, errors.New("not found")
+}
+func (s *stubTenantRepo) UpdateStripeStatus(context.Context, uuid.UUID, string, bool) error {
+	return nil
+}
 func (s *stubTenantRepo) List(context.Context) ([]*entity.Tenant, error) { return nil, nil }
 func (s *stubTenantRepo) ListByOrganization(context.Context, uuid.UUID) ([]*entity.Tenant, error) {
 	return nil, nil

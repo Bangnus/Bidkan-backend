@@ -3,12 +3,17 @@ package login
 import (
 	"context"
 	"errors"
-	"os"
+	"strings"
 	"time"
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/security"
 	"golang.org/x/crypto/bcrypt"
+)
+
+var (
+	ErrTooManyAttempts = errors.New("account temporarily locked due to failed login attempts")
+	ErrForbiddenScope  = errors.New("admin accounts must sign in via backoffice portal")
 )
 
 type Request struct {
@@ -17,8 +22,11 @@ type Request struct {
 }
 
 type Response struct {
-	Token string `json:"token"`
-	Role  string `json:"role"`
+	Token        string `json:"token"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"`
+	Role         string `json:"role"`
 }
 
 type Service interface {
@@ -27,62 +35,87 @@ type Service interface {
 
 type service struct {
 	userRepo repository.UserRepository
+	secCfg   *security.Config
+	sessions security.SessionStore
 }
 
-func NewService(userRepo repository.UserRepository) Service {
-	return &service{userRepo: userRepo}
+func NewService(userRepo repository.UserRepository, secCfg *security.Config, sessions security.SessionStore) Service {
+	return &service{userRepo: userRepo, secCfg: secCfg, sessions: sessions}
 }
 
 func (s *service) Login(ctx context.Context, req Request) (*Response, error) {
-	// 1. ค้นหาผู้ใช้จาก Username
-	user, err := s.userRepo.GetByUsername(ctx, req.Username)
+	username := strings.TrimSpace(req.Username)
+	lockKey := "rider:" + strings.ToLower(username)
+	if s.sessions != nil {
+		if locked, _, _ := s.sessions.IsLoginLocked(ctx, lockKey); locked {
+			return nil, ErrTooManyAttempts
+		}
+	}
+
+	user, err := s.userRepo.GetByUsername(ctx, username)
 	if err != nil {
+		s.recordFailure(ctx, lockKey)
 		return nil, errors.New("invalid username or password")
 	}
 
-	// 2. ตรวจสอบสถานะ (ต้องเป็น active เท่านั้น)
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		s.recordFailure(ctx, lockKey)
+		return nil, errors.New("invalid username or password")
+	}
+
+	if user.Role != "user" {
+		return nil, ErrForbiddenScope
+	}
+
 	if user.Status != "active" {
-		return nil, errors.New("account is not activated. please verify your OTP first")
+		return nil, errors.New("account is not activated or is suspended")
 	}
 
-	// 3. ตรวจสอบรหัสผ่าน (Bcrypt)
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
-	if err != nil {
-		return nil, errors.New("invalid username or password")
+	if s.sessions != nil {
+		_ = s.sessions.ClearLoginFailures(ctx, lockKey)
 	}
 
-	// 4. สร้าง JWT Token
 	var tenantIDStr string
 	if user.TenantID != nil {
 		tenantIDStr = user.TenantID.String()
 	}
-	token, err := s.generateJWT(user.ID.String(), user.Role, tenantIDStr)
+
+	pair, err := security.IssueTokenPair(s.secCfg, security.IssueInput{
+		UserID:   user.ID.String(),
+		Role:     user.Role,
+		AppScope: security.ScopeRider,
+		TenantID: tenantIDStr,
+	})
 	if err != nil {
 		return nil, errors.New("failed to generate token")
 	}
 
+	if s.sessions != nil {
+		err = s.sessions.CreateRefreshSession(ctx, pair.RefreshJTI, security.RefreshRecord{
+			UserID:    user.ID.String(),
+			FamilyID:  pair.FamilyID,
+			AppScope:  security.ScopeRider,
+			Role:      user.Role,
+			TenantID:  tenantIDStr,
+			ExpiresAt: pair.RefreshExpiresAt,
+		}, s.secCfg.RefreshTokenTTL)
+		if err != nil {
+			return nil, errors.New("failed to persist session")
+		}
+	}
+
 	return &Response{
-		Token: token,
-		Role:  user.Role,
+		Token:        pair.AccessToken,
+		AccessToken:  pair.AccessToken,
+		RefreshToken: pair.RefreshToken,
+		ExpiresIn:    pair.ExpiresIn,
+		Role:         user.Role,
 	}, nil
 }
 
-func (s *service) generateJWT(userID string, role string, tenantID string) (string, error) {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		secret = "bidkan_secret_key_2024" // Default สำหรับ Dev
+func (s *service) recordFailure(ctx context.Context, key string) {
+	if s.sessions == nil {
+		return
 	}
-
-	claims := jwt.MapClaims{
-		"user_id": userID,
-		"role":    role,
-		"exp":     time.Now().Add(time.Hour * 24 * 7).Unix(), // อายุ 7 วัน
-		"iat":     time.Now().Unix(),
-	}
-	if tenantID != "" {
-		claims["tenant_id"] = tenantID
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
+	_, _ = s.sessions.RecordLoginFailure(ctx, key, 5, 5*time.Minute, 5*time.Minute)
 }

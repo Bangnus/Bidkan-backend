@@ -2,6 +2,7 @@ package list
 
 import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
+	"github.com/Bangnus/Bidkan-backend/internal/app/middleware"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -25,19 +26,16 @@ func NewHandler(service Service) Handler {
 // @Success 200 {array} entity.BikeData "รายการรถจักรยาน"
 // @Router /v1/bikes [get]
 func (h *handler) HandleList(c *fiber.Ctx) error {
-	role, ok := c.Locals("role").(string)
-	if !ok {
-		role = "user" // Default to user if role is missing
-	}
+	role := middleware.GetAuthRole(c)
+	scope := middleware.GetAuthScope(c)
 
 	var bikes []entity.BikeData
 	var err error
 
-	if role == "staff" || role == "admin" {
-		// Staff and Admin see everything
+	isBackoffice := scope == "backoffice" && (role == "super_admin" || role == "org_admin" || role == "tenant_admin" || role == "tenant_staff")
+	if isBackoffice {
 		bikes, err = h.service.GetAllBikes(c.Context())
 	} else {
-		// Normal users see only available bikes
 		bikes, err = h.service.GetAvailableBikes(c.Context())
 	}
 
@@ -46,4 +44,3 @@ func (h *handler) HandleList(c *fiber.Ctx) error {
 	}
 	return c.JSON(bikes)
 }
-

@@ -1,9 +1,9 @@
 package end
 
 import (
+	"github.com/Bangnus/Bidkan-backend/internal/app/middleware"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 )
 
 var validate = validator.New()
@@ -30,17 +30,17 @@ func NewHandler(service Service) Handler {
 // @Success 200 {object} entity.Ride "จบการเช่าและชำระเงินสำเร็จ"
 // @Router /v1/rides/end [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
+	userID, ok := middleware.GetAuthUserID(c)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
+
 	var req Request
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid JSON"})
 	}
 
-	// ดึง UserID จาก Token
-	userIDStr, ok := c.Locals("user_id").(string)
-	if ok {
-		uID, _ := uuid.Parse(userIDStr)
-		req.UserID = uID
-	}
+	req.UserID = userID
 
 	if err := validate.Struct(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})

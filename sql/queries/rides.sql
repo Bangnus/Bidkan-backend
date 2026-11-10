@@ -75,3 +75,20 @@ WHERE r.tenant_id = $1
       (SELECT MAX(tp.period_end) FROM tenant_payouts tp WHERE tp.tenant_id = $1 AND tp.status = 'completed'),
       '1970-01-01'::timestamp
   );
+
+-- name: GetTenantUnsettledPeriod :one
+SELECT
+    COUNT(*)::INT AS unsettled_rides,
+    COALESCE(SUM(r.total_fare), 0)::TEXT AS unsettled_gross,
+    COALESCE(SUM(r.platform_fee), 0)::TEXT AS unsettled_gp_fee,
+    COALESCE(SUM(r.partner_earnings), 0)::TEXT AS unsettled_net,
+    COALESCE(MIN(COALESCE(r.end_time, r.updated_at)), NOW())::TIMESTAMP AS period_start,
+    COALESCE(MAX(COALESCE(r.end_time, r.updated_at)), NOW())::TIMESTAMP AS period_end
+FROM rides r
+WHERE r.tenant_id = $1
+  AND r.status = 'completed'
+  AND r.type <> 'service'
+  AND COALESCE(r.end_time, r.updated_at) > COALESCE(
+      (SELECT MAX(tp.period_end) FROM tenant_payouts tp WHERE tp.tenant_id = $1 AND tp.status = 'completed'),
+      '1970-01-01'::timestamp
+  );

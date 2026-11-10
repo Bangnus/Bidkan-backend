@@ -1,6 +1,7 @@
 package create
 
 import (
+	"github.com/Bangnus/Bidkan-backend/internal/app/middleware"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -28,8 +29,8 @@ func NewHandler(svc Service) Handler {
 // @Failure 500 {object} map[string]string "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์"
 // @Router /v1/coupons [post]
 func (h *handler) Handle(c *fiber.Ctx) error {
-	role := c.Locals("role").(string)
-	if role != "admin" {
+	role := middleware.GetAuthRole(c)
+	if role != "super_admin" && role != "org_admin" && role != "tenant_admin" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "permission denied: admin only"})
 	}
 

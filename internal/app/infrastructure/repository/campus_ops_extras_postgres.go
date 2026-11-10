@@ -58,6 +58,26 @@ func (r *CampusOpsPostgresRepository) GetUnsettledStats(ctx context.Context, ten
 	}, nil
 }
 
+func (r *CampusOpsPostgresRepository) GetUnsettledPeriod(ctx context.Context, tenantID uuid.UUID) (*entity.RideStatsSummary, error) {
+	row, err := r.queries.GetTenantUnsettledPeriod(ctx, tenantID)
+	if err != nil {
+		return &entity.RideStatsSummary{}, err
+	}
+	gross, _ := strconv.ParseFloat(row.UnsettledGross, 64)
+	gp, _ := strconv.ParseFloat(row.UnsettledGpFee, 64)
+	net, _ := strconv.ParseFloat(row.UnsettledNet, 64)
+	start := row.PeriodStart
+	end := row.PeriodEnd
+	return &entity.RideStatsSummary{
+		TotalRides:  int(row.UnsettledRides),
+		GrossAmount: gross,
+		GPFeeAmount: gp,
+		NetAmount:   net,
+		PeriodStart: &start,
+		PeriodEnd:   &end,
+	}, nil
+}
+
 func (r *CampusOpsPostgresRepository) ListCouponsByTenant(ctx context.Context, tenantID uuid.UUID) ([]*entity.Coupon, error) {
 	rows, err := r.queries.ListCouponsByTenant(ctx, uuid.NullUUID{UUID: tenantID, Valid: true})
 	if err != nil {
