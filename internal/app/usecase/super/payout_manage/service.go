@@ -36,6 +36,20 @@ func (s *service) ListOverview(ctx context.Context) ([]*entity.TenantPayout, []U
 	if err != nil {
 		return nil, nil, false, false, err
 	}
+	unsettled := s.buildUnsettledSummaries(ctx)
+	return payouts, unsettled, s.stripe.IsConfigured(), s.stripe.Config().AutoPayoutEnabled, nil
+}
+
+func (s *service) ListOverviewPaged(ctx context.Context, limit, offset int) ([]*entity.TenantPayout, int, []UnsettledTenantSummary, bool, bool, error) {
+	payouts, total, err := s.superRepo.ListAllPayoutsPaged(ctx, limit, offset)
+	if err != nil {
+		return nil, 0, nil, false, false, err
+	}
+	unsettled := s.buildUnsettledSummaries(ctx)
+	return payouts, total, unsettled, s.stripe.IsConfigured(), s.stripe.Config().AutoPayoutEnabled, nil
+}
+
+func (s *service) buildUnsettledSummaries(ctx context.Context) []UnsettledTenantSummary {
 	tenants, _ := s.tenantRepo.List(ctx)
 	unsettled := make([]UnsettledTenantSummary, 0, len(tenants))
 	for _, t := range tenants {
@@ -60,7 +74,7 @@ func (s *service) ListOverview(ctx context.Context) ([]*entity.TenantPayout, []U
 			UnsettledNet:    st.NetAmount,
 		})
 	}
-	return payouts, unsettled, s.stripe.IsConfigured(), s.stripe.Config().AutoPayoutEnabled, nil
+	return unsettled
 }
 
 func (s *service) TriggerPayout(ctx context.Context, req TriggerPayoutRequest) (*entity.TenantPayout, error) {

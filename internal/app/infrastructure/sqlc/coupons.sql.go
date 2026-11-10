@@ -31,6 +31,28 @@ func (q *Queries) CheckUserCouponUsed(ctx context.Context, arg CheckUserCouponUs
 	return exists, err
 }
 
+const countCouponsByTenant = `-- name: CountCouponsByTenant :one
+SELECT COUNT(*)::INT FROM coupons WHERE tenant_id = $1
+`
+
+func (q *Queries) CountCouponsByTenant(ctx context.Context, tenantID uuid.NullUUID) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countCouponsByTenant, tenantID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countGlobalCoupons = `-- name: CountGlobalCoupons :one
+SELECT COUNT(*)::INT FROM coupons WHERE scope = 'global'
+`
+
+func (q *Queries) CountGlobalCoupons(ctx context.Context) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countGlobalCoupons)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createCoupon = `-- name: CreateCoupon :exec
 INSERT INTO coupons (id, code, type, value, min_amount, start_at, max_uses, used_count, expired_at, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, NOW(), NOW())
@@ -334,12 +356,105 @@ func (q *Queries) ListCouponsByTenant(ctx context.Context, tenantID uuid.NullUUI
 	return items, nil
 }
 
+const listCouponsByTenantPaged = `-- name: ListCouponsByTenantPaged :many
+SELECT id, tenant_id, scope, code, type, value, min_amount, start_at, max_uses, used_count, expired_at, created_at, updated_at FROM coupons WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
+`
+
+type ListCouponsByTenantPagedParams struct {
+	TenantID uuid.NullUUID
+	Limit    int32
+	Offset   int32
+}
+
+func (q *Queries) ListCouponsByTenantPaged(ctx context.Context, arg ListCouponsByTenantPagedParams) ([]Coupon, error) {
+	rows, err := q.db.QueryContext(ctx, listCouponsByTenantPaged, arg.TenantID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Coupon
+	for rows.Next() {
+		var i Coupon
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Scope,
+			&i.Code,
+			&i.Type,
+			&i.Value,
+			&i.MinAmount,
+			&i.StartAt,
+			&i.MaxUses,
+			&i.UsedCount,
+			&i.ExpiredAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGlobalCoupons = `-- name: ListGlobalCoupons :many
 SELECT id, tenant_id, scope, code, type, value, min_amount, start_at, max_uses, used_count, expired_at, created_at, updated_at FROM coupons WHERE scope = 'global' ORDER BY created_at DESC
 `
 
 func (q *Queries) ListGlobalCoupons(ctx context.Context) ([]Coupon, error) {
 	rows, err := q.db.QueryContext(ctx, listGlobalCoupons)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Coupon
+	for rows.Next() {
+		var i Coupon
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Scope,
+			&i.Code,
+			&i.Type,
+			&i.Value,
+			&i.MinAmount,
+			&i.StartAt,
+			&i.MaxUses,
+			&i.UsedCount,
+			&i.ExpiredAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGlobalCouponsPaged = `-- name: ListGlobalCouponsPaged :many
+SELECT id, tenant_id, scope, code, type, value, min_amount, start_at, max_uses, used_count, expired_at, created_at, updated_at FROM coupons WHERE scope = 'global' ORDER BY created_at DESC LIMIT $1 OFFSET $2
+`
+
+type ListGlobalCouponsPagedParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListGlobalCouponsPaged(ctx context.Context, arg ListGlobalCouponsPagedParams) ([]Coupon, error) {
+	rows, err := q.db.QueryContext(ctx, listGlobalCouponsPaged, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

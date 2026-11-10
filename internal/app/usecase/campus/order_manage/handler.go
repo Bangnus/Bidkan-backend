@@ -6,6 +6,7 @@ import (
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/shared"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -38,14 +39,26 @@ func (h *Handler) HandleList(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "campus tenant not found"})
 	}
+	fleetCount, _ := h.tenantRepo.CountFleetForTenant(c.Context(), tenant.ID)
+	gpTier := entity.CalculateTieredGP(fleetCount)
+	if page, limit, ok := shared.ParsePageQuery(c); ok {
+		orders, total, err := h.orderRepo.ListByTenantPaged(c.Context(), tenant.ID, limit, (page-1)*limit)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"data":    orders,
+			"meta":    entity.NewPageMeta(page, limit, total),
+			"gp_tier": gpTier,
+		})
+	}
 	orders, err := h.orderRepo.ListByTenant(c.Context(), tenant.ID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
-	fleetCount, _ := h.tenantRepo.CountFleetForTenant(c.Context(), tenant.ID)
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"data":    orders,
-		"gp_tier": entity.CalculateTieredGP(fleetCount),
+		"gp_tier": gpTier,
 	})
 }
 

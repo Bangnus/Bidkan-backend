@@ -33,6 +33,9 @@ func (m *mockTenantRepo) UpdateStripeStatus(context.Context, uuid.UUID, string, 
 	return nil
 }
 func (m *mockTenantRepo) List(context.Context) ([]*entity.Tenant, error) { return nil, nil }
+func (m *mockTenantRepo) ListPaged(context.Context, int, int) ([]*entity.Tenant, int, error) {
+	return nil, 0, nil
+}
 func (m *mockTenantRepo) ListByOrganization(context.Context, uuid.UUID) ([]*entity.Tenant, error) {
 	return nil, nil
 }
@@ -54,6 +57,9 @@ func (m *mockTenantRepo) AssignOrganization(context.Context, uuid.UUID, *uuid.UU
 func (m *mockTenantRepo) AssignBike(context.Context, string, *uuid.UUID) error { return nil }
 func (m *mockTenantRepo) ListBikesByTenant(context.Context, uuid.UUID) ([]*entity.BikeData, error) {
 	return nil, nil
+}
+func (m *mockTenantRepo) ListBikesByTenantPaged(context.Context, uuid.UUID, string, int, int) ([]*entity.BikeData, int, error) {
+	return nil, 0, nil
 }
 func (m *mockTenantRepo) SwapBattery(context.Context, string) error { return nil }
 

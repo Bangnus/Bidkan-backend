@@ -44,6 +44,18 @@ func (q *Queries) AssignUserToTenant(ctx context.Context, arg AssignUserToTenant
 	return err
 }
 
+const countStaffByTenant = `-- name: CountStaffByTenant :one
+SELECT COUNT(*)::INT FROM users
+WHERE tenant_id = $1 AND role = 'tenant_staff'
+`
+
+func (q *Queries) CountStaffByTenant(ctx context.Context, tenantID uuid.NullUUID) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countStaffByTenant, tenantID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createTenantUser = `-- name: CreateTenantUser :exec
 INSERT INTO users (id, tenant_id, organization_id, phone_number, email, username, password, wallet_balance, role, status, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
@@ -298,6 +310,58 @@ ORDER BY created_at DESC
 
 func (q *Queries) ListStaffByTenant(ctx context.Context, tenantID uuid.NullUUID) ([]User, error) {
 	rows, err := q.db.QueryContext(ctx, listStaffByTenant, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.OrganizationID,
+			&i.PhoneNumber,
+			&i.Email,
+			&i.GoogleID,
+			&i.Username,
+			&i.Password,
+			&i.WalletBalance,
+			&i.Role,
+			&i.Status,
+			&i.ImageUrl,
+			&i.FcmToken,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaffByTenantPaged = `-- name: ListStaffByTenantPaged :many
+SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users
+WHERE tenant_id = $1 AND role = 'tenant_staff'
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListStaffByTenantPagedParams struct {
+	TenantID uuid.NullUUID
+	Limit    int32
+	Offset   int32
+}
+
+func (q *Queries) ListStaffByTenantPaged(ctx context.Context, arg ListStaffByTenantPagedParams) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, listStaffByTenantPaged, arg.TenantID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/shared"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -31,6 +32,16 @@ func (h *Handler) HandleList(c *fiber.Ctx) error {
 	tenant, err := h.tenantRepo.GetBySlug(c.Context(), c.Params("slug"))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "campus tenant not found"})
+	}
+	if page, limit, ok := shared.ParsePageQuery(c); ok {
+		staff, total, err := h.campusRepo.ListStaffByTenantPaged(c.Context(), tenant.ID, limit, (page-1)*limit)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"data": staff,
+			"meta": entity.NewPageMeta(page, limit, total),
+		})
 	}
 	staff, err := h.campusRepo.ListStaffByTenant(c.Context(), tenant.ID)
 	if err != nil {

@@ -36,6 +36,18 @@ WHERE r.tenant_id = $1
 ORDER BY r.start_time DESC
 LIMIT 100;
 
+-- name: CountRidesByTenant :one
+SELECT COUNT(*)::INT FROM rides WHERE tenant_id = $1;
+
+-- name: ListRidesByTenantWithUserPaged :many
+SELECT r.id, r.bike_id, r.user_id, u.username, u.phone_number, r.distance_km,
+       r.total_fare, r.platform_fee, r.partner_earnings, r.status, r.start_time, r.end_time
+FROM rides r
+JOIN users u ON r.user_id = u.id
+WHERE r.tenant_id = $1
+ORDER BY r.start_time DESC
+LIMIT $2 OFFSET $3;
+
 -- name: GetActiveRideByUser :one
 SELECT * FROM rides WHERE user_id = $1 AND status = 'ongoing' LIMIT 1;
 

@@ -25,3 +25,12 @@ func (s *Service) Execute(ctx context.Context, slug string) ([]*entity.BikeData,
 	return s.repo.ListBikesByTenant(ctx, tenant.ID)
 }
 
+func (s *Service) ExecutePaged(ctx context.Context, slug, status string, limit, offset int) ([]*entity.BikeData, int, error) {
+	tenant, err := s.repo.GetBySlug(ctx, slug)
+	if err != nil {
+		return nil, 0, errors.New("campus tenant not found")
+	}
+
+	return s.repo.ListBikesByTenantPaged(ctx, tenant.ID, status, limit, offset)
+}
+

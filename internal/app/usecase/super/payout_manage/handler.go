@@ -3,8 +3,10 @@ package payout_manage
 import (
 	"errors"
 
-	infraStripe "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/stripe"
+	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
+	infraStripe "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/stripe"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/shared"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -31,6 +33,19 @@ func (h *Handler) Service() Service {
 }
 
 func (h *Handler) HandleListAll(c *fiber.Ctx) error {
+	if page, limit, ok := shared.ParsePageQuery(c); ok {
+		payouts, total, unsettled, configured, autoEnabled, err := h.svc.ListOverviewPaged(c.Context(), limit, (page-1)*limit)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"data":                payouts,
+			"meta":                entity.NewPageMeta(page, limit, total),
+			"unsettled":           unsettled,
+			"stripe_configured":   configured,
+			"auto_payout_enabled": autoEnabled,
+		})
+	}
 	payouts, unsettled, configured, autoEnabled, err := h.svc.ListOverview(c.Context())
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})

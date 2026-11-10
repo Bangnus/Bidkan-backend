@@ -14,6 +14,7 @@ type TenantRepository interface {
 	GetByStripeAccountID(ctx context.Context, stripeAccountID string) (*entity.Tenant, error)
 	UpdateStripeStatus(ctx context.Context, id uuid.UUID, stripeAccountID string, completed bool) error
 	List(ctx context.Context) ([]*entity.Tenant, error)
+	ListPaged(ctx context.Context, limit, offset int) ([]*entity.Tenant, int, error)
 	ListByOrganization(ctx context.Context, orgID uuid.UUID) ([]*entity.Tenant, error)
 	UpdateRates(ctx context.Context, id uuid.UUID, unlockFee, perMinuteRate, platformFee float64) error
 	UpdateRatesFull(ctx context.Context, id uuid.UUID, unlockFee, perMinuteRate, platformFee, parkingPenalty, simFee float64, autoTiered bool) error
@@ -22,5 +23,6 @@ type TenantRepository interface {
 	AssignOrganization(ctx context.Context, id uuid.UUID, orgID *uuid.UUID) error
 	AssignBike(ctx context.Context, bikeID string, tenantID *uuid.UUID) error
 	ListBikesByTenant(ctx context.Context, tenantID uuid.UUID) ([]*entity.BikeData, error)
+	ListBikesByTenantPaged(ctx context.Context, tenantID uuid.UUID, status string, limit, offset int) ([]*entity.BikeData, int, error)
 	SwapBattery(ctx context.Context, bikeID string) error
 }

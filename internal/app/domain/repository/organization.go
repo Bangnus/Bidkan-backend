@@ -18,6 +18,8 @@ type OrganizationRepository interface {
 type HardwareOrderRepository interface {
 	Create(ctx context.Context, order *entity.HardwareOrder) error
 	ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]*entity.HardwareOrder, error)
+	ListByTenantPaged(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]*entity.HardwareOrder, int, error)
 	ListAll(ctx context.Context) ([]*entity.HardwareOrder, error)
+	ListAllPaged(ctx context.Context, limit, offset int) ([]*entity.HardwareOrder, int, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error
 }

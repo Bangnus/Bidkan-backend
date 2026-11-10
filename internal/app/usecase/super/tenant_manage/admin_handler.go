@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/shared"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -100,6 +101,16 @@ func (h *Handler) HandleCreateAdmin(c *fiber.Ctx) error {
 }
 
 func (h *Handler) HandleListOrders(c *fiber.Ctx) error {
+	if page, limit, ok := shared.ParsePageQuery(c); ok {
+		orders, total, err := h.orderRepo.ListAllPaged(c.Context(), limit, (page-1)*limit)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"data": orders,
+			"meta": entity.NewPageMeta(page, limit, total),
+		})
+	}
 	orders, err := h.orderRepo.ListAll(c.Context())
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})

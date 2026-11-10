@@ -54,6 +54,17 @@ func (q *Queries) CountBikesByTenant(ctx context.Context, tenantID uuid.NullUUID
 	return column_1, err
 }
 
+const countTenants = `-- name: CountTenants :one
+SELECT COUNT(*)::INT FROM tenants
+`
+
+func (q *Queries) CountTenants(ctx context.Context) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countTenants)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createTenant = `-- name: CreateTenant :exec
 INSERT INTO tenants (
     id, organization_id, slug, name, platform_fee_percent, auto_tiered_gp, unlock_fee, per_minute_rate,
@@ -249,6 +260,60 @@ SELECT id, organization_id, slug, name, stripe_account_id, stripe_onboarding_com
 
 func (q *Queries) ListTenantsByOrganization(ctx context.Context, organizationID uuid.NullUUID) ([]Tenant, error) {
 	rows, err := q.db.QueryContext(ctx, listTenantsByOrganization, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Tenant
+	for rows.Next() {
+		var i Tenant
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.Slug,
+			&i.Name,
+			&i.StripeAccountID,
+			&i.StripeOnboardingCompleted,
+			&i.PlatformFeePercent,
+			&i.AutoTieredGp,
+			&i.UnlockFee,
+			&i.PerMinuteRate,
+			&i.ParkingPenaltyFee,
+			&i.SimFeePerBike,
+			&i.ContactName,
+			&i.ContactEmail,
+			&i.ContactPhone,
+			&i.Notes,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTenantsPaged = `-- name: ListTenantsPaged :many
+SELECT id, organization_id, slug, name, stripe_account_id, stripe_onboarding_completed, platform_fee_percent, auto_tiered_gp, unlock_fee, per_minute_rate, parking_penalty_fee, sim_fee_per_bike, contact_name, contact_email, contact_phone, notes, status, created_at, updated_at FROM tenants
+ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListTenantsPagedParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListTenantsPaged(ctx context.Context, arg ListTenantsPagedParams) ([]Tenant, error) {
+	rows, err := q.db.QueryContext(ctx, listTenantsPaged, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

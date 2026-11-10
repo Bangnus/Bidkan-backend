@@ -67,6 +67,53 @@ func (r *HardwareOrderPostgresRepository) ListAll(ctx context.Context) ([]*entit
 	return res, nil
 }
 
+func (r *HardwareOrderPostgresRepository) ListByTenantPaged(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]*entity.HardwareOrder, int, error) {
+	total, err := r.queries.CountHardwareOrdersByTenant(ctx, tenantID)
+	if err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.queries.ListHardwareOrdersByTenantPaged(ctx, sqlc.ListHardwareOrdersByTenantPagedParams{
+		TenantID: tenantID,
+		Limit:    int32(limit),
+		Offset:   int32(offset),
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	res := make([]*entity.HardwareOrder, 0, len(rows))
+	for _, row := range rows {
+		res = append(res, buildHardwareOrder(
+			row.ID, row.TenantID, row.TenantSlug, row.TenantName, row.OrderType,
+			row.Quantity, row.UnitPrice, row.TotalAmount, row.Note, row.Status, row.CreatedBy,
+			row.CreatedAt, row.UpdatedAt,
+		))
+	}
+	return res, int(total), nil
+}
+
+func (r *HardwareOrderPostgresRepository) ListAllPaged(ctx context.Context, limit, offset int) ([]*entity.HardwareOrder, int, error) {
+	total, err := r.queries.CountAllHardwareOrders(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.queries.ListAllHardwareOrdersPaged(ctx, sqlc.ListAllHardwareOrdersPagedParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	res := make([]*entity.HardwareOrder, 0, len(rows))
+	for _, row := range rows {
+		res = append(res, buildHardwareOrder(
+			row.ID, row.TenantID, row.TenantSlug, row.TenantName, row.OrderType,
+			row.Quantity, row.UnitPrice, row.TotalAmount, row.Note, row.Status, row.CreatedBy,
+			row.CreatedAt, row.UpdatedAt,
+		))
+	}
+	return res, int(total), nil
+}
+
 func (r *HardwareOrderPostgresRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
 	return r.queries.UpdateHardwareOrderStatus(ctx, sqlc.UpdateHardwareOrderStatusParams{
 		ID:     id,

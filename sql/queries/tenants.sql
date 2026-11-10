@@ -60,3 +60,11 @@ UPDATE tenants
 SET organization_id = $2,
     updated_at = NOW()
 WHERE id = $1;
+
+-- name: CountTenants :one
+SELECT COUNT(*)::INT FROM tenants;
+
+-- name: ListTenantsPaged :many
+SELECT * FROM tenants
+ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at DESC
+LIMIT $1 OFFSET $2;

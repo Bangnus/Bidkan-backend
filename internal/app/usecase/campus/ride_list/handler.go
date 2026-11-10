@@ -1,7 +1,9 @@
 package ride_list
 
 import (
+	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/shared"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -18,6 +20,16 @@ func (h *Handler) HandleList(c *fiber.Ctx) error {
 	tenant, err := h.tenantRepo.GetBySlug(c.Context(), c.Params("slug"))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "campus tenant not found"})
+	}
+	if page, limit, ok := shared.ParsePageQuery(c); ok {
+		rides, total, err := h.campusRepo.ListRidesByTenantPaged(c.Context(), tenant.ID, limit, (page-1)*limit)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"data": rides,
+			"meta": entity.NewPageMeta(page, limit, total),
+		})
 	}
 	rides, err := h.campusRepo.ListRidesByTenant(c.Context(), tenant.ID)
 	if err != nil {

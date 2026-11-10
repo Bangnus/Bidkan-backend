@@ -13,6 +13,28 @@ import (
 	"github.com/google/uuid"
 )
 
+const countAllHardwareOrders = `-- name: CountAllHardwareOrders :one
+SELECT COUNT(*)::INT FROM hardware_orders
+`
+
+func (q *Queries) CountAllHardwareOrders(ctx context.Context) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countAllHardwareOrders)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countHardwareOrdersByTenant = `-- name: CountHardwareOrdersByTenant :one
+SELECT COUNT(*)::INT FROM hardware_orders WHERE tenant_id = $1
+`
+
+func (q *Queries) CountHardwareOrdersByTenant(ctx context.Context, tenantID uuid.UUID) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countHardwareOrdersByTenant, tenantID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createHardwareOrder = `-- name: CreateHardwareOrder :exec
 INSERT INTO hardware_orders (
     id, tenant_id, order_type, quantity, unit_price, total_amount, note, status, created_by, created_at, updated_at
@@ -108,6 +130,72 @@ func (q *Queries) ListAllHardwareOrders(ctx context.Context) ([]ListAllHardwareO
 	return items, nil
 }
 
+const listAllHardwareOrdersPaged = `-- name: ListAllHardwareOrdersPaged :many
+SELECT o.id, o.tenant_id, o.order_type, o.quantity, o.unit_price, o.total_amount, o.note, o.status, o.created_by, o.created_at, o.updated_at, t.slug AS tenant_slug, t.name AS tenant_name
+FROM hardware_orders o
+JOIN tenants t ON o.tenant_id = t.id
+ORDER BY o.created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListAllHardwareOrdersPagedParams struct {
+	Limit  int32
+	Offset int32
+}
+
+type ListAllHardwareOrdersPagedRow struct {
+	ID          uuid.UUID
+	TenantID    uuid.UUID
+	OrderType   string
+	Quantity    int32
+	UnitPrice   string
+	TotalAmount string
+	Note        sql.NullString
+	Status      string
+	CreatedBy   uuid.NullUUID
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	TenantSlug  string
+	TenantName  string
+}
+
+func (q *Queries) ListAllHardwareOrdersPaged(ctx context.Context, arg ListAllHardwareOrdersPagedParams) ([]ListAllHardwareOrdersPagedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAllHardwareOrdersPaged, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllHardwareOrdersPagedRow
+	for rows.Next() {
+		var i ListAllHardwareOrdersPagedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.OrderType,
+			&i.Quantity,
+			&i.UnitPrice,
+			&i.TotalAmount,
+			&i.Note,
+			&i.Status,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TenantSlug,
+			&i.TenantName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listHardwareOrdersByTenant = `-- name: ListHardwareOrdersByTenant :many
 SELECT o.id, o.tenant_id, o.order_type, o.quantity, o.unit_price, o.total_amount, o.note, o.status, o.created_by, o.created_at, o.updated_at, t.slug AS tenant_slug, t.name AS tenant_name
 FROM hardware_orders o
@@ -141,6 +229,74 @@ func (q *Queries) ListHardwareOrdersByTenant(ctx context.Context, tenantID uuid.
 	var items []ListHardwareOrdersByTenantRow
 	for rows.Next() {
 		var i ListHardwareOrdersByTenantRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.OrderType,
+			&i.Quantity,
+			&i.UnitPrice,
+			&i.TotalAmount,
+			&i.Note,
+			&i.Status,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TenantSlug,
+			&i.TenantName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHardwareOrdersByTenantPaged = `-- name: ListHardwareOrdersByTenantPaged :many
+SELECT o.id, o.tenant_id, o.order_type, o.quantity, o.unit_price, o.total_amount, o.note, o.status, o.created_by, o.created_at, o.updated_at, t.slug AS tenant_slug, t.name AS tenant_name
+FROM hardware_orders o
+JOIN tenants t ON o.tenant_id = t.id
+WHERE o.tenant_id = $1
+ORDER BY o.created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListHardwareOrdersByTenantPagedParams struct {
+	TenantID uuid.UUID
+	Limit    int32
+	Offset   int32
+}
+
+type ListHardwareOrdersByTenantPagedRow struct {
+	ID          uuid.UUID
+	TenantID    uuid.UUID
+	OrderType   string
+	Quantity    int32
+	UnitPrice   string
+	TotalAmount string
+	Note        sql.NullString
+	Status      string
+	CreatedBy   uuid.NullUUID
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	TenantSlug  string
+	TenantName  string
+}
+
+func (q *Queries) ListHardwareOrdersByTenantPaged(ctx context.Context, arg ListHardwareOrdersByTenantPagedParams) ([]ListHardwareOrdersByTenantPagedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listHardwareOrdersByTenantPaged, arg.TenantID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHardwareOrdersByTenantPagedRow
+	for rows.Next() {
+		var i ListHardwareOrdersByTenantPagedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,

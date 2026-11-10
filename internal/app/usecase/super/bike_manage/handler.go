@@ -1,7 +1,9 @@
 package bike_manage
 
 import (
+	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/shared"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -22,6 +24,16 @@ func NewHandler(superRepo domainRepo.SuperAdminRepository, tenantRepo domainRepo
 }
 
 func (h *Handler) HandleListAll(c *fiber.Ctx) error {
+	if page, limit, ok := shared.ParsePageQuery(c); ok {
+		bikes, total, err := h.superRepo.ListAllBikesWithTenantPaged(c.Context(), limit, (page-1)*limit)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"data": bikes,
+			"meta": entity.NewPageMeta(page, limit, total),
+		})
+	}
 	bikes, err := h.superRepo.ListAllBikesWithTenant(c.Context())
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})

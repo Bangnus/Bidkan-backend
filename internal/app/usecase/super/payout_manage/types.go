@@ -50,6 +50,7 @@ type AutoPayoutResult struct {
 
 type Service interface {
 	ListOverview(ctx context.Context) ([]*entity.TenantPayout, []UnsettledTenantSummary, bool, bool, error)
+	ListOverviewPaged(ctx context.Context, limit, offset int) ([]*entity.TenantPayout, int, []UnsettledTenantSummary, bool, bool, error)
 	TriggerPayout(ctx context.Context, req TriggerPayoutRequest) (*entity.TenantPayout, error)
 	RetryPayout(ctx context.Context, payoutID uuid.UUID) (*entity.TenantPayout, error)
 	RunAutoPayouts(ctx context.Context) (*AutoPayoutResult, error)

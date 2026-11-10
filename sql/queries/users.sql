@@ -42,6 +42,16 @@ SELECT * FROM users
 WHERE tenant_id = $1 AND role = 'tenant_staff'
 ORDER BY created_at DESC;
 
+-- name: CountStaffByTenant :one
+SELECT COUNT(*)::INT FROM users
+WHERE tenant_id = $1 AND role = 'tenant_staff';
+
+-- name: ListStaffByTenantPaged :many
+SELECT * FROM users
+WHERE tenant_id = $1 AND role = 'tenant_staff'
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
 -- name: AssignUserToTenant :exec
 UPDATE users 
 SET tenant_id = $2, role = $3, updated_at = NOW()

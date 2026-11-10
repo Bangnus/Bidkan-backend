@@ -13,6 +13,17 @@ import (
 	"github.com/google/uuid"
 )
 
+const countRidesByTenant = `-- name: CountRidesByTenant :one
+SELECT COUNT(*)::INT FROM rides WHERE tenant_id = $1
+`
+
+func (q *Queries) CountRidesByTenant(ctx context.Context, tenantID uuid.UUID) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countRidesByTenant, tenantID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createRide = `-- name: CreateRide :exec
 INSERT INTO rides (
     id, user_id, bike_id, tenant_id, start_time, start_lat, start_lon, unlock_fee, rate_per_minute, status, type, created_at, updated_at
@@ -369,6 +380,73 @@ func (q *Queries) ListRidesByTenantWithUser(ctx context.Context, tenantID uuid.U
 	var items []ListRidesByTenantWithUserRow
 	for rows.Next() {
 		var i ListRidesByTenantWithUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BikeID,
+			&i.UserID,
+			&i.Username,
+			&i.PhoneNumber,
+			&i.DistanceKm,
+			&i.TotalFare,
+			&i.PlatformFee,
+			&i.PartnerEarnings,
+			&i.Status,
+			&i.StartTime,
+			&i.EndTime,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRidesByTenantWithUserPaged = `-- name: ListRidesByTenantWithUserPaged :many
+SELECT r.id, r.bike_id, r.user_id, u.username, u.phone_number, r.distance_km,
+       r.total_fare, r.platform_fee, r.partner_earnings, r.status, r.start_time, r.end_time
+FROM rides r
+JOIN users u ON r.user_id = u.id
+WHERE r.tenant_id = $1
+ORDER BY r.start_time DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListRidesByTenantWithUserPagedParams struct {
+	TenantID uuid.UUID
+	Limit    int32
+	Offset   int32
+}
+
+type ListRidesByTenantWithUserPagedRow struct {
+	ID              uuid.UUID
+	BikeID          string
+	UserID          uuid.UUID
+	Username        string
+	PhoneNumber     sql.NullString
+	DistanceKm      float64
+	TotalFare       string
+	PlatformFee     string
+	PartnerEarnings string
+	Status          string
+	StartTime       time.Time
+	EndTime         sql.NullTime
+}
+
+func (q *Queries) ListRidesByTenantWithUserPaged(ctx context.Context, arg ListRidesByTenantWithUserPagedParams) ([]ListRidesByTenantWithUserPagedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRidesByTenantWithUserPaged, arg.TenantID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRidesByTenantWithUserPagedRow
+	for rows.Next() {
+		var i ListRidesByTenantWithUserPagedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.BikeID,

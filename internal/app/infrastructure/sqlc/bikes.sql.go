@@ -30,6 +30,34 @@ func (q *Queries) AssignBikeToTenant(ctx context.Context, arg AssignBikeToTenant
 	return err
 }
 
+const countAllBikes = `-- name: CountAllBikes :one
+SELECT COUNT(*)::INT FROM bikes
+`
+
+func (q *Queries) CountAllBikes(ctx context.Context) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countAllBikes)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countBikesByTenantFiltered = `-- name: CountBikesByTenantFiltered :one
+SELECT COUNT(*)::INT FROM bikes
+WHERE tenant_id = $1 AND ($2::TEXT = '' OR status = $2::TEXT)
+`
+
+type CountBikesByTenantFilteredParams struct {
+	TenantID uuid.NullUUID
+	Column2  string
+}
+
+func (q *Queries) CountBikesByTenantFiltered(ctx context.Context, arg CountBikesByTenantFilteredParams) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countBikesByTenantFiltered, arg.TenantID, arg.Column2)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createBike = `-- name: CreateBike :exec
 INSERT INTO bikes (id, hardware_id, status, image_url, tenant_id)
 VALUES ($1, $2, $3, $4, $5)
@@ -201,6 +229,69 @@ func (q *Queries) ListAllBikesWithTenant(ctx context.Context) ([]ListAllBikesWit
 	return items, nil
 }
 
+const listAllBikesWithTenantPaged = `-- name: ListAllBikesWithTenantPaged :many
+SELECT b.id, b.hardware_id, b.tenant_id, COALESCE(t.slug, '') AS tenant_slug, COALESCE(t.name, '') AS tenant_name,
+       b.status, b.lat, b.lon, b.battery_level, b.last_heartbeat, b.created_at
+FROM bikes b
+LEFT JOIN tenants t ON b.tenant_id = t.id
+ORDER BY b.id
+LIMIT $1 OFFSET $2
+`
+
+type ListAllBikesWithTenantPagedParams struct {
+	Limit  int32
+	Offset int32
+}
+
+type ListAllBikesWithTenantPagedRow struct {
+	ID            string
+	HardwareID    string
+	TenantID      uuid.NullUUID
+	TenantSlug    string
+	TenantName    string
+	Status        string
+	Lat           float64
+	Lon           float64
+	BatteryLevel  int32
+	LastHeartbeat sql.NullTime
+	CreatedAt     time.Time
+}
+
+func (q *Queries) ListAllBikesWithTenantPaged(ctx context.Context, arg ListAllBikesWithTenantPagedParams) ([]ListAllBikesWithTenantPagedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAllBikesWithTenantPaged, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllBikesWithTenantPagedRow
+	for rows.Next() {
+		var i ListAllBikesWithTenantPagedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.HardwareID,
+			&i.TenantID,
+			&i.TenantSlug,
+			&i.TenantName,
+			&i.Status,
+			&i.Lat,
+			&i.Lon,
+			&i.BatteryLevel,
+			&i.LastHeartbeat,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAvailableBikes = `-- name: ListAvailableBikes :many
 SELECT id, hardware_id, tenant_id, status, lat, lon, battery_level, image_url, last_heartbeat, current_ride_id, created_at, updated_at FROM bikes 
 WHERE status = 'available' 
@@ -296,6 +387,61 @@ ORDER BY id
 
 func (q *Queries) ListBikesByTenant(ctx context.Context, tenantID uuid.NullUUID) ([]Bike, error) {
 	rows, err := q.db.QueryContext(ctx, listBikesByTenant, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Bike
+	for rows.Next() {
+		var i Bike
+		if err := rows.Scan(
+			&i.ID,
+			&i.HardwareID,
+			&i.TenantID,
+			&i.Status,
+			&i.Lat,
+			&i.Lon,
+			&i.BatteryLevel,
+			&i.ImageUrl,
+			&i.LastHeartbeat,
+			&i.CurrentRideID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBikesByTenantPaged = `-- name: ListBikesByTenantPaged :many
+SELECT id, hardware_id, tenant_id, status, lat, lon, battery_level, image_url, last_heartbeat, current_ride_id, created_at, updated_at FROM bikes
+WHERE tenant_id = $1 AND ($2::TEXT = '' OR status = $2::TEXT)
+ORDER BY id
+LIMIT $3 OFFSET $4
+`
+
+type ListBikesByTenantPagedParams struct {
+	TenantID uuid.NullUUID
+	Column2  string
+	Limit    int32
+	Offset   int32
+}
+
+func (q *Queries) ListBikesByTenantPaged(ctx context.Context, arg ListBikesByTenantPagedParams) ([]Bike, error) {
+	rows, err := q.db.QueryContext(ctx, listBikesByTenantPaged,
+		arg.TenantID,
+		arg.Column2,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -23,3 +23,24 @@ UPDATE hardware_orders
 SET status = $2,
     updated_at = NOW()
 WHERE id = $1;
+
+-- name: CountAllHardwareOrders :one
+SELECT COUNT(*)::INT FROM hardware_orders;
+
+-- name: ListAllHardwareOrdersPaged :many
+SELECT o.*, t.slug AS tenant_slug, t.name AS tenant_name
+FROM hardware_orders o
+JOIN tenants t ON o.tenant_id = t.id
+ORDER BY o.created_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: CountHardwareOrdersByTenant :one
+SELECT COUNT(*)::INT FROM hardware_orders WHERE tenant_id = $1;
+
+-- name: ListHardwareOrdersByTenantPaged :many
+SELECT o.*, t.slug AS tenant_slug, t.name AS tenant_name
+FROM hardware_orders o
+JOIN tenants t ON o.tenant_id = t.id
+WHERE o.tenant_id = $1
+ORDER BY o.created_at DESC
+LIMIT $2 OFFSET $3;

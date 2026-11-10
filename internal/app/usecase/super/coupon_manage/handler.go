@@ -6,6 +6,7 @@ import (
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/shared"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -28,6 +29,16 @@ func NewHandler(superRepo domainRepo.SuperAdminRepository) Handler {
 }
 
 func (h *Handler) HandleList(c *fiber.Ctx) error {
+	if page, limit, ok := shared.ParsePageQuery(c); ok {
+		coupons, total, err := h.superRepo.ListGlobalCouponsPaged(c.Context(), limit, (page-1)*limit)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"data": coupons,
+			"meta": entity.NewPageMeta(page, limit, total),
+		})
+	}
 	coupons, err := h.superRepo.ListGlobalCoupons(c.Context())
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})

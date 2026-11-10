@@ -13,6 +13,29 @@ import (
 	"github.com/google/uuid"
 )
 
+const countAllPayouts = `-- name: CountAllPayouts :one
+SELECT COUNT(*)::INT FROM tenant_payouts
+`
+
+func (q *Queries) CountAllPayouts(ctx context.Context) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countAllPayouts)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countPayoutsByTenant = `-- name: CountPayoutsByTenant :one
+SELECT COUNT(*)::INT FROM tenant_payouts
+WHERE tenant_id = $1
+`
+
+func (q *Queries) CountPayoutsByTenant(ctx context.Context, tenantID uuid.UUID) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countPayoutsByTenant, tenantID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createTenantPayout = `-- name: CreateTenantPayout :exec
 INSERT INTO tenant_payouts (
     id, tenant_id, stripe_transfer_id, total_rides, gross_amount, platform_fee_amount, net_payout_amount, status, period_start, period_end, created_at
@@ -156,6 +179,54 @@ func (q *Queries) ListAllPayouts(ctx context.Context) ([]TenantPayout, error) {
 	return items, nil
 }
 
+const listAllPayoutsPaged = `-- name: ListAllPayoutsPaged :many
+SELECT id, tenant_id, stripe_transfer_id, total_rides, gross_amount, platform_fee_amount, net_payout_amount, status, error_message, period_start, period_end, processed_at, created_at FROM tenant_payouts
+ORDER BY period_end DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListAllPayoutsPagedParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListAllPayoutsPaged(ctx context.Context, arg ListAllPayoutsPagedParams) ([]TenantPayout, error) {
+	rows, err := q.db.QueryContext(ctx, listAllPayoutsPaged, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TenantPayout
+	for rows.Next() {
+		var i TenantPayout
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.StripeTransferID,
+			&i.TotalRides,
+			&i.GrossAmount,
+			&i.PlatformFeeAmount,
+			&i.NetPayoutAmount,
+			&i.Status,
+			&i.ErrorMessage,
+			&i.PeriodStart,
+			&i.PeriodEnd,
+			&i.ProcessedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPayoutsByTenant = `-- name: ListPayoutsByTenant :many
 SELECT id, tenant_id, stripe_transfer_id, total_rides, gross_amount, platform_fee_amount, net_payout_amount, status, error_message, period_start, period_end, processed_at, created_at FROM tenant_payouts
 WHERE tenant_id = $1
@@ -164,6 +235,56 @@ ORDER BY period_end DESC
 
 func (q *Queries) ListPayoutsByTenant(ctx context.Context, tenantID uuid.UUID) ([]TenantPayout, error) {
 	rows, err := q.db.QueryContext(ctx, listPayoutsByTenant, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TenantPayout
+	for rows.Next() {
+		var i TenantPayout
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.StripeTransferID,
+			&i.TotalRides,
+			&i.GrossAmount,
+			&i.PlatformFeeAmount,
+			&i.NetPayoutAmount,
+			&i.Status,
+			&i.ErrorMessage,
+			&i.PeriodStart,
+			&i.PeriodEnd,
+			&i.ProcessedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPayoutsByTenantPaged = `-- name: ListPayoutsByTenantPaged :many
+SELECT id, tenant_id, stripe_transfer_id, total_rides, gross_amount, platform_fee_amount, net_payout_amount, status, error_message, period_start, period_end, processed_at, created_at FROM tenant_payouts
+WHERE tenant_id = $1
+ORDER BY period_end DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListPayoutsByTenantPagedParams struct {
+	TenantID uuid.UUID
+	Limit    int32
+	Offset   int32
+}
+
+func (q *Queries) ListPayoutsByTenantPaged(ctx context.Context, arg ListPayoutsByTenantPagedParams) ([]TenantPayout, error) {
+	rows, err := q.db.QueryContext(ctx, listPayoutsByTenantPaged, arg.TenantID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

@@ -50,3 +50,15 @@ SELECT * FROM coupons WHERE scope = 'global' ORDER BY created_at DESC;
 
 -- name: ListCouponsByTenant :many
 SELECT * FROM coupons WHERE tenant_id = $1 ORDER BY created_at DESC;
+
+-- name: CountGlobalCoupons :one
+SELECT COUNT(*)::INT FROM coupons WHERE scope = 'global';
+
+-- name: ListGlobalCouponsPaged :many
+SELECT * FROM coupons WHERE scope = 'global' ORDER BY created_at DESC LIMIT $1 OFFSET $2;
+
+-- name: CountCouponsByTenant :one
+SELECT COUNT(*)::INT FROM coupons WHERE tenant_id = $1;
+
+-- name: ListCouponsByTenantPaged :many
+SELECT * FROM coupons WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3;

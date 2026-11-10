@@ -19,3 +19,7 @@ func (s *Service) Execute(ctx context.Context) ([]*entity.Tenant, error) {
 	return s.repo.List(ctx)
 }
 
+func (s *Service) ExecutePaged(ctx context.Context, limit, offset int) ([]*entity.Tenant, int, error) {
+	return s.repo.ListPaged(ctx, limit, offset)
+}
+

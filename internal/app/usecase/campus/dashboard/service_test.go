@@ -33,6 +33,9 @@ func (s *stubTenantRepo) UpdateStripeStatus(context.Context, uuid.UUID, string, 
 	return nil
 }
 func (s *stubTenantRepo) List(context.Context) ([]*entity.Tenant, error) { return nil, nil }
+func (s *stubTenantRepo) ListPaged(context.Context, int, int) ([]*entity.Tenant, int, error) {
+	return nil, 0, nil
+}
 func (s *stubTenantRepo) ListByOrganization(context.Context, uuid.UUID) ([]*entity.Tenant, error) {
 	return nil, nil
 }
@@ -54,6 +57,9 @@ func (s *stubTenantRepo) AssignOrganization(context.Context, uuid.UUID, *uuid.UU
 func (s *stubTenantRepo) AssignBike(context.Context, string, *uuid.UUID) error { return nil }
 func (s *stubTenantRepo) ListBikesByTenant(context.Context, uuid.UUID) ([]*entity.BikeData, error) {
 	return s.bikes, nil
+}
+func (s *stubTenantRepo) ListBikesByTenantPaged(context.Context, uuid.UUID, string, int, int) ([]*entity.BikeData, int, error) {
+	return s.bikes, len(s.bikes), nil
 }
 func (s *stubTenantRepo) SwapBattery(context.Context, string) error { return nil }
 

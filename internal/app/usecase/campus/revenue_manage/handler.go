@@ -4,6 +4,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
 	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
 	infraStripe "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/stripe"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/shared"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -39,7 +40,16 @@ func (h *Handler) HandleGetRevenue(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "campus tenant not found"})
 	}
-	payouts, err := h.campusRepo.ListPayoutsByTenant(c.Context(), tenant.ID)
+	var payouts []*entity.TenantPayout
+	var payoutsMeta *entity.PageMeta
+	if page, limit, ok := shared.ParsePageQuery(c); ok {
+		var total int
+		payouts, total, err = h.campusRepo.ListPayoutsByTenantPaged(c.Context(), tenant.ID, limit, (page-1)*limit)
+		m := entity.NewPageMeta(page, limit, total)
+		payoutsMeta = &m
+	} else {
+		payouts, err = h.campusRepo.ListPayoutsByTenant(c.Context(), tenant.ID)
+	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -56,24 +66,27 @@ func (h *Handler) HandleGetRevenue(c *fiber.Ctx) error {
 	fleetCount, _ := h.tenantRepo.CountFleetForTenant(c.Context(), tenant.ID)
 	campusBikes, _ := h.tenantRepo.ListBikesByTenant(c.Context(), tenant.ID)
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"data": fiber.Map{
-			"tenant":                      tenant,
-			"gp_tier":                     entity.CalculateTieredGP(fleetCount),
-			"campus_bike_count":           len(campusBikes),
-			"monthly_sim_fee":             float64(len(campusBikes)) * tenant.SimFeePerBike,
-			"stripe_configured":           h.stripe.IsConfigured(),
-			"stripe_connect_account_type": h.stripe.Config().ConnectAccountType,
-			"total_gross":                 completedStats.GrossAmount,
-			"total_gp_fee":                completedStats.GPFeeAmount,
-			"total_net":                   completedStats.NetAmount,
-			"unsettled_rides":             unsettledStats.TotalRides,
-			"unsettled_gross":             unsettledStats.GrossAmount,
-			"unsettled_gp_fee":            unsettledStats.GPFeeAmount,
-			"unsettled_net":               unsettledStats.NetAmount,
-			"payouts":                     payouts,
-		},
-	})
+	payload := fiber.Map{
+		"tenant":                      tenant,
+		"gp_tier":                     entity.CalculateTieredGP(fleetCount),
+		"campus_bike_count":           len(campusBikes),
+		"monthly_sim_fee":             float64(len(campusBikes)) * tenant.SimFeePerBike,
+		"stripe_configured":           h.stripe.IsConfigured(),
+		"stripe_connect_account_type": h.stripe.Config().ConnectAccountType,
+		"total_gross":                 completedStats.GrossAmount,
+		"total_gp_fee":                completedStats.GPFeeAmount,
+		"total_net":                   completedStats.NetAmount,
+		"unsettled_rides":             unsettledStats.TotalRides,
+		"unsettled_gross":             unsettledStats.GrossAmount,
+		"unsettled_gp_fee":            unsettledStats.GPFeeAmount,
+		"unsettled_net":               unsettledStats.NetAmount,
+		"payouts":                     payouts,
+	}
+	if payoutsMeta != nil {
+		payload["payouts_meta"] = payoutsMeta
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"data": payload})
 }
 
 func (h *Handler) HandleUpdateRates(c *fiber.Ctx) error {

@@ -64,3 +64,24 @@ SELECT b.id, b.hardware_id, b.tenant_id, COALESCE(t.slug, '') AS tenant_slug, CO
 FROM bikes b
 LEFT JOIN tenants t ON b.tenant_id = t.id
 ORDER BY b.id;
+
+-- name: CountAllBikes :one
+SELECT COUNT(*)::INT FROM bikes;
+
+-- name: ListAllBikesWithTenantPaged :many
+SELECT b.id, b.hardware_id, b.tenant_id, COALESCE(t.slug, '') AS tenant_slug, COALESCE(t.name, '') AS tenant_name,
+       b.status, b.lat, b.lon, b.battery_level, b.last_heartbeat, b.created_at
+FROM bikes b
+LEFT JOIN tenants t ON b.tenant_id = t.id
+ORDER BY b.id
+LIMIT $1 OFFSET $2;
+
+-- name: CountBikesByTenantFiltered :one
+SELECT COUNT(*)::INT FROM bikes
+WHERE tenant_id = $1 AND ($2::TEXT = '' OR status = $2::TEXT);
+
+-- name: ListBikesByTenantPaged :many
+SELECT * FROM bikes
+WHERE tenant_id = $1 AND ($2::TEXT = '' OR status = $2::TEXT)
+ORDER BY id
+LIMIT $3 OFFSET $4;

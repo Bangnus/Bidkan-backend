@@ -34,3 +34,21 @@ SELECT EXISTS (
     WHERE tenant_id = $1 AND status IN ('pending', 'processing')
 )::BOOLEAN;
 
+-- name: CountAllPayouts :one
+SELECT COUNT(*)::INT FROM tenant_payouts;
+
+-- name: ListAllPayoutsPaged :many
+SELECT * FROM tenant_payouts
+ORDER BY period_end DESC
+LIMIT $1 OFFSET $2;
+
+-- name: CountPayoutsByTenant :one
+SELECT COUNT(*)::INT FROM tenant_payouts
+WHERE tenant_id = $1;
+
+-- name: ListPayoutsByTenantPaged :many
+SELECT * FROM tenant_payouts
+WHERE tenant_id = $1
+ORDER BY period_end DESC
+LIMIT $2 OFFSET $3;
+
