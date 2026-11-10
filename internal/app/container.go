@@ -32,13 +32,10 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify_firebase"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/stripe_webhook"
 	walletStripeTopup "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/stripe_topup"
-	walletTopup "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/topup"
 	walletTransfer "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/transfer"
 	walletVerify "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/verify_receiver"
-	walletWebhook "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/webhook"
 	zoneCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/zone/create"
 	zoneList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/zone/list"
-	"github.com/Bangnus/Bidkan-backend/pkg/payment"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -79,11 +76,8 @@ func NewContainer(
 	rankService := rank.NewService(spendingRepo, rankCacheRepo)
 	updateProfileService := update_profile.NewService(userRepo)
 
-	paySvc := payment.NewPaySolutionsService()
-	topupService := walletTopup.NewService(txRepo, userRepo, paySvc)
 	transferService := walletTransfer.NewService(db, userRepo, txRepo, mqttPub, notiProvider)
 	verifyService := walletVerify.NewService(userRepo)
-	webhookService := walletWebhook.NewService(txRepo, userRepo)
 	stripeWebhookSvc := stripe_webhook.NewService(tenantRepo, superRepo, txRepo, userRepo)
 
 	bikeCreateService := bikeCreate.NewService(bikeRepo)
@@ -119,11 +113,9 @@ func NewContainer(
 		RankHandler:             rank.NewHandler(rankService),
 		UpdateProfileHandler:    update_profile.NewHandler(updateProfileService),
 		LogoutHandler:           logout.NewHandler(secCfg, sessions),
-		TopupHandler:            walletTopup.NewHandler(topupService),
 		StripeTopupHandler:      walletStripeTopup.NewHandler(txRepo, userRepo, stripeClient),
 		TransferHandler:         walletTransfer.NewHandler(transferService),
 		VerifyReceiverHandler:   walletVerify.NewHandler(verifyService),
-		WebhookHandler:          walletWebhook.NewHandler(webhookService, secCfg.PaySolutionsWebhookSecret),
 		StripeWebhookHandler:    stripe_webhook.NewHandler(stripeWebhookSvc, stripeClient),
 		StripeClient:            stripeClient,
 		CreateBikeHandler:       bikeCreate.NewHandler(bikeCreateService),

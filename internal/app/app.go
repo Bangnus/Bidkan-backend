@@ -29,10 +29,8 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify_firebase"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/stripe_webhook"
 	walletStripeTopup "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/stripe_topup"
-	walletTopup "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/topup"
 	walletTransfer "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/transfer"
 	walletVerify "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/verify_receiver"
-	walletWebhook "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/webhook"
 	zoneCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/zone/create"
 	zoneList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/zone/list"
 )
@@ -53,12 +51,10 @@ type Container struct {
 	LogoutHandler         logout.Handler
 
 	// Wallet
-	TopupHandler         walletTopup.Handler
-	StripeTopupHandler   walletStripeTopup.Handler
-	TransferHandler      walletTransfer.Handler
+	StripeTopupHandler    walletStripeTopup.Handler
+	TransferHandler       walletTransfer.Handler
 	VerifyReceiverHandler walletVerify.Handler
-	WebhookHandler       walletWebhook.Handler
-	StripeWebhookHandler stripe_webhook.Handler
+	StripeWebhookHandler  stripe_webhook.Handler
 
 	// Bike
 	CreateBikeHandler       bikeCreate.Handler

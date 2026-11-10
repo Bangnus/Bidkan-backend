@@ -27,7 +27,6 @@ definitions:
   end.Request:
     properties:
       coupon_code:
-        description: เพิ่มฟิลด์เลือกใช้คูปอง (Optional)
         type: string
       user_id:
         type: string
@@ -53,6 +52,8 @@ definitions:
       lon:
         type: number
       status:
+        type: string
+      tenant_id:
         type: string
     type: object
   entity.BikeUsageStat:
@@ -107,6 +108,12 @@ definitions:
         type: string
       id:
         type: string
+      partnerEarnings:
+        type: string
+      platformFee:
+        type: string
+      ratePerMinute:
+        type: string
       startLat:
         format: float64
         type: number
@@ -118,10 +125,14 @@ definitions:
       status:
         description: ongoing, completed, cancelled
         type: string
+      tenantID:
+        type: string
       totalFare:
         type: string
       type:
         description: ride, service
+        type: string
+      unlockFee:
         type: string
       updatedAt:
         type: string
@@ -141,6 +152,35 @@ definitions:
       total_users:
         type: integer
     type: object
+  entity.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      fcm_token:
+        type: string
+      id:
+        type: string
+      image_url:
+        type: string
+      organization_id:
+        type: string
+      phone_number:
+        type: string
+      role:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      username:
+        type: string
+      wallet_balance:
+        type: string
+    type: object
   entity.Zone:
     properties:
       boundary:
@@ -154,6 +194,8 @@ definitions:
       radius:
         format: float64
         type: number
+      tenantID:
+        type: string
       type:
         type: string
       updatedAt:
@@ -165,6 +207,30 @@ definitions:
         type: number
       lon:
         type: number
+    type: object
+  google_login.Request:
+    properties:
+      campus_slug:
+        type: string
+      credential:
+        type: string
+    required:
+    - credential
+    type: object
+  google_login.Response:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      role:
+        type: string
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/entity.User'
     type: object
   internal_app_usecase_bike_create.Request:
     properties:
@@ -288,6 +354,12 @@ definitions:
     type: object
   login.Response:
     properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
       role:
         type: string
       token:
@@ -295,7 +367,11 @@ definitions:
     type: object
   me.Response:
     properties:
+      email:
+        type: string
       id:
+        type: string
+      image_url:
         type: string
       phone_number:
         type: string
@@ -304,6 +380,8 @@ definitions:
       status:
         type: string
       username:
+        type: string
+      wallet_balance:
         type: string
     type: object
   rank.Response:
@@ -330,27 +408,17 @@ definitions:
     properties:
       bike_id:
         type: string
+      campus_slug:
+        type: string
+      lat:
+        type: number
+      lon:
+        type: number
       user_id:
         type: string
     required:
     - bike_id
     - user_id
-    type: object
-  topup.Request:
-    properties:
-      amount:
-        type: number
-    required:
-    - amount
-    type: object
-  topup.Response:
-    properties:
-      amount:
-        type: number
-      qr_code_url:
-        type: string
-      transaction_id:
-        type: string
     type: object
   transfer.Request:
     properties:
@@ -841,6 +909,46 @@ paths:
       summary: สมัครสมาชิกใหม่ (และส่ง OTP)
       tags:
       - Users
+  /v1/users/google-login:
+    post:
+      consumes:
+      - application/json
+      description: รับ credential (Google ID Token) ตรวจสอบและบันทึกลงฐานข้อมูล พร้อมแยกมหาวิทยาลัยอัตโนมัติ
+      parameters:
+      - description: Google OAuth Credential
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/google_login.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: เข้าสู่ระบบสำเร็จ พร้อม JWT Token
+          schema:
+            $ref: '#/definitions/google_login.Response'
+        "400":
+          description: ข้อมูลไม่ถูกต้อง
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Google Token ไม่ถูกต้อง
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: บัญชีถูกระงับหรือไม่มีสิทธิ์ใช้งาน
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: เข้าสู่ระบบด้วย Google (ทั้งอีเมลมหาวิทยาลัยและบุคคลทั่วไป)
+      tags:
+      - Users
   /v1/users/login:
     post:
       consumes:
@@ -871,8 +979,7 @@ paths:
       - Users
   /v1/users/logout:
     post:
-      description: Logout the current user by instructing the client to clear the
-        JWT token.
+      description: Revoke the current access and refresh JWT session in Redis.
       produces:
       - application/json
       responses:
@@ -976,30 +1083,6 @@ paths:
       summary: ยืนยันตัวตนผ่าน Firebase และเปิดใช้งานบัญชี
       tags:
       - Users
-  /v1/wallet/topup:
-    post:
-      consumes:
-      - application/json
-      description: สร้างรายการธุรกรรมเติมเงินและรับ QR Code สำหรับชำระเงินผ่าน PromptPay
-      parameters:
-      - description: ระบุจำนวนเงินที่ต้องการเติม
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/topup.Request'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: สร้างรายการเติมเงินสำเร็จ
-          schema:
-            $ref: '#/definitions/topup.Response'
-      security:
-      - BearerAuth: []
-      summary: ขอเติมเงินเข้า Wallet (PromptPay)
-      tags:
-      - Wallet
   /v1/wallet/transfer:
     post:
       consumes:
@@ -1068,22 +1151,6 @@ paths:
       security:
       - BearerAuth: []
       summary: ตรวจสอบผู้รับโอน
-      tags:
-      - Wallet
-  /v1/wallet/webhook/paysolutions:
-    post:
-      consumes:
-      - application/json
-      description: รับการแจ้งเตือนสถานะการชำระเงินจาก PaySolutions (ใช้สำหรับเติมเงินอัตโนมัติ)
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: รับข้อมูลสำเร็จ
-          schema:
-            additionalProperties: true
-            type: object
-      summary: PaySolutions Webhook (ระบบรับแจ้งชำระเงิน)
       tags:
       - Wallet
   /v1/zones:

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 
@@ -33,14 +32,11 @@ func NewService(
 }
 
 func (s *service) GetConfig() ConfigResponse {
-	paySolReady := strings.TrimSpace(os.Getenv("PAYSOLUTIONS_MERCHANT_ID")) != "" &&
-		strings.TrimSpace(os.Getenv("PAYSOLUTIONS_API_KEY")) != ""
 	return ConfigResponse{
-		StripeEnabled:       s.stripe.IsConfigured(),
-		PaySolutionsEnabled: paySolReady,
-		Currency:            "thb",
-		MinAmount:           MinTopupTHB,
-		MaxAmount:           MaxTopupTHB,
+		StripeEnabled: s.stripe.IsConfigured(),
+		Currency:      "thb",
+		MinAmount:     MinTopupTHB,
+		MaxAmount:     MaxTopupTHB,
 	}
 }
 

@@ -16,14 +16,13 @@ const (
 )
 
 type Config struct {
-	JWTSecret                 []byte
-	AccessTokenTTL            time.Duration
-	RefreshTokenTTL           time.Duration
-	AppEnv                    string
-	CORSAllowedOrigins        string
-	PaySolutionsWebhookSecret string
-	GoogleClientID            string
-	EnableSwagger             bool
+	JWTSecret          []byte
+	AccessTokenTTL     time.Duration
+	RefreshTokenTTL    time.Duration
+	AppEnv             string
+	CORSAllowedOrigins string
+	GoogleClientID     string
+	EnableSwagger      bool
 }
 
 func LoadConfig() (*Config, error) {
@@ -57,11 +56,10 @@ func LoadConfig() (*Config, error) {
 		JWTSecret:                 []byte(secret),
 		AccessTokenTTL:            accessTTL,
 		RefreshTokenTTL:           refreshTTL,
-		AppEnv:                    appEnv,
-		CORSAllowedOrigins:        corsOrigins,
-		PaySolutionsWebhookSecret: strings.TrimSpace(os.Getenv("PAYSOLUTIONS_WEBHOOK_SECRET")),
-		GoogleClientID:            strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_ID")),
-		EnableSwagger:             enableSwagger,
+		AppEnv:             appEnv,
+		CORSAllowedOrigins: corsOrigins,
+		GoogleClientID:     strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_ID")),
+		EnableSwagger:      enableSwagger,
 	}, nil
 }
 

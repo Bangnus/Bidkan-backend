@@ -20,11 +20,10 @@ type ServiceError struct {
 func (e *ServiceError) Error() string { return e.Msg }
 
 type ConfigResponse struct {
-	StripeEnabled       bool    `json:"stripe_enabled"`
-	PaySolutionsEnabled bool    `json:"paysolutions_enabled"`
-	Currency            string  `json:"currency"`
-	MinAmount           float64 `json:"min_amount"`
-	MaxAmount           float64 `json:"max_amount"`
+	StripeEnabled bool    `json:"stripe_enabled"`
+	Currency      string  `json:"currency"`
+	MinAmount     float64 `json:"min_amount"`
+	MaxAmount     float64 `json:"max_amount"`
 }
 
 type CheckoutRequest struct {

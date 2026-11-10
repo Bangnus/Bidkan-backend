@@ -164,7 +164,7 @@ func main() {
 	router.SetupCouponRoutes(server, authMW, container.RedeemCouponHandler, container.CreateCouponHandler, container.ListMyCouponHandler)
 	router.SetupNotificationRoutes(server, authMW, container.NotiBroadcastHandler, container.NotiListHandler, container.NotiUpdateTokenHandler)
 	router.SetupConfigRoutes(server, authMW, container.ConfigHandler)
-	router.SetupWalletRoutes(server, authMW, container.TopupHandler, container.StripeTopupHandler, container.WebhookHandler, container.TransferHandler, container.VerifyReceiverHandler)
+	router.SetupWalletRoutes(server, authMW, container.StripeTopupHandler, container.TransferHandler, container.VerifyReceiverHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {

@@ -699,6 +699,67 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/users/google-login": {
+            "post": {
+                "description": "รับ credential (Google ID Token) ตรวจสอบและบันทึกลงฐานข้อมูล พร้อมแยกมหาวิทยาลัยอัตโนมัติ",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "เข้าสู่ระบบด้วย Google (ทั้งอีเมลมหาวิทยาลัยและบุคคลทั่วไป)",
+                "parameters": [
+                    {
+                        "description": "Google OAuth Credential",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/google_login.Request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "เข้าสู่ระบบสำเร็จ พร้อม JWT Token",
+                        "schema": {
+                            "$ref": "#/definitions/google_login.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "ข้อมูลไม่ถูกต้อง",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Google Token ไม่ถูกต้อง",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "บัญชีถูกระงับหรือไม่มีสิทธิ์ใช้งาน",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/v1/users/login": {
             "post": {
                 "description": "เข้าสู่ระบบด้วยชื่อผู้ใช้และรหัสผ่านเพื่อรับ JWT Token สำหรับการเข้าถึง API อื่นๆ",
@@ -747,7 +808,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Logout the current user by instructing the client to clear the JWT token.",
+                "description": "Revoke the current access and refresh JWT session in Redis.",
                 "produces": [
                     "application/json"
                 ],
@@ -908,45 +969,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/wallet/topup": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "สร้างรายการธุรกรรมเติมเงินและรับ QR Code สำหรับชำระเงินผ่าน PromptPay",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wallet"
-                ],
-                "summary": "ขอเติมเงินเข้า Wallet (PromptPay)",
-                "parameters": [
-                    {
-                        "description": "ระบุจำนวนเงินที่ต้องการเติม",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/topup.Request"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "สร้างรายการเติมเงินสำเร็จ",
-                        "schema": {
-                            "$ref": "#/definitions/topup.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/v1/wallet/transfer": {
             "post": {
                 "security": [
@@ -1057,30 +1079,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/wallet/webhook/paysolutions": {
-            "post": {
-                "description": "รับการแจ้งเตือนสถานะการชำระเงินจาก PaySolutions (ใช้สำหรับเติมเงินอัตโนมัติ)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Wallet"
-                ],
-                "summary": "PaySolutions Webhook (ระบบรับแจ้งชำระเงิน)",
-                "responses": {
-                    "200": {
-                        "description": "รับข้อมูลสำเร็จ",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/v1/zones": {
             "get": {
                 "description": "ดึงข้อมูลพื้นที่บริการทั้งหมด รวมถึงจุดจอด (Parking Zones) และพื้นที่ห้ามจอด",
@@ -1186,7 +1184,6 @@ const docTemplate = `{
             ],
             "properties": {
                 "coupon_code": {
-                    "description": "เพิ่มฟิลด์เลือกใช้คูปอง (Optional)",
                     "type": "string"
                 },
                 "user_id": {
@@ -1222,6 +1219,9 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
                     "type": "string"
                 }
             }
@@ -1304,6 +1304,15 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "partnerEarnings": {
+                    "type": "string"
+                },
+                "platformFee": {
+                    "type": "string"
+                },
+                "ratePerMinute": {
+                    "type": "string"
+                },
                 "startLat": {
                     "type": "number",
                     "format": "float64"
@@ -1319,11 +1328,17 @@ const docTemplate = `{
                     "description": "ongoing, completed, cancelled",
                     "type": "string"
                 },
+                "tenantID": {
+                    "type": "string"
+                },
                 "totalFare": {
                     "type": "string"
                 },
                 "type": {
                     "description": "ride, service",
+                    "type": "string"
+                },
+                "unlockFee": {
                     "type": "string"
                 },
                 "updatedAt": {
@@ -1354,6 +1369,50 @@ const docTemplate = `{
                 }
             }
         },
+        "entity.User": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "fcm_token": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
+                "phone_number": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "wallet_balance": {
+                    "type": "string"
+                }
+            }
+        },
         "entity.Zone": {
             "type": "object",
             "properties": {
@@ -1373,6 +1432,9 @@ const docTemplate = `{
                     "type": "number",
                     "format": "float64"
                 },
+                "tenantID": {
+                    "type": "string"
+                },
                 "type": {
                     "type": "string"
                 },
@@ -1389,6 +1451,43 @@ const docTemplate = `{
                 },
                 "lon": {
                     "type": "number"
+                }
+            }
+        },
+        "google_login.Request": {
+            "type": "object",
+            "required": [
+                "credential"
+            ],
+            "properties": {
+                "campus_slug": {
+                    "type": "string"
+                },
+                "credential": {
+                    "type": "string"
+                }
+            }
+        },
+        "google_login.Response": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "type": "integer"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/entity.User"
                 }
             }
         },
@@ -1568,6 +1667,15 @@ const docTemplate = `{
         "login.Response": {
             "type": "object",
             "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "type": "integer"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
                 "role": {
                     "type": "string"
                 },
@@ -1579,7 +1687,13 @@ const docTemplate = `{
         "me.Response": {
             "type": "object",
             "properties": {
+                "email": {
+                    "type": "string"
+                },
                 "id": {
+                    "type": "string"
+                },
+                "image_url": {
                     "type": "string"
                 },
                 "phone_number": {
@@ -1592,6 +1706,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "username": {
+                    "type": "string"
+                },
+                "wallet_balance": {
                     "type": "string"
                 }
             }
@@ -1637,32 +1754,16 @@ const docTemplate = `{
                 "bike_id": {
                     "type": "string"
                 },
+                "campus_slug": {
+                    "type": "string"
+                },
+                "lat": {
+                    "type": "number"
+                },
+                "lon": {
+                    "type": "number"
+                },
                 "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "topup.Request": {
-            "type": "object",
-            "required": [
-                "amount"
-            ],
-            "properties": {
-                "amount": {
-                    "type": "number"
-                }
-            }
-        },
-        "topup.Response": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "type": "number"
-                },
-                "qr_code_url": {
-                    "type": "string"
-                },
-                "transaction_id": {
                     "type": "string"
                 }
             }
