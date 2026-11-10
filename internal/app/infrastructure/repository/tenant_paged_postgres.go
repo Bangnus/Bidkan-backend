@@ -54,3 +54,4 @@ func (r *TenantPostgresRepository) ListBikesByTenantPaged(ctx context.Context, t
 	}
 	return res, int(total), nil
 }
+

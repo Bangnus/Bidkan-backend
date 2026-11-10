@@ -12,3 +12,4 @@ func ParsePageQuery(c *fiber.Ctx) (int, int, bool) {
 	p, l := entity.NormalizePagination(c.QueryInt("page", 1), c.QueryInt("limit", 10))
 	return p, l, true
 }
+

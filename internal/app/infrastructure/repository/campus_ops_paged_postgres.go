@@ -108,3 +108,4 @@ func (r *CampusOpsPostgresRepository) ListCouponsByTenantPaged(ctx context.Conte
 	}
 	return res, int(total), nil
 }
+

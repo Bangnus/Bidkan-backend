@@ -30,3 +30,4 @@ func TestNewPageMeta(t *testing.T) {
 		t.Fatalf("total=25 got %+v", m25)
 	}
 }
+

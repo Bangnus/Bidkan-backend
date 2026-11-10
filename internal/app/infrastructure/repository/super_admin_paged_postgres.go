@@ -103,3 +103,4 @@ func mapCouponRow(row sqlc.Coupon) *entity.Coupon {
 		UpdatedAt: row.UpdatedAt,
 	}
 }
+
