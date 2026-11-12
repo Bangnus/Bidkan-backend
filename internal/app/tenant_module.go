@@ -19,6 +19,7 @@ import (
 	campusReportManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/report_manage"
 	campusRevenueManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/revenue_manage"
 	campusRideList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/ride_list"
+	campusStaffComp "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/staff_compensation"
 	campusStaffManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/staff_manage"
 	campusZoneManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/zone_manage"
 	orgManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/org/manage"
@@ -57,6 +58,7 @@ type TenantModule struct {
 	CampusOrderHandler      campusOrderManage.Handler
 	CampusFieldOpsHandler   campusFieldOps.Handler
 	CampusReportHandler     campusReportManage.Handler
+	CampusStaffCompHandler  campusStaffComp.Handler
 }
 
 func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.SessionStore, stripeClient infraStripe.Client) *TenantModule {
@@ -69,6 +71,7 @@ func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.Sess
 	orderRepo := repository.NewHardwareOrderPostgresRepository(db)
 	superRepo := repository.NewSuperAdminPostgresRepository(db)
 	campusRepo := repository.NewCampusOpsPostgresRepository(db)
+	staffCompRepo := repository.NewStaffCompensationPostgres(db)
 
 	return &TenantModule{
 		TenantRepo:              tenantRepo,
@@ -92,8 +95,9 @@ func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.Sess
 		CampusStaffHandler:      campusStaffManage.NewHandler(tenantRepo, campusRepo),
 		CampusCouponHandler:     campusCouponManage.NewHandler(tenantRepo, campusRepo),
 		CampusOrderHandler:      campusOrderManage.NewHandler(tenantRepo, orderRepo),
-		CampusFieldOpsHandler:   campusFieldOps.NewHandler(campusFieldOps.NewService(tenantRepo)),
-		CampusReportHandler:     campusReportManage.NewHandler(tenantRepo, campusRepo),
+		CampusFieldOpsHandler:   campusFieldOps.NewHandler(campusFieldOps.NewService(tenantRepo, staffCompRepo)),
+		CampusReportHandler:     campusReportManage.NewHandler(tenantRepo, campusRepo, staffCompRepo),
+		CampusStaffCompHandler:  campusStaffComp.NewHandler(campusStaffComp.NewService(tenantRepo, staffCompRepo)),
 	}
 }
 
@@ -127,5 +131,6 @@ func (m *TenantModule) SeedAndRegisterRoutes(server *fiber.App, db *sql.DB, auth
 		m.CampusOrderHandler,
 		m.CampusFieldOpsHandler,
 		m.CampusReportHandler,
+		m.CampusStaffCompHandler,
 	)
 }

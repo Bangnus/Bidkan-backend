@@ -13,6 +13,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/report_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/revenue_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/ride_list"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/staff_compensation"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/staff_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/zone_manage"
 	"github.com/gofiber/fiber/v2"
@@ -33,6 +34,7 @@ func SetupCampusRoutes(
 	orderHandler order_manage.Handler,
 	fieldOpsHandler field_ops.Handler,
 	reportHandler report_manage.Handler,
+	staffCompHandler staff_compensation.Handler,
 ) {
 	campus := app.Group(
 		"/api/v1/campus/:slug",
@@ -56,16 +58,20 @@ func SetupCampusRoutes(
 	campus.Post("/stripe/login-link", adminOnly, revenueHandler.HandleStripeLoginLink)
 	campus.Get("/staff", adminOnly, staffHandler.HandleList)
 	campus.Post("/staff", adminOnly, staffHandler.HandleCreate)
+	campus.Get("/staff/compensation-config", adminOnly, staffCompHandler.HandleGetConfig)
+	campus.Put("/staff/compensation-config", adminOnly, staffCompHandler.HandleUpdateConfig)
+	campus.Get("/staff/earnings", adminOnly, staffCompHandler.HandleListEarnings)
 	campus.Get("/coupons", adminOnly, couponHandler.HandleList)
 	campus.Post("/coupons", adminOnly, couponHandler.HandleCreate)
 	campus.Get("/orders", adminOnly, orderHandler.HandleList)
 	campus.Post("/orders", adminOnly, orderHandler.HandleCreate)
 
-	// Staff & Admin Routes (Fleet Status & Field Ops)
+	// Staff & Admin Routes (Fleet Status, Field Ops & Personal Earnings)
 	campus.Get("/bikes", staffOrAdmin, bikeListHandler.Handle)
 	campus.Patch("/bikes/:id/status", staffOrAdmin, bikeManageHandler.HandleUpdateStatus)
 	campus.Get("/field/queue", staffOrAdmin, fieldOpsHandler.HandleGetQueue)
 	campus.Post("/field/swap-battery", staffOrAdmin, fieldOpsHandler.HandleSwapBattery)
 	campus.Get("/field/reports", staffOrAdmin, reportHandler.HandleList)
 	campus.Patch("/field/reports/:id/resolve", staffOrAdmin, reportHandler.HandleResolve)
+	campus.Get("/field/my-earnings", staffOrAdmin, staffCompHandler.HandleGetMyEarnings)
 }
