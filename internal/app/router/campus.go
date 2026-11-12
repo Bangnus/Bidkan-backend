@@ -11,6 +11,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/dashboard"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/field_ops"
 	campusInventory "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/inventory_manage"
+	campusIncident "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/incident_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/order_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/rebalancing"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/remote_ops"
@@ -45,6 +46,7 @@ func SetupCampusRoutes(
 	rebalanceHandler rebalancing.Handler,
 	auditHandler campusAudit.Handler,
 	inventoryHandler *campusInventory.Handler,
+	incidentHandler *campusIncident.Handler,
 ) {
 	campus := app.Group(
 		"/api/v1/campus/:slug",
@@ -112,4 +114,10 @@ func SetupCampusRoutes(
 	campus.Post("/inventory/adjust", staffOrAdmin, inventoryHandler.AdjustStock)
 	campus.Post("/inventory/parts", adminOnly, inventoryHandler.CreatePart)
 	campus.Get("/inventory/logs", staffOrAdmin, inventoryHandler.ListLogs)
+
+	// Incident & Insurance Claim Desk (Staff & Admin)
+	campus.Get("/incidents", adminOnly, incidentHandler.ListIncidents)
+	campus.Post("/incidents", staffOrAdmin, incidentHandler.CreateIncident)
+	campus.Patch("/incidents/:id/status", adminOnly, incidentHandler.UpdateStatus)
+	campus.Get("/export/incidents", adminOnly, incidentHandler.ExportCSV)
 }

@@ -17,6 +17,7 @@ import (
 	campusCouponManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/coupon_manage"
 	campusDashboard "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/dashboard"
 	campusFieldOps "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/field_ops"
+	campusIncident "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/incident_manage"
 	campusInventory "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/inventory_manage"
 	campusOrderManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/order_manage"
 	campusRebalance "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/rebalancing"
@@ -70,6 +71,7 @@ type TenantModule struct {
 	CampusRebalanceHandler   campusRebalance.Handler
 	CampusAuditHandler       campusAudit.Handler
 	CampusInventoryHandler   *campusInventory.Handler
+	CampusIncidentHandler    *campusIncident.Handler
 }
 
 func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.SessionStore, stripeClient infraStripe.Client, mqttPub infraMqtt.Publisher) *TenantModule {
@@ -89,6 +91,7 @@ func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.Sess
 	rebalRepo := repository.NewRebalancePostgres(db)
 	auditRepo := repository.NewAuditPostgres(db)
 	partRepo := repository.NewSparePartPostgres(db)
+	incRepo := repository.NewIncidentPostgres(db)
 
 	return &TenantModule{
 		TenantRepo:              tenantRepo,
@@ -120,6 +123,7 @@ func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.Sess
 		CampusRebalanceHandler:  campusRebalance.NewHandler(campusRebalance.NewService(tenantRepo, campusRepo, rebalRepo)),
 		CampusAuditHandler:      campusAudit.NewHandler(campusAudit.NewService(tenantRepo, campusRepo, staffCompRepo, auditRepo)),
 		CampusInventoryHandler:  campusInventory.NewHandler(campusInventory.NewService(tenantRepo, partRepo, auditRepo)),
+		CampusIncidentHandler:   campusIncident.NewHandler(campusIncident.NewService(tenantRepo, incRepo, auditRepo)),
 	}
 }
 
@@ -159,5 +163,6 @@ func (m *TenantModule) SeedAndRegisterRoutes(server *fiber.App, db *sql.DB, auth
 		m.CampusRebalanceHandler,
 		m.CampusAuditHandler,
 		m.CampusInventoryHandler,
+		m.CampusIncidentHandler,
 	)
 }
