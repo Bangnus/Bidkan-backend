@@ -25,3 +25,4 @@ CREATE TABLE IF NOT EXISTS staff_task_logs (
 
 CREATE INDEX IF NOT EXISTS idx_staff_tasks_tenant_staff ON staff_task_logs(tenant_id, staff_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_staff_tasks_created_at ON staff_task_logs(created_at DESC);
+

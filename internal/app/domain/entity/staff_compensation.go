@@ -49,3 +49,4 @@ type MyEarningsSummary struct {
 	BatterySwapFee float64 `json:"battery_swap_fee"`
 	RepairTaskFee  float64 `json:"repair_task_fee"`
 }
+

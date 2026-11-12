@@ -134,3 +134,4 @@ func (r *staffCompensationPostgres) GetStaffEarningsByUserID(ctx context.Context
 	s.RepairTaskFee = cfg.RepairTaskFee
 	return &s, nil
 }
+

@@ -137,7 +137,7 @@ func main() {
 	}
 
 	// Setup Multi-Tenant Module
-	tenantModule := app.NewTenantModule(db, secCfg, sessions, stripeClient)
+	tenantModule := app.NewTenantModule(db, secCfg, sessions, stripeClient, mqttPub)
 	tenantModule.SeedAndRegisterRoutes(server, db, authMW, sessions)
 	router.SetupStripeWebhookRoutes(server, container.StripeWebhookHandler)
 	app.StartAutoPayoutScheduler(context.Background(), stripeClient, tenantModule.PayoutManageHandler.Service())

@@ -8,6 +8,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/repository"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/security"
 	infraStripe "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/stripe"
+	infraMqtt "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
 	"github.com/Bangnus/Bidkan-backend/internal/app/router"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/auth"
 	campusBikeList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/bike_list"
@@ -16,6 +17,7 @@ import (
 	campusDashboard "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/dashboard"
 	campusFieldOps "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/field_ops"
 	campusOrderManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/order_manage"
+	campusRemoteOps "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/remote_ops"
 	campusReportManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/report_manage"
 	campusRevenueManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/revenue_manage"
 	campusRideList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/ride_list"
@@ -59,9 +61,10 @@ type TenantModule struct {
 	CampusFieldOpsHandler   campusFieldOps.Handler
 	CampusReportHandler     campusReportManage.Handler
 	CampusStaffCompHandler  campusStaffComp.Handler
+	CampusRemoteOpsHandler  campusRemoteOps.Handler
 }
 
-func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.SessionStore, stripeClient infraStripe.Client) *TenantModule {
+func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.SessionStore, stripeClient infraStripe.Client, mqttPub infraMqtt.Publisher) *TenantModule {
 	if stripeClient == nil {
 		stripeClient = infraStripe.NewClient(nil)
 	}
@@ -72,6 +75,8 @@ func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.Sess
 	superRepo := repository.NewSuperAdminPostgresRepository(db)
 	campusRepo := repository.NewCampusOpsPostgresRepository(db)
 	staffCompRepo := repository.NewStaffCompensationPostgres(db)
+	bikeRepo := repository.NewBikePostgresRepository(db)
+	rideRepo := repository.NewRidePostgresRepository(db)
 
 	return &TenantModule{
 		TenantRepo:              tenantRepo,
@@ -98,6 +103,7 @@ func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.Sess
 		CampusFieldOpsHandler:   campusFieldOps.NewHandler(campusFieldOps.NewService(tenantRepo, staffCompRepo)),
 		CampusReportHandler:     campusReportManage.NewHandler(tenantRepo, campusRepo, staffCompRepo),
 		CampusStaffCompHandler:  campusStaffComp.NewHandler(campusStaffComp.NewService(tenantRepo, staffCompRepo)),
+		CampusRemoteOpsHandler:  campusRemoteOps.NewHandler(campusRemoteOps.NewService(tenantRepo, bikeRepo, rideRepo, mqttPub)),
 	}
 }
 
@@ -132,5 +138,6 @@ func (m *TenantModule) SeedAndRegisterRoutes(server *fiber.App, db *sql.DB, auth
 		m.CampusFieldOpsHandler,
 		m.CampusReportHandler,
 		m.CampusStaffCompHandler,
+		m.CampusRemoteOpsHandler,
 	)
 }

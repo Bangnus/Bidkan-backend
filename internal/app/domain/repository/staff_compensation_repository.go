@@ -14,3 +14,4 @@ type StaffCompensationRepository interface {
 	ListStaffEarnings(ctx context.Context, tenantID uuid.UUID) ([]*entity.StaffEarningSummary, error)
 	GetStaffEarningsByUserID(ctx context.Context, tenantID, staffUserID uuid.UUID) (*entity.MyEarningsSummary, error)
 }
+

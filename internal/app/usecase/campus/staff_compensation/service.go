@@ -86,3 +86,4 @@ func (s *Service) GetMyEarnings(ctx context.Context, slug string, staffUserID uu
 	}
 	return s.compRepo.GetStaffEarningsByUserID(ctx, tenant.ID, staffUserID)
 }
+
