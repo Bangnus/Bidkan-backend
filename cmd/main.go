@@ -112,7 +112,9 @@ func main() {
 	// 5. Setup MQTT Subscriber (สำหรับรับพิกัด)
 	bikeRepo := repository.NewBikePostgresRepository(db)
 	bikeCache := repository.NewBikeRedisRepository(rdb)
-	trackingService := tracking.NewService(bikeRepo, bikeCache)
+	zoneRepo := repository.NewZoneRepository(db)
+	auditRepo := repository.NewAuditPostgres(db)
+	trackingService := tracking.NewService(bikeRepo, bikeCache, zoneRepo, auditRepo, mqttPub)
 	mqttSub := mqtt.NewSubscriber(mqttBroker, "bidkan_backend_sub", trackingService)
 	if err := mqttSub.Start(); err != nil {
 		log.Fatalf("Failed to start MQTT Subscriber: %v", err)

@@ -80,8 +80,8 @@ func (s *service) Start(ctx context.Context, req Request) (*entity.Ride, error) 
 		if bike.Status != "available" {
 			return nil, errors.New("bike is not available")
 		}
-		if bike.Battery < 10 {
-			return nil, errors.New("bike battery is too low")
+		if bike.Battery < 15 {
+			return nil, errors.New("แบตเตอรี่เหลือน้อยเกินไป (< 15%) กรุณาเลือกจักรยานคันอื่น")
 		}
 	}
 
