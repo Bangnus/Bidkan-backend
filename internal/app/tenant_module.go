@@ -11,6 +11,7 @@ import (
 	infraMqtt "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
 	"github.com/Bangnus/Bidkan-backend/internal/app/router"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/auth"
+	campusAudit "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/audit_manage"
 	campusBikeList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/bike_list"
 	campusBikeManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/bike_manage"
 	campusCouponManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/coupon_manage"
@@ -66,6 +67,7 @@ type TenantModule struct {
 	CampusRemoteOpsHandler   campusRemoteOps.Handler
 	CampusRiderHandler       campusRiderManage.Handler
 	CampusRebalanceHandler   campusRebalance.Handler
+	CampusAuditHandler       campusAudit.Handler
 }
 
 func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.SessionStore, stripeClient infraStripe.Client, mqttPub infraMqtt.Publisher) *TenantModule {
@@ -83,6 +85,7 @@ func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.Sess
 	rideRepo := repository.NewRidePostgresRepository(db)
 	riderRepo := repository.NewCampusRiderPostgres(db)
 	rebalRepo := repository.NewRebalancePostgres(db)
+	auditRepo := repository.NewAuditPostgres(db)
 
 	return &TenantModule{
 		TenantRepo:              tenantRepo,
@@ -112,6 +115,7 @@ func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.Sess
 		CampusRemoteOpsHandler:  campusRemoteOps.NewHandler(campusRemoteOps.NewService(tenantRepo, bikeRepo, rideRepo, mqttPub)),
 		CampusRiderHandler:      campusRiderManage.NewHandler(campusRiderManage.NewService(tenantRepo, riderRepo)),
 		CampusRebalanceHandler:  campusRebalance.NewHandler(campusRebalance.NewService(tenantRepo, campusRepo, rebalRepo)),
+		CampusAuditHandler:      campusAudit.NewHandler(campusAudit.NewService(tenantRepo, campusRepo, staffCompRepo, auditRepo)),
 	}
 }
 
@@ -149,5 +153,6 @@ func (m *TenantModule) SeedAndRegisterRoutes(server *fiber.App, db *sql.DB, auth
 		m.CampusRemoteOpsHandler,
 		m.CampusRiderHandler,
 		m.CampusRebalanceHandler,
+		m.CampusAuditHandler,
 	)
 }

@@ -4,6 +4,7 @@ import (
 	domainRepo "github.com/Bangnus/Bidkan-backend/internal/app/domain/repository"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/security"
 	"github.com/Bangnus/Bidkan-backend/internal/app/middleware"
+	campusAudit "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/audit_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/bike_list"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/bike_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/coupon_manage"
@@ -41,6 +42,7 @@ func SetupCampusRoutes(
 	remoteOpsHandler remote_ops.Handler,
 	riderHandler rider_manage.Handler,
 	rebalanceHandler rebalancing.Handler,
+	auditHandler campusAudit.Handler,
 ) {
 	campus := app.Group(
 		"/api/v1/campus/:slug",
@@ -96,4 +98,10 @@ func SetupCampusRoutes(
 	campus.Post("/bikes/:id/remote/force-end", adminOnly, remoteOpsHandler.HandleForceEnd)
 	// Fleet Rebalancing & Demand Heatmap
 	campus.Get("/rebalancing/overview", staffOrAdmin, rebalanceHandler.HandleGetOverview)
+
+	// Accounting Export & Audit Activity Logs (Admin Only)
+	campus.Get("/audit/logs", adminOnly, auditHandler.HandleListAuditLogs)
+	campus.Get("/export/rides", adminOnly, auditHandler.HandleExportRidesCSV)
+	campus.Get("/export/revenue", adminOnly, auditHandler.HandleExportRevenueCSV)
+	campus.Get("/export/staff-payouts", adminOnly, auditHandler.HandleExportStaffPayoutsCSV)
 }
