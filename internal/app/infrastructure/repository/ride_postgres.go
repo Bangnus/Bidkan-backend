@@ -82,7 +82,15 @@ func (r *ridePostgresRepository) ListByUser(ctx context.Context, userID uuid.UUI
 	}
 	res := make([]entity.Ride, 0, len(rides))
 	for _, row := range rides {
-		res = append(res, *mapRideModel(row))
+		item := mapRideModel(row)
+		var penalty sql.NullFloat64
+		var status, reason sql.NullString
+		_ = r.db.QueryRowContext(ctx, "SELECT parking_penalty, penalty_status, dispute_reason FROM rides WHERE id = $1", row.ID).
+			Scan(&penalty, &status, &reason)
+		item.ParkingPenalty = penalty.Float64
+		item.PenaltyStatus = status.String
+		item.DisputeReason = reason.String
+		res = append(res, *item)
 	}
 	return res, nil
 }
@@ -93,6 +101,12 @@ func (r *ridePostgresRepository) GetActiveRide(ctx context.Context, userID uuid.
 		return nil, err
 	}
 	return mapRideModel(res), nil
+}
+
+func (r *ridePostgresRepository) DisputePenalty(ctx context.Context, rideID, userID uuid.UUID, reason string) error {
+	query := `UPDATE rides SET penalty_status = 'disputed', dispute_reason = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3`
+	_, err := r.db.ExecContext(ctx, query, reason, rideID, userID)
+	return err
 }
 
 func mapRideModel(res sqlc.Ride) *entity.Ride {

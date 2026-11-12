@@ -154,11 +154,12 @@ func main() {
 		container.MeHandler,
 		container.VerifyFirebaseHandler,
 		container.UpdateProfileHandler,
+		container.StudentKYCHandler,
 		container.LogoutHandler,
 		container.RankHandler,
 	)
 	router.SetupBikeRoutes(server, authMW, optAuthMW, container.CreateBikeHandler, container.ListBikeHandler, container.UpdateBikeStatusHandler)
-	router.SetupRideRoutes(server, authMW, container.StartRideHandler, container.EndRideHandler)
+	router.SetupRideRoutes(server, authMW, container.StartRideHandler, container.EndRideHandler, container.DisputeRideHandler)
 	router.SetupZoneRoutes(server, authMW, container.ListZoneHandler, container.CreateZoneHandler)
 	router.SetupReportRoutes(server, authMW, container.ReportSummaryHandler)
 	router.SetupCouponRoutes(server, authMW, container.RedeemCouponHandler, container.CreateCouponHandler, container.ListMyCouponHandler)

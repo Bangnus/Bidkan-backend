@@ -12,6 +12,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/me"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/rank"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/refresh"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/student_kyc"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/update_profile"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify_firebase"
 	"github.com/gofiber/fiber/v2"
@@ -28,6 +29,7 @@ func SetupUserRoutes(
 	meHandler me.Handler,
 	verifyFirebaseHandler verify_firebase.Handler,
 	updateProfileHandler update_profile.Handler,
+	studentKycHandler student_kyc.Handler,
 	logoutHandler logout.Handler,
 	rankHandler rank.Handler,
 ) {
@@ -46,5 +48,6 @@ func SetupUserRoutes(
 	userGroup.Get("/me", meHandler.Handle)
 	userGroup.Get("/rank", rankHandler.Handle)
 	userGroup.Patch("/profile/image", updateProfileHandler.Handle)
+	userGroup.Post("/student-kyc", studentKycHandler.Handle)
 	userGroup.Post("/logout", logoutHandler.Handle)
 }

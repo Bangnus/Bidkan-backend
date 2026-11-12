@@ -19,6 +19,7 @@ import (
 	notiList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/list"
 	notiUpdateToken "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/update_token"
 	reportSummary "github.com/Bangnus/Bidkan-backend/internal/app/usecase/report/summary"
+	rideDispute "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/dispute"
 	rideEnd "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/end"
 	rideStart "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/start"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/create"
@@ -28,6 +29,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/me"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/rank"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/refresh"
+	userStudentKyc "github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/student_kyc"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/update_profile"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify_firebase"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/stripe_webhook"
@@ -75,6 +77,8 @@ func NewContainer(
 	meService := me.NewService(userRepo)
 	rankService := rank.NewService(spendingRepo, rankCacheRepo)
 	updateProfileService := update_profile.NewService(userRepo)
+	studentKycService := userStudentKyc.NewService(userRepo)
+	disputeRideService := rideDispute.NewService(rideRepo)
 
 	transferService := walletTransfer.NewService(db, userRepo, txRepo, mqttPub, notiProvider)
 	verifyService := walletVerify.NewService(userRepo)
@@ -112,6 +116,7 @@ func NewContainer(
 		MeHandler:               me.NewHandler(meService),
 		RankHandler:             rank.NewHandler(rankService),
 		UpdateProfileHandler:    update_profile.NewHandler(updateProfileService),
+		StudentKYCHandler:       userStudentKyc.NewHandler(studentKycService),
 		LogoutHandler:           logout.NewHandler(secCfg, sessions),
 		StripeTopupHandler:      walletStripeTopup.NewHandler(txRepo, userRepo, stripeClient),
 		TransferHandler:         walletTransfer.NewHandler(transferService),
@@ -123,6 +128,7 @@ func NewContainer(
 		UpdateBikeStatusHandler: bikeUpdateStatus.NewHandler(bikeUpdateStatusService),
 		StartRideHandler:        rideStart.NewHandler(rideStartService),
 		EndRideHandler:          rideEnd.NewHandler(rideEndService),
+		DisputeRideHandler:      rideDispute.NewHandler(disputeRideService),
 		ListZoneHandler:         zoneList.NewHandler(zoneListService),
 		CreateZoneHandler:       zoneCreate.NewHandler(zoneCreateService),
 		NotiBroadcastHandler:    notiBroadcast.NewHandler(notiBroadcastService),

@@ -23,7 +23,12 @@ type Ride struct {
 	TotalFare       string
 	PlatformFee     string
 	PartnerEarnings string
-	Status          string // ongoing, completed, cancelled
+	ParkingPenalty  float64    `json:"parking_penalty"`
+	PenaltyStatus   string     `json:"penalty_status"`
+	DisputeReason   string     `json:"dispute_reason"`
+	RefundAmount    float64    `json:"refund_amount"`
+	RefundedAt      *time.Time `json:"refunded_at,omitempty"`
+	Status          string     // ongoing, completed, cancelled
 	Type            string // ride, service
 	CreatedAt       time.Time
 	UpdatedAt       time.Time

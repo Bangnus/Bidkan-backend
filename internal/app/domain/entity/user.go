@@ -17,8 +17,12 @@ type User struct {
 	WalletBalance  string     `json:"wallet_balance"`
 	Role           string     `json:"role"`
 	Status         string     `json:"status"`
-	ImageURL       string     `json:"image_url"`
-	FcmToken       string     `json:"fcm_token,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
+	ImageURL        string     `json:"image_url"`
+	FcmToken        string     `json:"fcm_token,omitempty"`
+	IsStudent       bool       `json:"is_student"`
+	StudentID       string     `json:"student_id,omitempty"`
+	StudentCardURL  string     `json:"student_card_url,omitempty"`
+	StudentVerified bool       `json:"student_verified"`
+	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 }

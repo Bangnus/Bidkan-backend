@@ -18,5 +18,6 @@ type UserRepository interface {
 	AddBalance(ctx context.Context, id uuid.UUID, amount string) error
 	DeductBalance(ctx context.Context, id uuid.UUID, amount string) error
 	UpdateProfileImage(ctx context.Context, id uuid.UUID, imageURL string) error
+	SubmitStudentKYC(ctx context.Context, id uuid.UUID, studentID, cardURL string) error
 	UpsertGoogleUser(ctx context.Context, googleID, email, name, imageURL string, tenantID *uuid.UUID) (*entity.User, error)
 }
