@@ -48,3 +48,20 @@ CREATE INDEX IF NOT EXISTS idx_users_organization_id ON users (organization_id);
 CREATE INDEX IF NOT EXISTS idx_rides_tenant_status_end ON rides (tenant_id, status, end_time DESC);
 CREATE INDEX IF NOT EXISTS idx_hardware_orders_tenant ON hardware_orders (tenant_id, created_at DESC);
 
+-- 11. Partial & Expression Indexes for Optimized Query Performance (PostgreSQL EXPLAIN Best Practices)
+-- A. Fast Map Screen / Available Bikes with Adequate Battery (> 20%)
+CREATE INDEX IF NOT EXISTS idx_bikes_available_ready 
+ON bikes (tenant_id, id) 
+WHERE status = 'available' AND battery_level > 20;
+
+-- B. Fast Daily Dashboard Stats (GetTenantTodayStats)
+CREATE INDEX IF NOT EXISTS idx_rides_tenant_start_time 
+ON rides (tenant_id, start_time DESC) 
+WHERE type <> 'service';
+
+-- C. Fast Unsettled Payout Calculations with Coalesced Timestamp Expression
+CREATE INDEX IF NOT EXISTS idx_rides_tenant_unsettled 
+ON rides (tenant_id, (COALESCE(end_time, updated_at))) 
+WHERE status = 'completed' AND type <> 'service';
+
+
