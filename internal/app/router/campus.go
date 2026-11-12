@@ -10,6 +10,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/dashboard"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/field_ops"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/order_manage"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/rebalancing"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/remote_ops"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/report_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/revenue_manage"
@@ -39,6 +40,7 @@ func SetupCampusRoutes(
 	staffCompHandler staff_compensation.Handler,
 	remoteOpsHandler remote_ops.Handler,
 	riderHandler rider_manage.Handler,
+	rebalanceHandler rebalancing.Handler,
 ) {
 	campus := app.Group(
 		"/api/v1/campus/:slug",
@@ -92,4 +94,6 @@ func SetupCampusRoutes(
 	campus.Post("/bikes/:id/remote/unlock", adminOnly, remoteOpsHandler.HandleRemoteUnlock)
 	campus.Post("/bikes/:id/remote/lock", adminOnly, remoteOpsHandler.HandleRemoteLock)
 	campus.Post("/bikes/:id/remote/force-end", adminOnly, remoteOpsHandler.HandleForceEnd)
+	// Fleet Rebalancing & Demand Heatmap
+	campus.Get("/rebalancing/overview", staffOrAdmin, rebalanceHandler.HandleGetOverview)
 }
