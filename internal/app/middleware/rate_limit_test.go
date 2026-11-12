@@ -40,6 +40,9 @@ func (s *stubUserRepo) DeductBalance(context.Context, uuid.UUID, string) error {
 func (s *stubUserRepo) UpdateProfileImage(context.Context, uuid.UUID, string) error {
 	return nil
 }
+func (s *stubUserRepo) SubmitStudentKYC(context.Context, uuid.UUID, string, string) error {
+	return nil
+}
 func (s *stubUserRepo) UpsertGoogleUser(context.Context, string, string, string, string, *uuid.UUID) (*entity.User, error) {
 	return nil, nil
 }
