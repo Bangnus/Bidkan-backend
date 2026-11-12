@@ -10,6 +10,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/coupon_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/dashboard"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/field_ops"
+	campusInventory "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/inventory_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/order_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/rebalancing"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/remote_ops"
@@ -43,6 +44,7 @@ func SetupCampusRoutes(
 	riderHandler rider_manage.Handler,
 	rebalanceHandler rebalancing.Handler,
 	auditHandler campusAudit.Handler,
+	inventoryHandler *campusInventory.Handler,
 ) {
 	campus := app.Group(
 		"/api/v1/campus/:slug",
@@ -104,4 +106,10 @@ func SetupCampusRoutes(
 	campus.Get("/export/rides", adminOnly, auditHandler.HandleExportRidesCSV)
 	campus.Get("/export/revenue", adminOnly, auditHandler.HandleExportRevenueCSV)
 	campus.Get("/export/staff-payouts", adminOnly, auditHandler.HandleExportStaffPayoutsCSV)
+
+	// Spare Parts & Battery Inventory Ledger (Staff & Admin)
+	campus.Get("/inventory", staffOrAdmin, inventoryHandler.GetInventory)
+	campus.Post("/inventory/adjust", staffOrAdmin, inventoryHandler.AdjustStock)
+	campus.Post("/inventory/parts", adminOnly, inventoryHandler.CreatePart)
+	campus.Get("/inventory/logs", staffOrAdmin, inventoryHandler.ListLogs)
 }
