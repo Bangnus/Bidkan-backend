@@ -14,6 +14,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/report_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/revenue_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/ride_list"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/rider_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/staff_compensation"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/staff_manage"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/zone_manage"
@@ -37,6 +38,7 @@ func SetupCampusRoutes(
 	reportHandler report_manage.Handler,
 	staffCompHandler staff_compensation.Handler,
 	remoteOpsHandler remote_ops.Handler,
+	riderHandler rider_manage.Handler,
 ) {
 	campus := app.Group(
 		"/api/v1/campus/:slug",
@@ -67,6 +69,13 @@ func SetupCampusRoutes(
 	campus.Post("/coupons", adminOnly, couponHandler.HandleCreate)
 	campus.Get("/orders", adminOnly, orderHandler.HandleList)
 	campus.Post("/orders", adminOnly, orderHandler.HandleCreate)
+
+	// Rider & Student Management & Dispute Desk (Admin Only)
+	campus.Get("/riders", adminOnly, riderHandler.HandleListRiders)
+	campus.Patch("/riders/:id/verify-student", adminOnly, riderHandler.HandleVerifyStudent)
+	campus.Patch("/riders/:id/status", adminOnly, riderHandler.HandleUpdateStatus)
+	campus.Get("/disputes", adminOnly, riderHandler.HandleListDisputes)
+	campus.Post("/disputes/refund", adminOnly, riderHandler.HandleProcessRefund)
 
 	// Staff & Admin Routes (Fleet Status, Field Ops & Personal Earnings)
 	campus.Get("/bikes", staffOrAdmin, bikeListHandler.Handle)
