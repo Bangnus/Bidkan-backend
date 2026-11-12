@@ -93,3 +93,4 @@ func TestRebalancingService_Overview(t *testing.T) {
 		t.Errorf("expected 1 heatmap point, got %d", len(res.HeatmapPoints))
 	}
 }
+

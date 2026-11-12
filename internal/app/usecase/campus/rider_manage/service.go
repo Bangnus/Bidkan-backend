@@ -76,3 +76,4 @@ func (s *Service) ProcessRefund(ctx context.Context, slug string, req RefundPena
 	}
 	return s.riderRepo.RefundPenalty(ctx, tenant.ID, req.RideID, req.UserID, req.RefundAmount, req.Reason)
 }
+

@@ -166,3 +166,4 @@ func (r *CampusRiderPostgres) RefundPenalty(ctx context.Context, tenantID, rideI
 
 	return tx.Commit()
 }
+

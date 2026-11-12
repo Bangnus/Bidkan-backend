@@ -19,3 +19,4 @@ type AuditLog struct {
 	IPAddress  string     `json:"ip_address"`
 	CreatedAt  time.Time  `json:"created_at"`
 }
+

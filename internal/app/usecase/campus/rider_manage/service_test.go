@@ -94,3 +94,4 @@ func TestRiderManageService_ProcessRefund(t *testing.T) {
 		t.Errorf("expected penalty to be refunded")
 	}
 }
+

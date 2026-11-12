@@ -24,3 +24,4 @@ func (h *Handler) HandleGetOverview(c *fiber.Ctx) error {
 	}
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"data": overview})
 }
+

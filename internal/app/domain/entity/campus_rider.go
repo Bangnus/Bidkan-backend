@@ -36,3 +36,4 @@ type DisputedRide struct {
 	RefundedAt     *time.Time `json:"refunded_at,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 }
+

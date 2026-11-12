@@ -11,3 +11,4 @@ type AuditRepository interface {
 	LogAction(ctx context.Context, log *entity.AuditLog) error
 	ListAuditLogs(ctx context.Context, tenantID uuid.UUID, action string, limit int) ([]*entity.AuditLog, error)
 }
+

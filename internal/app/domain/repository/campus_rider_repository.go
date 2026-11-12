@@ -14,3 +14,4 @@ type CampusRiderRepository interface {
 	ListDisputedRides(ctx context.Context, tenantID uuid.UUID, status string) ([]*entity.DisputedRide, error)
 	RefundPenalty(ctx context.Context, tenantID, rideID, userID uuid.UUID, refundAmount float64, reason string) error
 }
+

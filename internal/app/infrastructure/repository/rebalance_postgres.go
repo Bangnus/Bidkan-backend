@@ -47,3 +47,4 @@ func (r *RebalancePostgres) GetHeatmapPoints(ctx context.Context, tenantID uuid.
 	}
 	return points, nil
 }
+

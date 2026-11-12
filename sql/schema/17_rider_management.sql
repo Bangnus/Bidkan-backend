@@ -16,3 +16,4 @@ ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMP;
 
 CREATE INDEX IF NOT EXISTS idx_users_student ON users (tenant_id, is_student, student_verified);
 CREATE INDEX IF NOT EXISTS idx_rides_dispute ON rides (tenant_id, penalty_status);
+

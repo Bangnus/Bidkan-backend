@@ -70,3 +70,4 @@ func (r *AuditPostgres) ListAuditLogs(ctx context.Context, tenantID uuid.UUID, a
 	}
 	return logs, nil
 }
+

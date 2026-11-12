@@ -88,3 +88,4 @@ func (h *Handler) HandleForceEnd(c *fiber.Ctx) error {
 		"bike_id": bikeID,
 	})
 }
+

@@ -64,3 +64,4 @@ func (h *Handler) HandleExportStaffPayoutsCSV(c *fiber.Ctx) error {
 	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 	return c.Send(data)
 }
+

@@ -37,3 +37,4 @@ type RebalanceOverviewResponse struct {
 	DispatchTasks      []*RebalanceTaskAdvice `json:"dispatch_tasks"`
 	HeatmapPoints      []*HeatmapPoint        `json:"heatmap_points"`
 }
+

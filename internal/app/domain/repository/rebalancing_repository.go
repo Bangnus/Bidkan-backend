@@ -10,3 +10,4 @@ import (
 type RebalancingRepository interface {
 	GetHeatmapPoints(ctx context.Context, tenantID uuid.UUID, limit int) ([]*entity.HeatmapPoint, error)
 }
+
