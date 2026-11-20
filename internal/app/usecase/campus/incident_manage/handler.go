@@ -4,9 +4,24 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Bangnus/Bidkan-backend/internal/app/middleware"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
+
+func resolveActorName(c *fiber.Ctx) string {
+	if name, ok := c.Locals("user_name").(string); ok && name != "" {
+		return name
+	}
+	switch middleware.GetAuthRole(c) {
+	case "tenant_admin":
+		return "Campus Admin"
+	case "org_admin":
+		return "Organization Admin"
+	default:
+		return "Campus Staff"
+	}
+}
 
 type Handler struct {
 	service *Service
@@ -35,10 +50,7 @@ func (h *Handler) CreateIncident(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid payload"})
 	}
 
-	actor, _ := c.Locals("user_name").(string)
-	if actor == "" {
-		actor = "Campus Staff"
-	}
+	actor := resolveActorName(c)
 
 	inc, err := h.service.CreateIncident(c.Context(), slug, req, actor)
 	if err != nil {
@@ -59,10 +71,7 @@ func (h *Handler) UpdateStatus(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid payload"})
 	}
 
-	actor, _ := c.Locals("user_name").(string)
-	if actor == "" {
-		actor = "Campus Admin"
-	}
+	actor := resolveActorName(c)
 
 	inc, err := h.service.UpdateStatus(c.Context(), slug, id, req, actor)
 	if err != nil {
