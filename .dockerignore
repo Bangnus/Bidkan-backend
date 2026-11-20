@@ -1,0 +1,6 @@
+# deploy/ ห้ามใส่ที่นี่: deploy/files.Dockerfile ใช้ context เดียวกันและต้อง COPY ไฟล์ใน deploy/
+.git
+.env
+.env.*
+configs/*.json
+tmp

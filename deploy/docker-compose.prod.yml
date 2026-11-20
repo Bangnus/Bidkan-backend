@@ -1,156 +1,144 @@
-version: '3.8'
+# Production บน Droplet kripnet (ร่วมกับ BoostYod / JodMenu / TumWeb) — เฉพาะ API + Postgres + Redis + MQTT
+# หน้าเว็บ (backoffice, client) ไม่อยู่บนเครื่องนี้ · Caddy กลางของเครื่อง (/opt/edge) เป็นตัวรับโดเมน API
+#
+# ใช้: docker compose -p bidkan -f docker-compose.prod.yml --env-file .env.prod up -d
+# (ทำผ่าน GitHub Actions อัตโนมัติ — ดู DEPLOYMENT.md)
+# ${VAR:?…} = ค่าที่ขาดไม่ได้: ไม่มีใน .env.prod แล้ว compose หยุดก่อนแตะ container (ตัวเดิมรันต่อ)
+#
+# ชื่อ container ทุกตัวขึ้นต้นด้วย bidkan- เพราะอยู่บน network edge ร่วมกับโปรเจกต์อื่น (ห้ามใช้ชื่อสั้นอย่าง backend)
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
-  # 1. PostgreSQL 16 + PostGIS for Geospatial Queries
-  db:
-    image: postgis/postgis:16-3.4-alpine
-    container_name: bidkan-prod-db
-    restart: always
+  bidkan-api:
+    container_name: bidkan-api
+    # image ที่ GitHub Actions build แล้ว push ขึ้น GHCR — Droplet ไม่ build เอง
+    image: ghcr.io/${GHCR_OWNER:?set GHCR_OWNER in .env.prod}/bidkan-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      APP_ENV: production
+      PORT: 8080
+      # รหัสผ่านใช้ openssl rand -hex 32 (มีแค่ 0-9 a-f) จึงใส่ใน URL ได้ตรง ๆ ไม่ต้อง escape
+      DATABASE_URL: postgres://bidkan:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}@bidkan-db:5432/bidkan?sslmode=disable
+      # ต้องขึ้นต้นด้วย redis:// (โค้ดแยกรูปแบบจาก prefix นี้) · Redis อยู่ใน network ภายใน ไม่ต้องมีรหัส
+      REDIS_URL: redis://bidkan-redis:6379/0
+      # user/รหัสใน URL: paho ส่งเป็น username/password ตอน connect
+      MQTT_BROKER: tcp://backend:${MQTT_BACKEND_PASSWORD:?set MQTT_BACKEND_PASSWORD in .env.prod}@bidkan-mqtt:1883
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env.prod}
+      # ว่าง = โค้ดใช้ localhost (หน้าเว็บจริงเรียก API ไม่ได้) จึงบังคับตั้ง
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?set CORS_ALLOWED_ORIGINS in .env.prod}
+      # ค่าเดียวกับ PROXY_SHARED_SECRET บน Vercel ทั้งสอง project: เชื่อ IP ผู้ใช้ที่หน้าเว็บส่งมา
+      # ไม่ตั้ง = ผู้ใช้ทุกคนใช้โควตา rate limit (ล็อกอิน/refresh) ร่วมกันเพราะมาจาก IP ของ Vercel
+      PROXY_SHARED_SECRET: ${PROXY_SHARED_SECRET:?set PROXY_SHARED_SECRET in .env.prod}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_CONNECT_WEBHOOK_SECRET: ${STRIPE_CONNECT_WEBHOOK_SECRET:-}
+      STRIPE_CONNECT_ACCOUNT_TYPE: ${STRIPE_CONNECT_ACCOUNT_TYPE:-express}
+      STRIPE_CONNECT_COUNTRY: ${STRIPE_CONNECT_COUNTRY:-TH}
+      STRIPE_BACKOFFICE_URL: ${STRIPE_BACKOFFICE_URL:-}
+      STRIPE_CLIENT_URL: ${STRIPE_CLIENT_URL:-}
+      # จ่ายเงินร้านอัตโนมัติ — ปิดไว้จนกว่าจะตั้ง Stripe ครบและทดสอบแล้ว
+      STRIPE_AUTO_PAYOUT_ENABLED: ${STRIPE_AUTO_PAYOUT_ENABLED:-false}
+      STRIPE_AUTO_PAYOUT_INTERVAL: ${STRIPE_AUTO_PAYOUT_INTERVAL:-24h}
+    volumes:
+      # Firebase (SMS OTP + push) — โค้ดอ่าน configs/bidkan-service-account.json · deploy.sh เช็คว่ามีไฟล์ก่อน
+      - /opt/bidkan/firebase-service-account.json:/app/configs/bidkan-service-account.json:ro
+    # ไม่เปิดพอร์ตออก host — Caddy กลางเข้าถึงผ่าน network edge ด้วยชื่อ bidkan-api
+    networks:
+      - internal
+      - edge
+    depends_on:
+      bidkan-db:
+        condition: service_healthy
+      bidkan-redis:
+        condition: service_healthy
+      bidkan-mqtt:
+        condition: service_started
+    mem_limit: 256m
+    logging: *default-logging
+
+  bidkan-db:
+    container_name: bidkan-db
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bidkan
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+      POSTGRES_DB: bidkan
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ../sql/schema:/docker-entrypoint-initdb.d:ro
+      # schema รันแค่ตอนสร้างฐานข้อมูลครั้งแรก (volume ว่าง) — แก้ schema ทีหลังต้องรัน SQL เองด้วยมือ
+      - ./schema:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U bidkan -d bidkan"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # อยู่ใน network ภายในเท่านั้น — ไม่เปิดออกอินเทอร์เน็ต
+    networks: [internal]
+    mem_limit: 256m
+    logging: *default-logging
 
-  # 2. Redis 7 Cache & Session Store
-  redis:
+  bidkan-redis:
+    container_name: bidkan-redis
     image: redis:7-alpine
-    container_name: bidkan-prod-redis
-    restart: always
-    command: redis-server --requirepass "${REDIS_PASSWORD}" --appendonly yes
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "48mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
-      - redis_data:/data
+      - redisdata:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [internal]
+    mem_limit: 64m
+    logging: *default-logging
 
-  # 3. Mosquitto MQTT Broker (TCP 1883 for IoT ESP32, WS 9001 for Web)
-  mqtt:
-    image: eclipse-mosquitto:latest
-    container_name: bidkan-prod-mqtt
-    restart: always
+  # MQTT สำหรับกล่อง IoT บนจักรยาน (ESP32) — ต่อตรงที่ IP ของ Droplet พอร์ต 1883 (Caddy ส่งต่อ TCP ดิบไม่ได้)
+  bidkan-mqtt:
+    container_name: bidkan-mqtt
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    environment:
+      MQTT_BACKEND_PASSWORD: ${MQTT_BACKEND_PASSWORD:?set MQTT_BACKEND_PASSWORD in .env.prod}
+      MQTT_DEVICE_PASSWORD: ${MQTT_DEVICE_PASSWORD:?set MQTT_DEVICE_PASSWORD in .env.prod}
+    # สร้างไฟล์รหัสผ่านใหม่จาก .env.prod ทุกครั้งที่เริ่ม: user "backend" (API) และ "device" (กล่องบนจักรยาน)
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        f=/mosquitto/passwd
+        rm -f "$$f"
+        mosquitto_passwd -b -c "$$f" backend "$$MQTT_BACKEND_PASSWORD"
+        mosquitto_passwd -b "$$f" device "$$MQTT_DEVICE_PASSWORD"
+        chown mosquitto:mosquitto "$$f" /mosquitto/data
+        chmod 0700 "$$f"
+        exec /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf
     ports:
       - "1883:1883"
     volumes:
-      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto_data:/mosquitto/data
-      - mosquitto_log:/mosquitto/log
+    networks: [internal]
+    mem_limit: 64m
+    logging: *default-logging
 
-  # 4. Bidkan Core Go Backend API & Geofence Daemons
-  backend:
-    build:
-      context: ..
-      dockerfile: Dockerfile.prod
-    container_name: bidkan-prod-backend
-    restart: always
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      mqtt:
-        condition: service_started
-    environment:
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
-      - REDIS_URL=redis:${REDIS_PASSWORD}@redis:6379
-      - MQTT_BROKER=tcp://mqtt:1883
-      - PORT=8080
-      - APP_ENV=production
-      - JWT_SECRET=${JWT_SECRET}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
-      - STRIPE_CONNECT_WEBHOOK_SECRET=${STRIPE_CONNECT_WEBHOOK_SECRET}
-      - STRIPE_CONNECT_ACCOUNT_TYPE=${STRIPE_CONNECT_ACCOUNT_TYPE:-express}
-      - STRIPE_CONNECT_COUNTRY=${STRIPE_CONNECT_COUNTRY:-TH}
-      - STRIPE_BACKOFFICE_URL=${STRIPE_BACKOFFICE_URL}
-      - STRIPE_CLIENT_URL=${STRIPE_CLIENT_URL}
-      - STRIPE_AUTO_PAYOUT_ENABLED=${STRIPE_AUTO_PAYOUT_ENABLED:-true}
-      - STRIPE_AUTO_PAYOUT_INTERVAL=${STRIPE_AUTO_PAYOUT_INTERVAL:-24h}
-
-  # 5. Backoffice Operator Console (Next.js Standalone)
-  backoffice:
-    build:
-      context: ../../bidkan-backoffice
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
-        NEXT_PUBLIC_APP_ENV: production
-    container_name: bidkan-prod-backoffice
-    restart: always
-    depends_on:
-      - backend
-    environment:
-      - NODE_ENV=production
-      - PORT=3001
-      - API_INTERNAL_URL=http://backend:8080/api/v1
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-      - NEXT_PUBLIC_MQTT_WS_URL=${NEXT_PUBLIC_MQTT_WS_URL}
-      - JWT_SECRET=${JWT_SECRET}
-
-  # 6. Rider Mobile Client App (Next.js Standalone PWA)
-  client:
-    build:
-      context: ../../bidkan-client
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
-        NEXT_PUBLIC_APP_ENV: production
-    container_name: bidkan-prod-client
-    restart: always
-    depends_on:
-      - backend
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - API_INTERNAL_URL=http://backend:8080/api/v1
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-      - NEXT_PUBLIC_MQTT_WS_URL=${NEXT_PUBLIC_MQTT_WS_URL}
-      - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
-      - JWT_SECRET=${JWT_SECRET}
-
-  # 7. Nginx Reverse Proxy (SSL Gateway & Static Cache)
-  nginx:
-    image: nginx:alpine
-    container_name: bidkan-prod-nginx
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - certbot_conf:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
-    depends_on:
-      - backend
-      - backoffice
-      - client
-
-  # 8. Let's Encrypt Certbot SSL Renewer
-  certbot:
-    image: certbot/certbot
-    container_name: bidkan-prod-certbot
-    restart: unless-stopped
-    volumes:
-      - certbot_conf:/etc/letsencrypt
-      - certbot_www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+networks:
+  internal: {}
+  # network ของ Caddy กลาง (/opt/edge) ที่ทุกโปรเจกต์บนเครื่องใช้ร่วมกัน — มีอยู่แล้ว ไม่ต้องสร้าง
+  edge:
+    external: true
+    name: edge
 
 volumes:
   pgdata:
-  redis_data:
+  redisdata:
   mosquitto_data:
-  mosquitto_log:
-  certbot_conf:
-  certbot_www:

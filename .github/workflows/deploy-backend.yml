@@ -1,0 +1,102 @@
+# build Bidkan-backend บน GitHub → push ขึ้น GHCR → สั่ง Droplet ดึง image ไปรัน
+# Droplet ไม่ต้อง build อะไรเลย (แรมไม่พุ่ง, ไม่มี build cache สะสม)
+# ไฟล์ใน deploy/ + sql/schema ไปเป็น image bidkan-deploy-files แล้ว /opt/bidkan/deploy.sh บน Droplet ดึงไปวางเอง
+#
+# Secrets ที่ต้องตั้งใน Environment "production" ของ repo — วิธีสร้าง: deploy/DEPLOYMENT.md ข้อ 2 และ 3.4
+#   DROPLET_HOST         IP ของ Droplet
+#   DROPLET_SSH_KEY      private key ของ root ที่รันได้แค่ /opt/bidkan/deploy.sh (command= ใน authorized_keys)
+#   DROPLET_KNOWN_HOSTS  บรรทัดจาก ssh-keyscan -t ed25519 <IP> (กันเชื่อมต่อผิดเครื่อง)
+
+name: Deploy backend
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "cmd/**"
+      - "internal/**"
+      - "pkg/**"
+      - "sql/**"
+      - "docs/**"
+      - "go.mod"
+      - "go.sum"
+      - "Dockerfile.prod"
+      - "deploy/docker-compose.prod.yml"
+      - "deploy/bidkan.caddy"
+      - "deploy/mosquitto.conf"
+      - "deploy/deploy.sh"
+      - "deploy/files.Dockerfile"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # กด Run workflow จาก branch อื่นได้ — ไม่กันไว้ = โค้ด branch อื่นขึ้น production + ทับแท็ก latest
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR ต้องใช้ชื่อตัวพิมพ์เล็ก
+      - id: vars
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.prod
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ steps.vars.outputs.owner }}/bidkan-backend:latest
+            ghcr.io/${{ steps.vars.outputs.owner }}/bidkan-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # compose, caddy, mosquitto.conf, schema, deploy.sh เลข commit เดียวกับ API (deploy.sh บน Droplet ดึงไปวาง)
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/files.Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ steps.vars.outputs.owner }}/bidkan-deploy-files:${{ github.sha }}
+
+  deploy:
+    needs: build
+    # Environment "production" ตั้งให้รับเฉพาะ master + เก็บ secret ของ Droplet ไว้ที่นั่น
+    # = workflow ที่แก้ใน branch อื่นอ่าน key SSH ไม่ได้
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      # key นี้รันได้แค่ /opt/bidkan/deploy.sh: ข้อความที่ส่งไปคือเลข commit อย่างเดียว
+      - name: Deploy over SSH
+        env:
+          DROPLET_HOST: ${{ secrets.DROPLET_HOST }}
+          DROPLET_SSH_KEY: ${{ secrets.DROPLET_SSH_KEY }}
+          DROPLET_KNOWN_HOSTS: ${{ secrets.DROPLET_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$DROPLET_HOST" ] || [ -z "$DROPLET_SSH_KEY" ] || [ -z "$DROPLET_KNOWN_HOSTS" ]; then
+            echo "::error::DROPLET_HOST, DROPLET_SSH_KEY and DROPLET_KNOWN_HOSTS must be set (deploy/DEPLOYMENT.md 3.4)"
+            exit 1
+          fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DROPLET_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$DROPLET_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 "root@$DROPLET_HOST" "$GITHUB_SHA"
