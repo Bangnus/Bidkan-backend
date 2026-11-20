@@ -46,7 +46,6 @@ CREATE INDEX IF NOT EXISTS idx_tenant_payouts_tenant_period ON tenant_payouts (t
 CREATE INDEX IF NOT EXISTS idx_tenants_organization_id ON tenants (organization_id);
 CREATE INDEX IF NOT EXISTS idx_users_organization_id ON users (organization_id);
 CREATE INDEX IF NOT EXISTS idx_rides_tenant_status_end ON rides (tenant_id, status, end_time DESC);
-CREATE INDEX IF NOT EXISTS idx_hardware_orders_tenant ON hardware_orders (tenant_id, created_at DESC);
 
 -- 11. Partial & Expression Indexes for Optimized Query Performance (PostgreSQL EXPLAIN Best Practices)
 -- A. Fast Map Screen / Available Bikes with Adequate Battery (> 20%)
