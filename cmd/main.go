@@ -125,6 +125,8 @@ func main() {
 		BodyLimit: 4 * 1024 * 1024,
 	})
 	server.Use(recover.New())
+	// IP จริงของผู้ใช้สำหรับ rate limit (ผ่าน Caddy และหน้าเว็บบน Vercel) — ต้องมาก่อน route ทั้งหมด
+	server.Use(middleware.ResolveClientIP(secCfg.ProxySharedSecret))
 	server.Use(helmet.New())
 	server.Use(cors.New(cors.Config{
 		AllowOrigins:     secCfg.CORSAllowedOrigins,

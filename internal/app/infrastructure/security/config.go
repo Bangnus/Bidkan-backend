@@ -23,6 +23,8 @@ type Config struct {
 	CORSAllowedOrigins string
 	GoogleClientID     string
 	EnableSwagger      bool
+	// รหัสลับที่หน้าเว็บบน Vercel ส่งมาคู่กับ IP จริงของผู้ใช้ (middleware.ResolveClientIP) — ว่าง = ไม่เชื่อ header นั้น
+	ProxySharedSecret  string
 }
 
 func LoadConfig() (*Config, error) {
@@ -60,6 +62,7 @@ func LoadConfig() (*Config, error) {
 		CORSAllowedOrigins: corsOrigins,
 		GoogleClientID:     strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_ID")),
 		EnableSwagger:      enableSwagger,
+		ProxySharedSecret:  strings.TrimSpace(os.Getenv("PROXY_SHARED_SECRET")),
 	}, nil
 }
 
