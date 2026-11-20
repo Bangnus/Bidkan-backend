@@ -2,6 +2,7 @@ package zone_manage
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/entity"
@@ -49,11 +50,14 @@ func (h *Handler) HandleCreate(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil || req.Name == "" || req.Type == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name and type are required"})
 	}
-	boundary := req.Boundary
+	boundary := strings.TrimSpace(req.Boundary)
+	isPolygon := strings.HasPrefix(boundary, "[")
 	if boundary == "" {
 		boundary = fmt.Sprintf(`{"lat":%.6f,"lon":%.6f}`, req.Lat, req.Lon)
 	}
-	if req.Radius <= 0 {
+	if isPolygon {
+		req.Radius = 0
+	} else if req.Radius <= 0 {
 		req.Radius = 30
 	}
 

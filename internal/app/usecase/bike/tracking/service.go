@@ -149,6 +149,9 @@ func isInsideZone(pt geo.Point, boundary string, radius float64) bool {
 		}
 		points = []geo.Point{single}
 	}
+	if len(points) >= 3 {
+		return geo.IsPointInPolygon(pt, points)
+	}
 	if radius > 0 {
 		return geo.IsPointInCircle(pt, points[0], radius)
 	}
