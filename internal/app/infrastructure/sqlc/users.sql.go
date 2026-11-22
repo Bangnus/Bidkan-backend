@@ -324,7 +324,10 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const getUserByIdentifier = `-- name: GetUserByIdentifier :one
-SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified FROM users WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1) LIMIT 1
+SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified FROM users
+WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)
+ORDER BY (LOWER(email) = LOWER($1)) DESC, (status = 'active') DESC
+LIMIT 1
 `
 
 func (q *Queries) GetUserByIdentifier(ctx context.Context, lower string) (User, error) {
@@ -780,6 +783,7 @@ ON CONFLICT (email) DO UPDATE SET
     email_verified = TRUE,
     status = CASE WHEN users.status = 'pending' THEN 'active' ELSE users.status END,
     updated_at = NOW()
+WHERE users.role = 'user'
 RETURNING id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified
 `
 

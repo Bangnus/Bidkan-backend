@@ -18,7 +18,14 @@ type memUserRepo struct{ byEmail map[string]*entity.User }
 func (m *memUserRepo) Create(context.Context, *entity.User) error                  { return nil }
 func (m *memUserRepo) GetByPhone(context.Context, string) (*entity.User, error)    { return nil, nil }
 func (m *memUserRepo) GetByID(context.Context, uuid.UUID) (*entity.User, error)    { return nil, nil }
-func (m *memUserRepo) GetByUsername(context.Context, string) (*entity.User, error) { return nil, nil }
+func (m *memUserRepo) GetByUsername(_ context.Context, username string) (*entity.User, error) {
+	for _, u := range m.byEmail {
+		if strings.EqualFold(u.Username, username) {
+			return u, nil
+		}
+	}
+	return nil, errors.New("not found")
+}
 func (m *memUserRepo) GetByEmail(_ context.Context, email string) (*entity.User, error) {
 	u := m.byEmail[strings.ToLower(email)]
 	if u == nil {
@@ -95,9 +102,15 @@ func (m *memVerifyRepo) SetResendCooldown(_ context.Context, email string, ttl t
 	return nil
 }
 
-type spyEmailProvider struct{ sent []domainService.EmailMessage }
+type spyEmailProvider struct {
+	sent []domainService.EmailMessage
+	err  error
+}
 
 func (s *spyEmailProvider) Send(_ context.Context, msg domainService.EmailMessage) error {
+	if s.err != nil {
+		return s.err
+	}
 	s.sent = append(s.sent, msg)
 	return nil
 }
@@ -157,5 +170,28 @@ func TestRegisterVerifyAndCooldownFlow(t *testing.T) {
 		Email: "rider@ku.th", Username: "Somchai2", Password: "password123",
 	}); !errors.Is(err, ErrEmailExists) {
 		t.Fatalf("expected ErrEmailExists, got %v", err)
+	}
+
+	// Reject username containing '@' or duplicate username
+	if _, err := svc.Register(context.Background(), RegisterRequest{
+		Email: "spoof@ku.th", Username: "victim@ku.th", Password: "password123",
+	}); !errors.Is(err, ErrInvalidUsername) {
+		t.Fatalf("expected ErrInvalidUsername, got %v", err)
+	}
+	if _, err := svc.Register(context.Background(), RegisterRequest{
+		Email: "other@ku.th", Username: "Somchai", Password: "password123",
+	}); !errors.Is(err, ErrUsernameTaken) {
+		t.Fatalf("expected ErrUsernameTaken, got %v", err)
+	}
+
+	// Failed email delivery must not set resend cooldown
+	mailer.err = errors.New("smtp down")
+	if _, err := svc.Register(context.Background(), RegisterRequest{
+		Email: "retry@ku.th", Username: "RetryUser", Password: "password123",
+	}); err == nil {
+		t.Fatal("expected smtp error")
+	}
+	if rem, _ := verifyRepo.ResendCooldownRemaining(context.Background(), "retry@ku.th"); rem > 0 {
+		t.Fatalf("expected no cooldown after failed send, got %v", rem)
 	}
 }

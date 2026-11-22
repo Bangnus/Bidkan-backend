@@ -77,11 +77,11 @@ func writeError(c *fiber.Ctx, err error) error {
 		})
 	}
 	switch {
-	case errors.Is(err, ErrEmailExists), errors.Is(err, ErrPhoneExists), errors.Is(err, ErrAlreadyVerified):
+	case errors.Is(err, ErrEmailExists), errors.Is(err, ErrUsernameTaken), errors.Is(err, ErrPhoneExists), errors.Is(err, ErrAlreadyVerified):
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
 	case errors.Is(err, ErrAccountRestricted):
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": err.Error()})
-	case errors.Is(err, ErrInvalidVerification), errors.Is(err, ErrPendingAccountNotSet):
+	case errors.Is(err, ErrInvalidUsername), errors.Is(err, ErrInvalidVerification), errors.Is(err, ErrPendingAccountNotSet):
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	default:
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})

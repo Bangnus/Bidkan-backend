@@ -29,7 +29,10 @@ UPDATE users SET wallet_balance = $1, updated_at = NOW() WHERE id = $2;
 SELECT * FROM users WHERE username = $1;
 
 -- name: GetUserByIdentifier :one
-SELECT * FROM users WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1) LIMIT 1;
+SELECT * FROM users
+WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)
+ORDER BY (LOWER(email) = LOWER($1)) DESC, (status = 'active') DESC
+LIMIT 1;
 
 -- name: GetUserByID :one
 SELECT * FROM users WHERE id = $1;
@@ -83,6 +86,7 @@ ON CONFLICT (email) DO UPDATE SET
     email_verified = TRUE,
     status = CASE WHEN users.status = 'pending' THEN 'active' ELSE users.status END,
     updated_at = NOW()
+WHERE users.role = 'user'
 RETURNING *;
 
 -- name: CreateEmailUser :one

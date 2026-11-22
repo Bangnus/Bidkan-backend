@@ -51,6 +51,9 @@ func (s *service) Register(ctx context.Context, req RegisterRequest) (*Verificat
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	username := strings.TrimSpace(req.Username)
 	phone := strings.TrimSpace(req.PhoneNumber)
+	if strings.Contains(username, "@") {
+		return nil, ErrInvalidUsername
+	}
 
 	existing, _ := s.userRepo.GetByEmail(ctx, email)
 	if existing != nil {
@@ -63,6 +66,10 @@ func (s *service) Register(ctx context.Context, req RegisterRequest) (*Verificat
 		if rem, err := s.verifyRepo.ResendCooldownRemaining(ctx, email); err == nil && rem > 0 {
 			return nil, &CooldownError{RetryAfterSeconds: int(math.Ceil(rem.Seconds()))}
 		}
+	}
+
+	if byUser, _ := s.userRepo.GetByUsername(ctx, username); byUser != nil && (existing == nil || byUser.ID != existing.ID) {
+		return nil, ErrUsernameTaken
 	}
 
 	if phone != "" {
@@ -158,12 +165,12 @@ func (s *service) dispatchOTP(ctx context.Context, email, username string) (*Ver
 	if err := s.verifyRepo.SaveCode(ctx, email, otp, VerificationCodeTTL); err != nil {
 		return nil, errors.New("failed to store verification code")
 	}
-	_ = s.verifyRepo.SetResendCooldown(ctx, email, ResendCooldown)
 
 	msg := buildVerificationEmail(email, username, otp)
 	if err := s.emailProvider.Send(ctx, msg); err != nil {
 		return nil, errors.New("ส่งอีเมลยืนยันไม่สำเร็จ กรุณาตรวจสอบการตั้งค่า SMTP หรือลองใหม่อีกครั้ง")
 	}
+	_ = s.verifyRepo.SetResendCooldown(ctx, email, ResendCooldown)
 
 	resp := &VerificationDispatchResponse{
 		Message:               "ส่งรหัสยืนยัน 6 หลักไปยังอีเมลของคุณแล้ว",

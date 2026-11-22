@@ -70,7 +70,7 @@ func NewContainer(
 
 	rankCacheRepo := repository.NewUserRankRedisRepository(rdb)
 	configCacheRepo := repository.NewConfigRedisRepository(rdb)
-	emailVerifyRepo := repository.NewEmailVerificationRedisRepository(rdb)
+	emailVerifyRepo := repository.NewEmailVerificationRedisRepository(rdb, secCfg.JWTSecret)
 	emailProvider := infraEmail.NewProviderFromEnv()
 
 	createService := create.NewService(userRepo)

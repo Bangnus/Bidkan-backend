@@ -15,6 +15,8 @@ const (
 
 var (
 	ErrEmailExists          = errors.New("อีเมลนี้ถูกสมัครใช้งานแล้ว กรุณาเข้าสู่ระบบ")
+	ErrUsernameTaken        = errors.New("ชื่อผู้ใช้นี้ถูกใช้งานแล้ว กรุณาใช้ชื่ออื่น")
+	ErrInvalidUsername      = errors.New("ชื่อผู้ใช้ต้องไม่มีเครื่องหมาย @")
 	ErrPhoneExists          = errors.New("เบอร์โทรศัพท์นี้ถูกใช้งานแล้ว")
 	ErrAccountRestricted    = errors.New("บัญชีนี้ถูกระงับการใช้งาน")
 	ErrAlreadyVerified      = errors.New("อีเมลนี้ได้รับการยืนยันแล้ว กรุณาเข้าสู่ระบบ")

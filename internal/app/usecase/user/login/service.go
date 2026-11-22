@@ -75,6 +75,7 @@ func (s *service) Login(ctx context.Context, req Request) (*Response, error) {
 	}
 
 	if user.Password == "" || user.Password == "google_oauth" {
+		s.recordFailure(ctx, lockKey)
 		return nil, errors.New("บัญชีนี้ลงทะเบียนผ่าน Google กรุณาเข้าสู่ระบบด้วยปุ่ม Google")
 	}
 

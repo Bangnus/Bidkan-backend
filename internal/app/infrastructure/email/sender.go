@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/mail"
 	"net/smtp"
 	"os"
 	"strconv"
@@ -65,6 +66,15 @@ func (p *provider) Mode() string {
 }
 
 func (p *provider) Send(ctx context.Context, msg domainService.EmailMessage) error {
+	if strings.ContainsAny(msg.To, "\r\n") || strings.ContainsAny(p.cfg.From, "\r\n") {
+		return fmt.Errorf("invalid email header characters")
+	}
+	parsedTo, err := mail.ParseAddress(strings.TrimSpace(msg.To))
+	if err != nil || parsedTo.Address == "" {
+		return fmt.Errorf("invalid recipient email address")
+	}
+	msg.To = parsedTo.Address
+
 	if p.cfg.Host == "" {
 		log.Printf("📧 [CONSOLE EMAIL] To: %s | Subject: %s\n%s", msg.To, msg.Subject, msg.Text)
 		return nil

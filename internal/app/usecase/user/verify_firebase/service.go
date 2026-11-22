@@ -37,8 +37,11 @@ func (s *service) VerifyAndActivate(ctx context.Context, req Request) error {
 
 	// 2. ดึงข้อมูลผู้ใช้จากเบอร์โทรที่ได้มาจาก Firebase
 	user, err := s.userRepo.GetByPhone(ctx, phone)
-	if err != nil {
+	if err != nil || user == nil {
 		return errors.New("user not found for this phone number")
+	}
+	if user.Status != "pending" {
+		return errors.New("account is not eligible for activation")
 	}
 
 	// 3. อัปเดตสถานะเป็น active

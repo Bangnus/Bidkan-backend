@@ -2,10 +2,10 @@ package repository
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -14,18 +14,14 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type emailVerifyRecord struct {
-	CodeHash string `json:"code_hash"`
-	Attempts int    `json:"attempts"`
-}
-
 type emailVerificationRedisRepository struct {
-	rdb *redis.Client
+	rdb    *redis.Client
+	pepper []byte
 }
 
-// NewEmailVerificationRedisRepository stores hashed email verification OTPs in Redis.
-func NewEmailVerificationRedisRepository(rdb *redis.Client) domainRepo.EmailVerificationRepository {
-	return &emailVerificationRedisRepository{rdb: rdb}
+// NewEmailVerificationRedisRepository stores HMAC-SHA256 hashed OTPs with atomic attempt tracking in Redis.
+func NewEmailVerificationRedisRepository(rdb *redis.Client, pepper []byte) domainRepo.EmailVerificationRepository {
+	return &emailVerificationRedisRepository{rdb: rdb, pepper: pepper}
 }
 
 func (r *emailVerificationRedisRepository) SaveCode(ctx context.Context, email, code string, ttl time.Duration) error {
@@ -33,12 +29,11 @@ func (r *emailVerificationRedisRepository) SaveCode(ctx context.Context, email, 
 		return errors.New("verification store unavailable")
 	}
 	norm := strings.ToLower(strings.TrimSpace(email))
-	rec := emailVerifyRecord{CodeHash: hashEmailCode(norm, code), Attempts: 0}
-	raw, err := json.Marshal(rec)
-	if err != nil {
-		return err
-	}
-	return r.rdb.Set(ctx, emailVerifyKey(norm), raw, ttl).Err()
+	pipe := r.rdb.TxPipeline()
+	pipe.Set(ctx, emailVerifyKey(norm), r.hashEmailCode(norm, code), ttl)
+	pipe.Del(ctx, emailTriesKey(norm))
+	_, err := pipe.Exec(ctx)
+	return err
 }
 
 func (r *emailVerificationRedisRepository) VerifyCode(ctx context.Context, email, code string, maxAttempts int) (bool, error) {
@@ -47,7 +42,9 @@ func (r *emailVerificationRedisRepository) VerifyCode(ctx context.Context, email
 	}
 	norm := strings.ToLower(strings.TrimSpace(email))
 	key := emailVerifyKey(norm)
-	raw, err := r.rdb.Get(ctx, key).Result()
+	triesKey := emailTriesKey(norm)
+
+	storedHash, err := r.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return false, nil
 	}
@@ -55,30 +52,33 @@ func (r *emailVerificationRedisRepository) VerifyCode(ctx context.Context, email
 		return false, err
 	}
 
-	var rec emailVerifyRecord
-	if err := json.Unmarshal([]byte(raw), &rec); err != nil {
-		_ = r.rdb.Del(ctx, key).Err()
-		return false, nil
+	// Atomic INCR prevents concurrent brute-force requests from racing the attempt counter.
+	tries, err := r.rdb.Incr(ctx, triesKey).Result()
+	if err != nil {
+		return false, err
 	}
-
-	expected := hashEmailCode(norm, strings.TrimSpace(code))
-	if subtle.ConstantTimeCompare([]byte(rec.CodeHash), []byte(expected)) == 1 {
-		_ = r.rdb.Del(ctx, key).Err()
-		return true, nil
+	if tries == 1 {
+		if ttl, err := r.rdb.TTL(ctx, key).Result(); err == nil && ttl > 0 {
+			_ = r.rdb.Expire(ctx, triesKey, ttl).Err()
+		} else {
+			_ = r.rdb.Expire(ctx, triesKey, 15*time.Minute).Err()
+		}
 	}
-
-	rec.Attempts++
-	if maxAttempts > 0 && rec.Attempts >= maxAttempts {
-		_ = r.rdb.Del(ctx, key).Err()
+	if maxAttempts > 0 && int(tries) > maxAttempts {
+		_ = r.rdb.Del(ctx, key, triesKey).Err()
 		return false, errors.New("too many failed verification attempts, please request a new code")
 	}
 
-	ttl, _ := r.rdb.TTL(ctx, key).Result()
-	if ttl < time.Second {
-		ttl = 5 * time.Minute
+	expected := r.hashEmailCode(norm, strings.TrimSpace(code))
+	if subtle.ConstantTimeCompare([]byte(storedHash), []byte(expected)) == 1 {
+		_ = r.rdb.Del(ctx, key, triesKey).Err()
+		return true, nil
 	}
-	updated, _ := json.Marshal(rec)
-	_ = r.rdb.Set(ctx, key, updated, ttl).Err()
+
+	if maxAttempts > 0 && int(tries) >= maxAttempts {
+		_ = r.rdb.Del(ctx, key, triesKey).Err()
+		return false, errors.New("too many failed verification attempts, please request a new code")
+	}
 	return false, nil
 }
 
@@ -103,9 +103,11 @@ func (r *emailVerificationRedisRepository) SetResendCooldown(ctx context.Context
 }
 
 func emailVerifyKey(email string) string   { return "auth:email_verify:" + email }
+func emailTriesKey(email string) string    { return "auth:email_verify_tries:" + email }
 func emailCooldownKey(email string) string { return "auth:email_verify_cd:" + email }
 
-func hashEmailCode(email, code string) string {
-	sum := sha256.Sum256([]byte(email + ":" + code))
-	return hex.EncodeToString(sum[:])
+func (r *emailVerificationRedisRepository) hashEmailCode(email, code string) string {
+	mac := hmac.New(sha256.New, r.pepper)
+	_, _ = mac.Write([]byte(email + ":" + code))
+	return hex.EncodeToString(mac.Sum(nil))
 }
