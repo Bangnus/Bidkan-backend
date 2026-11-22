@@ -70,7 +70,7 @@ func (s *service) CreateCheckout(ctx context.Context, req CheckoutRequest) (*Che
 		UserID:        req.UserID.String(),
 		AmountTHB:     req.Amount,
 		CustomerEmail: user.Email,
-		Method:        strings.ToLower(strings.TrimSpace(req.Method)),
+		Method:        "promptpay",
 		SuccessURL:    clientURL + "/wallet?topup=success&session_id={CHECKOUT_SESSION_ID}",
 		CancelURL:     clientURL + "/wallet?topup=cancelled",
 	})

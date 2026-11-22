@@ -80,7 +80,13 @@ func (h *Handler) HandleStripeOnboard(c *fiber.Ctx) error {
 	}
 
 	if accountID == "" {
-		createdID, err := h.stripe.CreateConnectedAccount(c.Context(), tenant.Slug, tenant.Name, tenant.ContactEmail)
+		email := tenant.ContactEmail
+		if email == "" {
+			if localEmail, ok := c.Locals("email").(string); ok {
+				email = localEmail
+			}
+		}
+		createdID, err := h.stripe.CreateConnectedAccount(c.Context(), tenant.Slug, tenant.Name, email)
 		if err != nil {
 			return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
 		}
