@@ -6,12 +6,14 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/security"
 	"github.com/Bangnus/Bidkan-backend/internal/app/middleware"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/create"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/email_auth"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/google_login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/logout"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/me"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/rank"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/refresh"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/student_kyc"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/update_profile"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify_firebase"
 	"github.com/gofiber/fiber/v2"
@@ -22,12 +24,14 @@ func SetupUserRoutes(
 	authMW fiber.Handler,
 	sessions security.SessionStore,
 	createHandler create.Handler,
+	emailAuthHandler email_auth.Handler,
 	loginHandler login.Handler,
 	googleLoginHandler google_login.Handler,
 	refreshHandler refresh.Handler,
 	meHandler me.Handler,
 	verifyFirebaseHandler verify_firebase.Handler,
 	updateProfileHandler update_profile.Handler,
+	studentKycHandler student_kyc.Handler,
 	logoutHandler logout.Handler,
 	rankHandler rank.Handler,
 ) {
@@ -35,6 +39,9 @@ func SetupUserRoutes(
 
 	// Public Routes with rate limits
 	v1.Post("/users", middleware.AuthRateLimiter(sessions, "user_register", 15, time.Minute), createHandler.Handle)
+	v1.Post("/users/register", middleware.AuthRateLimiter(sessions, "user_email_register", 10, time.Minute), emailAuthHandler.HandleRegister)
+	v1.Post("/users/verify-email", middleware.AuthRateLimiter(sessions, "user_email_verify", 15, time.Minute), emailAuthHandler.HandleVerifyEmail)
+	v1.Post("/users/resend-verification", middleware.AuthRateLimiter(sessions, "user_email_resend", 10, time.Minute), emailAuthHandler.HandleResendVerification)
 	v1.Post("/users/verify/firebase", middleware.AuthRateLimiter(sessions, "user_verify", 15, time.Minute), verifyFirebaseHandler.Handle)
 	v1.Post("/users/login", middleware.AuthRateLimiter(sessions, "user_login", 30, time.Minute), loginHandler.Handle)
 	v1.Post("/users/google-login", middleware.AuthRateLimiter(sessions, "user_google", 30, time.Minute), googleLoginHandler.Handle)
@@ -46,5 +53,6 @@ func SetupUserRoutes(
 	userGroup.Get("/me", meHandler.Handle)
 	userGroup.Get("/rank", rankHandler.Handle)
 	userGroup.Patch("/profile/image", updateProfileHandler.Handle)
+	userGroup.Post("/student-kyc", studentKycHandler.Handle)
 	userGroup.Post("/logout", logoutHandler.Handle)
 }

@@ -39,7 +39,11 @@ func IsPointInAnyZone(pt geo.Point, zones []entity.Zone) bool {
 		if len(pts) == 0 {
 			continue
 		}
-		if z.Radius > 0 {
+		if len(pts) >= 3 {
+			if geo.IsPointInPolygon(pt, pts) {
+				return true
+			}
+		} else if z.Radius > 0 {
 			if geo.IsPointInCircle(pt, pts[0], z.Radius) {
 				return true
 			}

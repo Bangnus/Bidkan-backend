@@ -132,8 +132,8 @@ func TestRoleGuardsAndStrictIsolation(t *testing.T) {
 	}{
 		{"super admin accesses super", "/super", "super_admin", "backoffice", "", "", fiber.StatusOK},
 		{"rider token blocked from super", "/super", "super_admin", "rider", "", "", fiber.StatusForbidden},
-		{"super admin blocked from campus admin", "/campus/cmu/admin", "super_admin", "backoffice", "", "", fiber.StatusForbidden},
-		{"super admin blocked from campus ops", "/campus/ku/ops", "super_admin", "backoffice", "", "", fiber.StatusForbidden},
+		{"super admin partner view accesses campus admin", "/campus/cmu/admin", "super_admin", "backoffice", "", "", fiber.StatusOK},
+		{"super admin partner view accesses campus ops", "/campus/ku/ops", "super_admin", "backoffice", "", "", fiber.StatusOK},
 		{"super admin blocked from org overview", "/org/ku-org/overview", "super_admin", "backoffice", "", "", fiber.StatusForbidden},
 		{"tenant admin blocked from super", "/super", "tenant_admin", "backoffice", kuID.String(), "", fiber.StatusForbidden},
 		{"ku admin accesses ku admin route", "/campus/ku/admin", "tenant_admin", "backoffice", kuID.String(), "", fiber.StatusOK},

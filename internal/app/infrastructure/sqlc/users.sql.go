@@ -13,6 +13,43 @@ import (
 	"github.com/google/uuid"
 )
 
+const activateVerifiedEmailUser = `-- name: ActivateVerifiedEmailUser :one
+UPDATE users
+SET email_verified = TRUE,
+    status = 'active',
+    updated_at = NOW()
+WHERE LOWER(email) = LOWER($1) AND status != 'suspended'
+RETURNING id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified
+`
+
+func (q *Queries) ActivateVerifiedEmailUser(ctx context.Context, lower string) (User, error) {
+	row := q.db.QueryRowContext(ctx, activateVerifiedEmailUser, lower)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.OrganizationID,
+		&i.PhoneNumber,
+		&i.Email,
+		&i.GoogleID,
+		&i.Username,
+		&i.Password,
+		&i.WalletBalance,
+		&i.Role,
+		&i.Status,
+		&i.ImageUrl,
+		&i.FcmToken,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsStudent,
+		&i.StudentID,
+		&i.StudentCardUrl,
+		&i.StudentVerified,
+		&i.EmailVerified,
+	)
+	return i, err
+}
+
 const addBalance = `-- name: AddBalance :exec
 UPDATE users SET wallet_balance = wallet_balance + $1, updated_at = NOW() WHERE id = $2
 `
@@ -54,6 +91,56 @@ func (q *Queries) CountStaffByTenant(ctx context.Context, tenantID uuid.NullUUID
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const createEmailUser = `-- name: CreateEmailUser :one
+INSERT INTO users (id, tenant_id, email, username, phone_number, password, wallet_balance, role, status, email_verified, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, 0.00, 'user', 'pending', FALSE, NOW(), NOW())
+RETURNING id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified
+`
+
+type CreateEmailUserParams struct {
+	ID          uuid.UUID
+	TenantID    uuid.NullUUID
+	Email       sql.NullString
+	Username    string
+	PhoneNumber sql.NullString
+	Password    string
+}
+
+func (q *Queries) CreateEmailUser(ctx context.Context, arg CreateEmailUserParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, createEmailUser,
+		arg.ID,
+		arg.TenantID,
+		arg.Email,
+		arg.Username,
+		arg.PhoneNumber,
+		arg.Password,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.OrganizationID,
+		&i.PhoneNumber,
+		&i.Email,
+		&i.GoogleID,
+		&i.Username,
+		&i.Password,
+		&i.WalletBalance,
+		&i.Role,
+		&i.Status,
+		&i.ImageUrl,
+		&i.FcmToken,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsStudent,
+		&i.StudentID,
+		&i.StudentCardUrl,
+		&i.StudentVerified,
+		&i.EmailVerified,
+	)
+	return i, err
 }
 
 const createTenantUser = `-- name: CreateTenantUser :exec
@@ -141,7 +228,7 @@ func (q *Queries) DeductBalance(ctx context.Context, arg DeductBalanceParams) er
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1
+SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, lower string) (User, error) {
@@ -163,12 +250,17 @@ func (q *Queries) GetUserByEmail(ctx context.Context, lower string) (User, error
 		&i.FcmToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsStudent,
+		&i.StudentID,
+		&i.StudentCardUrl,
+		&i.StudentVerified,
+		&i.EmailVerified,
 	)
 	return i, err
 }
 
 const getUserByGoogleID = `-- name: GetUserByGoogleID :one
-SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE google_id = $1 LIMIT 1
+SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified FROM users WHERE google_id = $1 LIMIT 1
 `
 
 func (q *Queries) GetUserByGoogleID(ctx context.Context, googleID sql.NullString) (User, error) {
@@ -190,12 +282,17 @@ func (q *Queries) GetUserByGoogleID(ctx context.Context, googleID sql.NullString
 		&i.FcmToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsStudent,
+		&i.StudentID,
+		&i.StudentCardUrl,
+		&i.StudentVerified,
+		&i.EmailVerified,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE id = $1
+SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -217,12 +314,20 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.FcmToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsStudent,
+		&i.StudentID,
+		&i.StudentCardUrl,
+		&i.StudentVerified,
+		&i.EmailVerified,
 	)
 	return i, err
 }
 
 const getUserByIdentifier = `-- name: GetUserByIdentifier :one
-SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1) LIMIT 1
+SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified FROM users
+WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)
+ORDER BY (LOWER(email) = LOWER($1)) DESC, (status = 'active') DESC
+LIMIT 1
 `
 
 func (q *Queries) GetUserByIdentifier(ctx context.Context, lower string) (User, error) {
@@ -244,12 +349,17 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, lower string) (User, 
 		&i.FcmToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsStudent,
+		&i.StudentID,
+		&i.StudentCardUrl,
+		&i.StudentVerified,
+		&i.EmailVerified,
 	)
 	return i, err
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE phone_number = $1
+SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified FROM users WHERE phone_number = $1
 `
 
 func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber sql.NullString) (User, error) {
@@ -271,12 +381,17 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phoneNumber sql.NullString
 		&i.FcmToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsStudent,
+		&i.StudentID,
+		&i.StudentCardUrl,
+		&i.StudentVerified,
+		&i.EmailVerified,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE username = $1
+SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified FROM users WHERE username = $1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -298,12 +413,17 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.FcmToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsStudent,
+		&i.StudentID,
+		&i.StudentCardUrl,
+		&i.StudentVerified,
+		&i.EmailVerified,
 	)
 	return i, err
 }
 
 const listStaffByTenant = `-- name: ListStaffByTenant :many
-SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users 
+SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified FROM users 
 WHERE tenant_id = $1 AND role = 'tenant_staff'
 ORDER BY created_at DESC
 `
@@ -333,6 +453,11 @@ func (q *Queries) ListStaffByTenant(ctx context.Context, tenantID uuid.NullUUID)
 			&i.FcmToken,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsStudent,
+			&i.StudentID,
+			&i.StudentCardUrl,
+			&i.StudentVerified,
+			&i.EmailVerified,
 		); err != nil {
 			return nil, err
 		}
@@ -348,7 +473,7 @@ func (q *Queries) ListStaffByTenant(ctx context.Context, tenantID uuid.NullUUID)
 }
 
 const listStaffByTenantPaged = `-- name: ListStaffByTenantPaged :many
-SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users
+SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified FROM users
 WHERE tenant_id = $1 AND role = 'tenant_staff'
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -385,6 +510,11 @@ func (q *Queries) ListStaffByTenantPaged(ctx context.Context, arg ListStaffByTen
 			&i.FcmToken,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsStudent,
+			&i.StudentID,
+			&i.StudentCardUrl,
+			&i.StudentVerified,
+			&i.EmailVerified,
 		); err != nil {
 			return nil, err
 		}
@@ -400,7 +530,7 @@ func (q *Queries) ListStaffByTenantPaged(ctx context.Context, arg ListStaffByTen
 }
 
 const listTenantAdminsByTenant = `-- name: ListTenantAdminsByTenant :many
-SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users
+SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified FROM users
 WHERE tenant_id = $1 AND role IN ('tenant_admin', 'org_admin')
 ORDER BY created_at DESC
 `
@@ -430,6 +560,11 @@ func (q *Queries) ListTenantAdminsByTenant(ctx context.Context, tenantID uuid.Nu
 			&i.FcmToken,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsStudent,
+			&i.StudentID,
+			&i.StudentCardUrl,
+			&i.StudentVerified,
+			&i.EmailVerified,
 		); err != nil {
 			return nil, err
 		}
@@ -445,7 +580,7 @@ func (q *Queries) ListTenantAdminsByTenant(ctx context.Context, tenantID uuid.Nu
 }
 
 const listUsersByOrganization = `-- name: ListUsersByOrganization :many
-SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users
+SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified FROM users
 WHERE organization_id = $1
 ORDER BY created_at DESC
 `
@@ -475,6 +610,11 @@ func (q *Queries) ListUsersByOrganization(ctx context.Context, organizationID uu
 			&i.FcmToken,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsStudent,
+			&i.StudentID,
+			&i.StudentCardUrl,
+			&i.StudentVerified,
+			&i.EmailVerified,
 		); err != nil {
 			return nil, err
 		}
@@ -490,7 +630,7 @@ func (q *Queries) ListUsersByOrganization(ctx context.Context, organizationID uu
 }
 
 const listUsersByTenant = `-- name: ListUsersByTenant :many
-SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at FROM users WHERE tenant_id = $1 ORDER BY created_at DESC
+SELECT id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified FROM users WHERE tenant_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListUsersByTenant(ctx context.Context, tenantID uuid.NullUUID) ([]User, error) {
@@ -518,6 +658,11 @@ func (q *Queries) ListUsersByTenant(ctx context.Context, tenantID uuid.NullUUID)
 			&i.FcmToken,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsStudent,
+			&i.StudentID,
+			&i.StudentCardUrl,
+			&i.StudentVerified,
+			&i.EmailVerified,
 		); err != nil {
 			return nil, err
 		}
@@ -530,6 +675,59 @@ func (q *Queries) ListUsersByTenant(ctx context.Context, tenantID uuid.NullUUID)
 		return nil, err
 	}
 	return items, nil
+}
+
+const refreshPendingEmailUser = `-- name: RefreshPendingEmailUser :one
+UPDATE users
+SET username = $2,
+    phone_number = $3,
+    password = $4,
+    tenant_id = COALESCE($5, tenant_id),
+    updated_at = NOW()
+WHERE id = $1 AND status = 'pending' AND email_verified = FALSE AND google_id IS NULL
+RETURNING id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified
+`
+
+type RefreshPendingEmailUserParams struct {
+	ID          uuid.UUID
+	Username    string
+	PhoneNumber sql.NullString
+	Password    string
+	TenantID    uuid.NullUUID
+}
+
+func (q *Queries) RefreshPendingEmailUser(ctx context.Context, arg RefreshPendingEmailUserParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, refreshPendingEmailUser,
+		arg.ID,
+		arg.Username,
+		arg.PhoneNumber,
+		arg.Password,
+		arg.TenantID,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.OrganizationID,
+		&i.PhoneNumber,
+		&i.Email,
+		&i.GoogleID,
+		&i.Username,
+		&i.Password,
+		&i.WalletBalance,
+		&i.Role,
+		&i.Status,
+		&i.ImageUrl,
+		&i.FcmToken,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsStudent,
+		&i.StudentID,
+		&i.StudentCardUrl,
+		&i.StudentVerified,
+		&i.EmailVerified,
+	)
+	return i, err
 }
 
 const updateUserBalance = `-- name: UpdateUserBalance :exec
@@ -575,15 +773,18 @@ func (q *Queries) UpdateUserStatus(ctx context.Context, arg UpdateUserStatusPara
 }
 
 const upsertGoogleUser = `-- name: UpsertGoogleUser :one
-INSERT INTO users (id, tenant_id, google_id, email, username, phone_number, password, wallet_balance, role, status, image_url, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, 'google_oauth', 0.00, 'user', 'active', $7, NOW(), NOW())
+INSERT INTO users (id, tenant_id, google_id, email, username, phone_number, password, wallet_balance, role, status, email_verified, image_url, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, 'google_oauth', 0.00, 'user', 'active', TRUE, $7, NOW(), NOW())
 ON CONFLICT (email) DO UPDATE SET
     google_id = COALESCE(users.google_id, EXCLUDED.google_id),
     username = EXCLUDED.username,
     image_url = COALESCE(EXCLUDED.image_url, users.image_url),
     tenant_id = COALESCE(users.tenant_id, EXCLUDED.tenant_id),
+    email_verified = TRUE,
+    status = CASE WHEN users.status = 'pending' THEN 'active' ELSE users.status END,
     updated_at = NOW()
-RETURNING id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at
+WHERE users.role = 'user'
+RETURNING id, tenant_id, organization_id, phone_number, email, google_id, username, password, wallet_balance, role, status, image_url, fcm_token, created_at, updated_at, is_student, student_id, student_card_url, student_verified, email_verified
 `
 
 type UpsertGoogleUserParams struct {
@@ -623,6 +824,11 @@ func (q *Queries) UpsertGoogleUser(ctx context.Context, arg UpsertGoogleUserPara
 		&i.FcmToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsStudent,
+		&i.StudentID,
+		&i.StudentCardUrl,
+		&i.StudentVerified,
+		&i.EmailVerified,
 	)
 	return i, err
 }

@@ -29,7 +29,10 @@ UPDATE users SET wallet_balance = $1, updated_at = NOW() WHERE id = $2;
 SELECT * FROM users WHERE username = $1;
 
 -- name: GetUserByIdentifier :one
-SELECT * FROM users WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1) LIMIT 1;
+SELECT * FROM users
+WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)
+ORDER BY (LOWER(email) = LOWER($1)) DESC, (status = 'active') DESC
+LIMIT 1;
 
 -- name: GetUserByID :one
 SELECT * FROM users WHERE id = $1;
@@ -73,12 +76,38 @@ SELECT * FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1;
 SELECT * FROM users WHERE google_id = $1 LIMIT 1;
 
 -- name: UpsertGoogleUser :one
-INSERT INTO users (id, tenant_id, google_id, email, username, phone_number, password, wallet_balance, role, status, image_url, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, 'google_oauth', 0.00, 'user', 'active', $7, NOW(), NOW())
+INSERT INTO users (id, tenant_id, google_id, email, username, phone_number, password, wallet_balance, role, status, email_verified, image_url, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, 'google_oauth', 0.00, 'user', 'active', TRUE, $7, NOW(), NOW())
 ON CONFLICT (email) DO UPDATE SET
     google_id = COALESCE(users.google_id, EXCLUDED.google_id),
     username = EXCLUDED.username,
     image_url = COALESCE(EXCLUDED.image_url, users.image_url),
     tenant_id = COALESCE(users.tenant_id, EXCLUDED.tenant_id),
+    email_verified = TRUE,
+    status = CASE WHEN users.status = 'pending' THEN 'active' ELSE users.status END,
     updated_at = NOW()
+WHERE users.role = 'user'
+RETURNING *;
+
+-- name: CreateEmailUser :one
+INSERT INTO users (id, tenant_id, email, username, phone_number, password, wallet_balance, role, status, email_verified, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, 0.00, 'user', 'pending', FALSE, NOW(), NOW())
+RETURNING *;
+
+-- name: RefreshPendingEmailUser :one
+UPDATE users
+SET username = $2,
+    phone_number = $3,
+    password = $4,
+    tenant_id = COALESCE($5, tenant_id),
+    updated_at = NOW()
+WHERE id = $1 AND status = 'pending' AND email_verified = FALSE AND google_id IS NULL
+RETURNING *;
+
+-- name: ActivateVerifiedEmailUser :one
+UPDATE users
+SET email_verified = TRUE,
+    status = 'active',
+    updated_at = NOW()
+WHERE LOWER(email) = LOWER($1) AND status != 'suspended'
 RETURNING *;

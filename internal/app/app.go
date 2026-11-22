@@ -19,15 +19,18 @@ import (
 	rideEnd "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/end"
 	rideStart "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/start"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/create"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/email_auth"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/google_login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/logout"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/me"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/rank"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/refresh"
+	userStudentKyc "github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/student_kyc"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/update_profile"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify_firebase"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/stripe_webhook"
+	rideDispute "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/dispute"
 	walletStripeTopup "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/stripe_topup"
 	walletTransfer "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/transfer"
 	walletVerify "github.com/Bangnus/Bidkan-backend/internal/app/usecase/wallet/verify_receiver"
@@ -41,6 +44,7 @@ type Container struct {
 
 	// User
 	CreateUserHandler     create.Handler
+	EmailAuthHandler      email_auth.Handler
 	VerifyFirebaseHandler verify_firebase.Handler
 	LoginHandler          login.Handler
 	GoogleLoginHandler    google_login.Handler
@@ -48,6 +52,7 @@ type Container struct {
 	MeHandler             me.Handler
 	RankHandler           rank.Handler
 	UpdateProfileHandler  update_profile.Handler
+	StudentKYCHandler     userStudentKyc.Handler
 	LogoutHandler         logout.Handler
 
 	// Wallet
@@ -62,8 +67,9 @@ type Container struct {
 	UpdateBikeStatusHandler bikeUpdateStatus.Handler
 
 	// Ride
-	StartRideHandler rideStart.Handler
-	EndRideHandler   rideEnd.Handler
+	StartRideHandler   rideStart.Handler
+	EndRideHandler     rideEnd.Handler
+	DisputeRideHandler rideDispute.Handler
 
 	// Zone
 	ListZoneHandler   zoneList.Handler

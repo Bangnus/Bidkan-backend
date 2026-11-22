@@ -1,0 +1,144 @@
+# Production บน Droplet kripnet (ร่วมกับ BoostYod / JodMenu / TumWeb) — เฉพาะ API + Postgres + Redis + MQTT
+# หน้าเว็บ (backoffice, client) ไม่อยู่บนเครื่องนี้ · Caddy กลางของเครื่อง (/opt/edge) เป็นตัวรับโดเมน API
+#
+# ใช้: docker compose -p bidkan -f docker-compose.prod.yml --env-file .env.prod up -d
+# (ทำผ่าน GitHub Actions อัตโนมัติ — ดู DEPLOYMENT.md)
+# ${VAR:?…} = ค่าที่ขาดไม่ได้: ไม่มีใน .env.prod แล้ว compose หยุดก่อนแตะ container (ตัวเดิมรันต่อ)
+#
+# ชื่อ container ทุกตัวขึ้นต้นด้วย bidkan- เพราะอยู่บน network edge ร่วมกับโปรเจกต์อื่น (ห้ามใช้ชื่อสั้นอย่าง backend)
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  bidkan-api:
+    container_name: bidkan-api
+    # image ที่ GitHub Actions build แล้ว push ขึ้น GHCR — Droplet ไม่ build เอง
+    image: ghcr.io/${GHCR_OWNER:?set GHCR_OWNER in .env.prod}/bidkan-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      PORT: 8080
+      # รหัสผ่านใช้ openssl rand -hex 32 (มีแค่ 0-9 a-f) จึงใส่ใน URL ได้ตรง ๆ ไม่ต้อง escape
+      DATABASE_URL: postgres://bidkan:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}@bidkan-db:5432/bidkan?sslmode=disable
+      # ต้องขึ้นต้นด้วย redis:// (โค้ดแยกรูปแบบจาก prefix นี้) · Redis อยู่ใน network ภายใน ไม่ต้องมีรหัส
+      REDIS_URL: redis://bidkan-redis:6379/0
+      # user/รหัสใน URL: paho ส่งเป็น username/password ตอน connect
+      MQTT_BROKER: tcp://backend:${MQTT_BACKEND_PASSWORD:?set MQTT_BACKEND_PASSWORD in .env.prod}@bidkan-mqtt:1883
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env.prod}
+      # ว่าง = โค้ดใช้ localhost (หน้าเว็บจริงเรียก API ไม่ได้) จึงบังคับตั้ง
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?set CORS_ALLOWED_ORIGINS in .env.prod}
+      # ค่าเดียวกับ PROXY_SHARED_SECRET บน Vercel ทั้งสอง project: เชื่อ IP ผู้ใช้ที่หน้าเว็บส่งมา
+      # ไม่ตั้ง = ผู้ใช้ทุกคนใช้โควตา rate limit (ล็อกอิน/refresh) ร่วมกันเพราะมาจาก IP ของ Vercel
+      PROXY_SHARED_SECRET: ${PROXY_SHARED_SECRET:?set PROXY_SHARED_SECRET in .env.prod}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_CONNECT_WEBHOOK_SECRET: ${STRIPE_CONNECT_WEBHOOK_SECRET:-}
+      STRIPE_CONNECT_ACCOUNT_TYPE: ${STRIPE_CONNECT_ACCOUNT_TYPE:-express}
+      STRIPE_CONNECT_COUNTRY: ${STRIPE_CONNECT_COUNTRY:-TH}
+      STRIPE_BACKOFFICE_URL: ${STRIPE_BACKOFFICE_URL:-}
+      STRIPE_CLIENT_URL: ${STRIPE_CLIENT_URL:-}
+      # จ่ายเงินร้านอัตโนมัติ — ปิดไว้จนกว่าจะตั้ง Stripe ครบและทดสอบแล้ว
+      STRIPE_AUTO_PAYOUT_ENABLED: ${STRIPE_AUTO_PAYOUT_ENABLED:-false}
+      STRIPE_AUTO_PAYOUT_INTERVAL: ${STRIPE_AUTO_PAYOUT_INTERVAL:-24h}
+    volumes:
+      # Firebase (SMS OTP + push) — โค้ดอ่าน configs/bidkan-service-account.json · deploy.sh เช็คว่ามีไฟล์ก่อน
+      - /opt/bidkan/firebase-service-account.json:/app/configs/bidkan-service-account.json:ro
+    # ไม่เปิดพอร์ตออก host — Caddy กลางเข้าถึงผ่าน network edge ด้วยชื่อ bidkan-api
+    networks:
+      - internal
+      - edge
+    depends_on:
+      bidkan-db:
+        condition: service_healthy
+      bidkan-redis:
+        condition: service_healthy
+      bidkan-mqtt:
+        condition: service_started
+    mem_limit: 256m
+    logging: *default-logging
+
+  bidkan-db:
+    container_name: bidkan-db
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bidkan
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+      POSTGRES_DB: bidkan
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # schema รันแค่ตอนสร้างฐานข้อมูลครั้งแรก (volume ว่าง) — แก้ schema ทีหลังต้องรัน SQL เองด้วยมือ
+      - ./schema:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bidkan -d bidkan"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # อยู่ใน network ภายในเท่านั้น — ไม่เปิดออกอินเทอร์เน็ต
+    networks: [internal]
+    mem_limit: 256m
+    logging: *default-logging
+
+  bidkan-redis:
+    container_name: bidkan-redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "48mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [internal]
+    mem_limit: 64m
+    logging: *default-logging
+
+  # MQTT สำหรับกล่อง IoT บนจักรยาน (ESP32) — ต่อตรงที่ IP ของ Droplet พอร์ต 1883 (Caddy ส่งต่อ TCP ดิบไม่ได้)
+  bidkan-mqtt:
+    container_name: bidkan-mqtt
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    environment:
+      MQTT_BACKEND_PASSWORD: ${MQTT_BACKEND_PASSWORD:?set MQTT_BACKEND_PASSWORD in .env.prod}
+      MQTT_DEVICE_PASSWORD: ${MQTT_DEVICE_PASSWORD:?set MQTT_DEVICE_PASSWORD in .env.prod}
+    # สร้างไฟล์รหัสผ่านใหม่จาก .env.prod ทุกครั้งที่เริ่ม: user "backend" (API) และ "device" (กล่องบนจักรยาน)
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        f=/mosquitto/passwd
+        rm -f "$$f"
+        mosquitto_passwd -b -c "$$f" backend "$$MQTT_BACKEND_PASSWORD"
+        mosquitto_passwd -b "$$f" device "$$MQTT_DEVICE_PASSWORD"
+        chown mosquitto:mosquitto "$$f" /mosquitto/data
+        chmod 0700 "$$f"
+        exec /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+    networks: [internal]
+    mem_limit: 64m
+    logging: *default-logging
+
+networks:
+  internal: {}
+  # network ของ Caddy กลาง (/opt/edge) ที่ทุกโปรเจกต์บนเครื่องใช้ร่วมกัน — มีอยู่แล้ว ไม่ต้องสร้าง
+  edge:
+    external: true
+    name: edge
+
+volumes:
+  pgdata:
+  redisdata:
+  mosquitto_data:

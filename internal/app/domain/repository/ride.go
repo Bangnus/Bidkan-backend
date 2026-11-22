@@ -13,4 +13,5 @@ type RideRepository interface {
 	EndRide(ctx context.Context, id uuid.UUID, endLat, endLon, distance float64, fare, platformFee, partnerEarnings string) error
 	ListByUser(ctx context.Context, userID uuid.UUID) ([]entity.Ride, error)
 	GetActiveRide(ctx context.Context, userID uuid.UUID) (*entity.Ride, error)
+	DisputePenalty(ctx context.Context, rideID, userID uuid.UUID, reason string) error
 }

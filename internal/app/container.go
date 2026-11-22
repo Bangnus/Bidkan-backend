@@ -7,6 +7,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/repository"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/security"
+	infraEmail "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/email"
 	infraStripe "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/stripe"
 	bikeCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/create"
 	bikeList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/list"
@@ -19,15 +20,18 @@ import (
 	notiList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/list"
 	notiUpdateToken "github.com/Bangnus/Bidkan-backend/internal/app/usecase/notification/update_token"
 	reportSummary "github.com/Bangnus/Bidkan-backend/internal/app/usecase/report/summary"
+	rideDispute "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/dispute"
 	rideEnd "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/end"
 	rideStart "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/start"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/create"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/email_auth"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/google_login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/logout"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/me"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/rank"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/refresh"
+	userStudentKyc "github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/student_kyc"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/update_profile"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/verify_firebase"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/stripe_webhook"
@@ -66,8 +70,11 @@ func NewContainer(
 
 	rankCacheRepo := repository.NewUserRankRedisRepository(rdb)
 	configCacheRepo := repository.NewConfigRedisRepository(rdb)
+	emailVerifyRepo := repository.NewEmailVerificationRedisRepository(rdb, secCfg.JWTSecret)
+	emailProvider := infraEmail.NewProviderFromEnv()
 
 	createService := create.NewService(userRepo)
+	emailAuthService := email_auth.NewService(userRepo, tenantRepo, emailVerifyRepo, emailProvider, secCfg, sessions)
 	verifyFirebaseService := verify_firebase.NewService(userRepo, smsProvider)
 	loginService := login.NewService(userRepo, secCfg, sessions)
 	googleLoginService := google_login.NewService(userRepo, tenantRepo, secCfg, sessions)
@@ -75,6 +82,8 @@ func NewContainer(
 	meService := me.NewService(userRepo)
 	rankService := rank.NewService(spendingRepo, rankCacheRepo)
 	updateProfileService := update_profile.NewService(userRepo)
+	studentKycService := userStudentKyc.NewService(userRepo)
+	disputeRideService := rideDispute.NewService(rideRepo)
 
 	transferService := walletTransfer.NewService(db, userRepo, txRepo, mqttPub, notiProvider)
 	verifyService := walletVerify.NewService(userRepo)
@@ -105,6 +114,7 @@ func NewContainer(
 		UserRepo:                userRepo,
 		TenantRepo:              tenantRepo,
 		CreateUserHandler:       create.NewHandler(createService),
+		EmailAuthHandler:        email_auth.NewHandler(emailAuthService),
 		VerifyFirebaseHandler:   verify_firebase.NewHandler(verifyFirebaseService),
 		LoginHandler:            login.NewHandler(loginService),
 		GoogleLoginHandler:      google_login.NewHandler(googleLoginService),
@@ -112,6 +122,7 @@ func NewContainer(
 		MeHandler:               me.NewHandler(meService),
 		RankHandler:             rank.NewHandler(rankService),
 		UpdateProfileHandler:    update_profile.NewHandler(updateProfileService),
+		StudentKYCHandler:       userStudentKyc.NewHandler(studentKycService),
 		LogoutHandler:           logout.NewHandler(secCfg, sessions),
 		StripeTopupHandler:      walletStripeTopup.NewHandler(txRepo, userRepo, stripeClient),
 		TransferHandler:         walletTransfer.NewHandler(transferService),
@@ -123,6 +134,7 @@ func NewContainer(
 		UpdateBikeStatusHandler: bikeUpdateStatus.NewHandler(bikeUpdateStatusService),
 		StartRideHandler:        rideStart.NewHandler(rideStartService),
 		EndRideHandler:          rideEnd.NewHandler(rideEndService),
+		DisputeRideHandler:      rideDispute.NewHandler(disputeRideService),
 		ListZoneHandler:         zoneList.NewHandler(zoneListService),
 		CreateZoneHandler:       zoneCreate.NewHandler(zoneCreateService),
 		NotiBroadcastHandler:    notiBroadcast.NewHandler(notiBroadcastService),

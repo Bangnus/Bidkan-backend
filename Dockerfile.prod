@@ -11,6 +11,8 @@ RUN go mod download && go mod verify
 
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
+COPY pkg/ ./pkg/
+COPY sql/ ./sql/
 COPY docs/ ./docs/
 
 RUN go mod tidy

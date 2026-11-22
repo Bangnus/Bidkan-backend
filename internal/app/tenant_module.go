@@ -8,17 +8,25 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/repository"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/security"
 	infraStripe "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/stripe"
+	infraMqtt "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
 	"github.com/Bangnus/Bidkan-backend/internal/app/router"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/auth"
+	campusAudit "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/audit_manage"
 	campusBikeList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/bike_list"
 	campusBikeManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/bike_manage"
 	campusCouponManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/coupon_manage"
 	campusDashboard "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/dashboard"
 	campusFieldOps "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/field_ops"
+	campusIncident "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/incident_manage"
+	campusInventory "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/inventory_manage"
 	campusOrderManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/order_manage"
+	campusRebalance "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/rebalancing"
+	campusRemoteOps "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/remote_ops"
 	campusReportManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/report_manage"
+	campusRiderManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/rider_manage"
 	campusRevenueManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/revenue_manage"
 	campusRideList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/ride_list"
+	campusStaffComp "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/staff_compensation"
 	campusStaffManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/staff_manage"
 	campusZoneManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/campus/zone_manage"
 	orgManage "github.com/Bangnus/Bidkan-backend/internal/app/usecase/org/manage"
@@ -57,9 +65,16 @@ type TenantModule struct {
 	CampusOrderHandler      campusOrderManage.Handler
 	CampusFieldOpsHandler   campusFieldOps.Handler
 	CampusReportHandler     campusReportManage.Handler
+	CampusStaffCompHandler  campusStaffComp.Handler
+	CampusRemoteOpsHandler   campusRemoteOps.Handler
+	CampusRiderHandler       campusRiderManage.Handler
+	CampusRebalanceHandler   campusRebalance.Handler
+	CampusAuditHandler       campusAudit.Handler
+	CampusInventoryHandler   *campusInventory.Handler
+	CampusIncidentHandler    *campusIncident.Handler
 }
 
-func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.SessionStore, stripeClient infraStripe.Client) *TenantModule {
+func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.SessionStore, stripeClient infraStripe.Client, mqttPub infraMqtt.Publisher) *TenantModule {
 	if stripeClient == nil {
 		stripeClient = infraStripe.NewClient(nil)
 	}
@@ -69,6 +84,14 @@ func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.Sess
 	orderRepo := repository.NewHardwareOrderPostgresRepository(db)
 	superRepo := repository.NewSuperAdminPostgresRepository(db)
 	campusRepo := repository.NewCampusOpsPostgresRepository(db)
+	staffCompRepo := repository.NewStaffCompensationPostgres(db)
+	bikeRepo := repository.NewBikePostgresRepository(db)
+	rideRepo := repository.NewRidePostgresRepository(db)
+	riderRepo := repository.NewCampusRiderPostgres(db)
+	rebalRepo := repository.NewRebalancePostgres(db)
+	auditRepo := repository.NewAuditPostgres(db)
+	partRepo := repository.NewSparePartPostgres(db)
+	incRepo := repository.NewIncidentPostgres(db)
 
 	return &TenantModule{
 		TenantRepo:              tenantRepo,
@@ -92,8 +115,15 @@ func NewTenantModule(db *sql.DB, secCfg *security.Config, sessions security.Sess
 		CampusStaffHandler:      campusStaffManage.NewHandler(tenantRepo, campusRepo),
 		CampusCouponHandler:     campusCouponManage.NewHandler(tenantRepo, campusRepo),
 		CampusOrderHandler:      campusOrderManage.NewHandler(tenantRepo, orderRepo),
-		CampusFieldOpsHandler:   campusFieldOps.NewHandler(campusFieldOps.NewService(tenantRepo)),
-		CampusReportHandler:     campusReportManage.NewHandler(tenantRepo, campusRepo),
+		CampusFieldOpsHandler:   campusFieldOps.NewHandler(campusFieldOps.NewService(tenantRepo, staffCompRepo)),
+		CampusReportHandler:     campusReportManage.NewHandler(tenantRepo, campusRepo, staffCompRepo),
+		CampusStaffCompHandler:  campusStaffComp.NewHandler(campusStaffComp.NewService(tenantRepo, staffCompRepo)),
+		CampusRemoteOpsHandler:  campusRemoteOps.NewHandler(campusRemoteOps.NewService(tenantRepo, bikeRepo, rideRepo, mqttPub)),
+		CampusRiderHandler:      campusRiderManage.NewHandler(campusRiderManage.NewService(tenantRepo, riderRepo)),
+		CampusRebalanceHandler:  campusRebalance.NewHandler(campusRebalance.NewService(tenantRepo, campusRepo, rebalRepo)),
+		CampusAuditHandler:      campusAudit.NewHandler(campusAudit.NewService(tenantRepo, campusRepo, staffCompRepo, auditRepo)),
+		CampusInventoryHandler:  campusInventory.NewHandler(campusInventory.NewService(tenantRepo, partRepo, auditRepo)),
+		CampusIncidentHandler:   campusIncident.NewHandler(campusIncident.NewService(tenantRepo, incRepo, auditRepo)),
 	}
 }
 
@@ -127,5 +157,12 @@ func (m *TenantModule) SeedAndRegisterRoutes(server *fiber.App, db *sql.DB, auth
 		m.CampusOrderHandler,
 		m.CampusFieldOpsHandler,
 		m.CampusReportHandler,
+		m.CampusStaffCompHandler,
+		m.CampusRemoteOpsHandler,
+		m.CampusRiderHandler,
+		m.CampusRebalanceHandler,
+		m.CampusAuditHandler,
+		m.CampusInventoryHandler,
+		m.CampusIncidentHandler,
 	)
 }

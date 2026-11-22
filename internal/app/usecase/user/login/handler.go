@@ -42,8 +42,19 @@ func (h *handler) Handle(c *fiber.Ctx) error {
 
 	res, err := h.service.Login(c.Context(), req)
 	if err != nil {
+		if errors.Is(err, ErrMissingIdentifier) {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
 		if errors.Is(err, ErrTooManyAttempts) {
 			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"error": err.Error()})
+		}
+		var unverified *EmailNotVerifiedError
+		if errors.As(err, &unverified) {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": err.Error(),
+				"code":  "email_not_verified",
+				"email": unverified.Email,
+			})
 		}
 		if errors.Is(err, ErrForbiddenScope) {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": err.Error()})

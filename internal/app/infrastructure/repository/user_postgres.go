@@ -49,7 +49,22 @@ func (r *userPostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*en
 	if err != nil {
 		return nil, err
 	}
-	return r.mapUser(u), nil
+	user := r.mapUser(u)
+	var isStudent, studentVerified sql.NullBool
+	var studentID, cardURL sql.NullString
+	_ = r.db.QueryRowContext(ctx, "SELECT is_student, student_id, student_card_url, student_verified FROM users WHERE id = $1", id).
+		Scan(&isStudent, &studentID, &cardURL, &studentVerified)
+	user.IsStudent = isStudent.Bool
+	user.StudentID = studentID.String
+	user.StudentCardURL = cardURL.String
+	user.StudentVerified = studentVerified.Bool
+	return user, nil
+}
+
+func (r *userPostgresRepository) SubmitStudentKYC(ctx context.Context, id uuid.UUID, studentID, cardURL string) error {
+	query := `UPDATE users SET is_student = true, student_id = $1, student_card_url = $2, student_verified = false, updated_at = NOW() WHERE id = $3`
+	_, err := r.db.ExecContext(ctx, query, studentID, cardURL, id)
+	return err
 }
 
 func (r *userPostgresRepository) GetByUsername(ctx context.Context, username string) (*entity.User, error) {
@@ -145,6 +160,7 @@ func (r *userPostgresRepository) mapUser(u sqlc.User) *entity.User {
 		WalletBalance:  u.WalletBalance,
 		Role:           u.Role,
 		Status:         u.Status,
+		EmailVerified:  u.EmailVerified,
 		ImageURL:       u.ImageUrl.String,
 		FcmToken:       u.FcmToken.String,
 		CreatedAt:      u.CreatedAt,

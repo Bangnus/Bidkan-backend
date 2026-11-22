@@ -11,6 +11,20 @@ import (
 	"github.com/google/uuid"
 )
 
+type AuditLog struct {
+	ID         uuid.UUID
+	TenantID   uuid.NullUUID
+	ActorID    uuid.NullUUID
+	ActorName  string
+	ActorRole  string
+	Action     string
+	TargetType string
+	TargetID   string
+	Details    sql.NullString
+	IpAddress  sql.NullString
+	CreatedAt  time.Time
+}
+
 type Bike struct {
 	ID            string
 	HardwareID    string
@@ -33,6 +47,20 @@ type BikeLocation struct {
 	Lon       float64
 	Battery   int32
 	CreatedAt time.Time
+}
+
+type CampusSparePart struct {
+	ID          uuid.UUID
+	TenantID    uuid.UUID
+	PartName    string
+	PartCode    string
+	Category    string
+	Quantity    int32
+	Unit        string
+	MinStock    int32
+	CostPerUnit string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type Config struct {
@@ -72,6 +100,30 @@ type HardwareOrder struct {
 	UpdatedAt   time.Time
 }
 
+type IncidentReport struct {
+	ID               uuid.UUID
+	TenantID         uuid.UUID
+	RideID           uuid.NullUUID
+	UserID           uuid.NullUUID
+	ReporterName     string
+	ReporterPhone    string
+	IncidentType     string
+	Severity         string
+	Description      string
+	LocationName     sql.NullString
+	LocationLat      sql.NullString
+	LocationLon      sql.NullString
+	PoliceReportNo   sql.NullString
+	InsuranceClaimNo sql.NullString
+	InsuranceStatus  string
+	ClaimAmount      string
+	ApprovedAmount   string
+	HospitalName     sql.NullString
+	Notes            sql.NullString
+	CreatedAt        time.Time
+	ResolvedAt       sql.NullTime
+}
+
 type Notification struct {
 	ID        uuid.UUID
 	UserID    uuid.NullUUID
@@ -91,6 +143,19 @@ type Organization struct {
 	Status       string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+}
+
+type PartsUsageLog struct {
+	ID           uuid.UUID
+	TenantID     uuid.UUID
+	PartID       uuid.UUID
+	ChangeType   string
+	Quantity     int32
+	BalanceAfter int32
+	ReferenceID  sql.NullString
+	Notes        sql.NullString
+	ActorName    string
+	CreatedAt    time.Time
 }
 
 type Report struct {
@@ -125,6 +190,33 @@ type Ride struct {
 	EndTime         sql.NullTime
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	ParkingPenalty  string
+	PenaltyStatus   string
+	DisputeReason   sql.NullString
+	RefundAmount    string
+	RefundedAt      sql.NullTime
+}
+
+type StaffCompensationConfig struct {
+	ID              uuid.UUID
+	TenantID        uuid.UUID
+	PayModel        string
+	BatterySwapFee  string
+	RepairTaskFee   string
+	DailyBaseWage   string
+	MonthlyBaseWage string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type StaffTaskLog struct {
+	ID           uuid.UUID
+	TenantID     uuid.UUID
+	StaffUserID  uuid.UUID
+	TaskType     string
+	TargetID     string
+	EarnedAmount string
+	CreatedAt    time.Time
 }
 
 type StripeWebhookEvent struct {
@@ -185,21 +277,26 @@ type Transaction struct {
 }
 
 type User struct {
-	ID             uuid.UUID
-	TenantID       uuid.NullUUID
-	OrganizationID uuid.NullUUID
-	PhoneNumber    sql.NullString
-	Email          sql.NullString
-	GoogleID       sql.NullString
-	Username       string
-	Password       string
-	WalletBalance  string
-	Role           string
-	Status         string
-	ImageUrl       sql.NullString
-	FcmToken       sql.NullString
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID              uuid.UUID
+	TenantID        uuid.NullUUID
+	OrganizationID  uuid.NullUUID
+	PhoneNumber     sql.NullString
+	Email           sql.NullString
+	GoogleID        sql.NullString
+	Username        string
+	Password        string
+	WalletBalance   string
+	Role            string
+	Status          string
+	ImageUrl        sql.NullString
+	FcmToken        sql.NullString
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	IsStudent       bool
+	StudentID       sql.NullString
+	StudentCardUrl  sql.NullString
+	StudentVerified bool
+	EmailVerified   bool
 }
 
 type UserCoupon struct {

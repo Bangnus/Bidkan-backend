@@ -14,7 +14,7 @@ func AuthRateLimiter(store security.SessionStore, scope string, maxReqs int, win
 		if store == nil {
 			return c.Next()
 		}
-		key := fmt.Sprintf("%s:%s", scope, c.IP())
+		key := fmt.Sprintf("%s:%s", scope, ClientIP(c))
 		allowed, retryAfter, err := store.AllowRateLimit(c.Context(), key, maxReqs, window)
 		if err != nil {
 			return c.Next()

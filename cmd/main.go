@@ -112,7 +112,9 @@ func main() {
 	// 5. Setup MQTT Subscriber (สำหรับรับพิกัด)
 	bikeRepo := repository.NewBikePostgresRepository(db)
 	bikeCache := repository.NewBikeRedisRepository(rdb)
-	trackingService := tracking.NewService(bikeRepo, bikeCache)
+	zoneRepo := repository.NewZoneRepository(db)
+	auditRepo := repository.NewAuditPostgres(db)
+	trackingService := tracking.NewService(bikeRepo, bikeCache, zoneRepo, auditRepo, mqttPub)
 	mqttSub := mqtt.NewSubscriber(mqttBroker, "bidkan_backend_sub", trackingService)
 	if err := mqttSub.Start(); err != nil {
 		log.Fatalf("Failed to start MQTT Subscriber: %v", err)
@@ -123,6 +125,8 @@ func main() {
 		BodyLimit: 4 * 1024 * 1024,
 	})
 	server.Use(recover.New())
+	// IP จริงของผู้ใช้สำหรับ rate limit (ผ่าน Caddy และหน้าเว็บบน Vercel) — ต้องมาก่อน route ทั้งหมด
+	server.Use(middleware.ResolveClientIP(secCfg.ProxySharedSecret))
 	server.Use(helmet.New())
 	server.Use(cors.New(cors.Config{
 		AllowOrigins:     secCfg.CORSAllowedOrigins,
@@ -137,7 +141,7 @@ func main() {
 	}
 
 	// Setup Multi-Tenant Module
-	tenantModule := app.NewTenantModule(db, secCfg, sessions, stripeClient)
+	tenantModule := app.NewTenantModule(db, secCfg, sessions, stripeClient, mqttPub)
 	tenantModule.SeedAndRegisterRoutes(server, db, authMW, sessions)
 	router.SetupStripeWebhookRoutes(server, container.StripeWebhookHandler)
 	app.StartAutoPayoutScheduler(context.Background(), stripeClient, tenantModule.PayoutManageHandler.Service())
@@ -148,17 +152,19 @@ func main() {
 		authMW,
 		sessions,
 		container.CreateUserHandler,
+		container.EmailAuthHandler,
 		container.LoginHandler,
 		container.GoogleLoginHandler,
 		container.RefreshUserHandler,
 		container.MeHandler,
 		container.VerifyFirebaseHandler,
 		container.UpdateProfileHandler,
+		container.StudentKYCHandler,
 		container.LogoutHandler,
 		container.RankHandler,
 	)
 	router.SetupBikeRoutes(server, authMW, optAuthMW, container.CreateBikeHandler, container.ListBikeHandler, container.UpdateBikeStatusHandler)
-	router.SetupRideRoutes(server, authMW, container.StartRideHandler, container.EndRideHandler)
+	router.SetupRideRoutes(server, authMW, container.StartRideHandler, container.EndRideHandler, container.DisputeRideHandler)
 	router.SetupZoneRoutes(server, authMW, container.ListZoneHandler, container.CreateZoneHandler)
 	router.SetupReportRoutes(server, authMW, container.ReportSummaryHandler)
 	router.SetupCouponRoutes(server, authMW, container.RedeemCouponHandler, container.CreateCouponHandler, container.ListMyCouponHandler)

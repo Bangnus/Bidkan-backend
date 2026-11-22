@@ -28,7 +28,19 @@ func (s *stubUserRepo) GetByPhone(context.Context, string) (*entity.User, error)
 func (s *stubUserRepo) GetByUsername(context.Context, string) (*entity.User, error) {
 	return nil, nil
 }
+func (s *stubUserRepo) GetByEmail(context.Context, string) (*entity.User, error) {
+	return nil, nil
+}
 func (s *stubUserRepo) GetByIdentifier(context.Context, string) (*entity.User, error) {
+	return nil, nil
+}
+func (s *stubUserRepo) CreateEmailUser(context.Context, *entity.User) (*entity.User, error) {
+	return nil, nil
+}
+func (s *stubUserRepo) RefreshPendingEmailUser(context.Context, *entity.User) (*entity.User, error) {
+	return nil, nil
+}
+func (s *stubUserRepo) ActivateVerifiedEmailUser(context.Context, string) (*entity.User, error) {
 	return nil, nil
 }
 func (s *stubUserRepo) UpdateStatus(context.Context, uuid.UUID, string) error { return nil }
@@ -38,6 +50,9 @@ func (s *stubUserRepo) UpdateBalance(context.Context, uuid.UUID, string) error {
 func (s *stubUserRepo) AddBalance(context.Context, uuid.UUID, string) error    { return nil }
 func (s *stubUserRepo) DeductBalance(context.Context, uuid.UUID, string) error { return nil }
 func (s *stubUserRepo) UpdateProfileImage(context.Context, uuid.UUID, string) error {
+	return nil
+}
+func (s *stubUserRepo) SubmitStudentKYC(context.Context, uuid.UUID, string, string) error {
 	return nil
 }
 func (s *stubUserRepo) UpsertGoogleUser(context.Context, string, string, string, string, *uuid.UUID) (*entity.User, error) {

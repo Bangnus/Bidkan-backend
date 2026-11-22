@@ -56,3 +56,8 @@ sqlc generate
 docker compose up -d
 ```
 
+
+## Git branches
+
+- Work on `dev` (all development, feature branches merge into `dev`).
+- `master` is production: merging `dev` into `master` and pushing deploys to the Droplet (`.github/workflows/deploy-backend.yml`). Never commit straight to `master`.

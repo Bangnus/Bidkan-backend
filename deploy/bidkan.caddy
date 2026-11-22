@@ -1,0 +1,22 @@
+# config ของ BidKan ใน Caddy กลางของเครื่อง (/opt/edge, container edge-caddy: ตัวเดียวที่ถือพอร์ต 80/443 บน Droplet)
+# ลงที่ /opt/caddy-sites/bidkan.caddy ผ่าน /opt/edge/install-site.sh · GitHub Actions (deploy-backend.yml → deploy.sh) ทำให้เอง
+#
+# ไฟล์ผิด = Caddy ทั้งตัว (ทุกเว็บบนเครื่อง) เปิดไม่ขึ้น ถ้าลงด้วยมือให้ใช้สคริปต์ที่ตรวจก่อน reload:
+#   /opt/edge/install-site.sh bidkan bidkan.caddy
+#
+# DNS: A record `bidkan.api` ของ kriptnet.com ต้องชี้มาที่ IP ของ Droplet ก่อน Caddy จึงออก HTTPS ได้
+# ชื่อ upstream ต้องเป็น bidkan-api (ห้ามใช้ backend — ชนกับ service ของ BoostYod บน network edge เดียวกัน)
+# (secure) เป็น snippet ใน Caddyfile ของ Caddy กลาง: HSTS, ซ่อน Server header, บีบอัด zstd/gzip
+
+bidkan.api.kriptnet.com {
+	import secure
+	# API รับ body ใหญ่สุด 4MB (Fiber BodyLimit) — ตัดทิ้งตั้งแต่ Caddy ก่อนถึง API
+	request_body {
+		max_size 5MB
+	}
+	reverse_proxy bidkan-api:8080 {
+		# IP ที่ต่อเข้ามาจริง ให้ API นับ rate limit — header_up ตั้งทับค่าที่ client ส่งมาเสมอ จึงปลอมไม่ได้
+		# (คำขอจากหน้าเว็บบน Vercel = IP ของ Vercel · IP จริงของผู้ใช้มากับ X-Bidkan-Client-IP + รหัสลับ)
+		header_up X-Real-IP {remote_host}
+	}
+}

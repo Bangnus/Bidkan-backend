@@ -3,6 +3,8 @@ package sms
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/Bangnus/Bidkan-backend/internal/app/domain/service"
 )
@@ -20,7 +22,9 @@ func (p *consoleSmsProvider) SendOTP(ctx context.Context, phone string, otp stri
 	return nil
 }
 func (p *consoleSmsProvider) VerifyIDToken(ctx context.Context, idToken string) (string, error) {
-	// ท่าไม้ตายสำหรับ Dev: ถ้าส่งมาในรูปแบบ debug:0812345678
+	if !strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "development") {
+		return "", fmt.Errorf("firebase SMS verification is not configured")
+	}
 	if len(idToken) > 6 && idToken[:6] == "debug:" {
 		phone := idToken[6:]
 		fmt.Printf("[DEV MODE] 🔓 Bypass Firebase for phone: %s\n", phone)
