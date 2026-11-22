@@ -152,6 +152,7 @@ func main() {
 		authMW,
 		sessions,
 		container.CreateUserHandler,
+		container.EmailAuthHandler,
 		container.LoginHandler,
 		container.GoogleLoginHandler,
 		container.RefreshUserHandler,

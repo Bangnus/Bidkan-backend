@@ -160,6 +160,7 @@ func (r *userPostgresRepository) mapUser(u sqlc.User) *entity.User {
 		WalletBalance:  u.WalletBalance,
 		Role:           u.Role,
 		Status:         u.Status,
+		EmailVerified:  u.EmailVerified,
 		ImageURL:       u.ImageUrl.String,
 		FcmToken:       u.FcmToken.String,
 		CreatedAt:      u.CreatedAt,

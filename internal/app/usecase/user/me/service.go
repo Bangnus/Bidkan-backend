@@ -15,6 +15,8 @@ type Response struct {
 	PhoneNumber     string `json:"phone_number"`
 	Role            string `json:"role"`
 	Status          string `json:"status"`
+	EmailVerified   bool   `json:"email_verified"`
+	Provider        string `json:"provider"`
 	WalletBalance   string `json:"wallet_balance"`
 	ImageURL        string `json:"image_url"`
 	IsStudent       bool   `json:"is_student"`
@@ -47,13 +49,20 @@ func (s *service) GetMyProfile(ctx context.Context, userID string) (*Response, e
 		return nil, errors.New("user not found")
 	}
 
+	provider := "local"
+	if user.Password == "google_oauth" {
+		provider = "google"
+	}
+
 	return &Response{
-		ID:            user.ID.String(),
-		Username:      user.Username,
-		Email:         user.Email,
-		PhoneNumber:   user.PhoneNumber,
-		Role:          user.Role,
+		ID:              user.ID.String(),
+		Username:        user.Username,
+		Email:           user.Email,
+		PhoneNumber:     user.PhoneNumber,
+		Role:            user.Role,
 		Status:          user.Status,
+		EmailVerified:   user.EmailVerified,
+		Provider:        provider,
 		WalletBalance:   user.WalletBalance,
 		ImageURL:        user.ImageURL,
 		IsStudent:       user.IsStudent,

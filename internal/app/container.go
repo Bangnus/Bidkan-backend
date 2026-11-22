@@ -7,6 +7,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/mqtt"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/repository"
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/security"
+	infraEmail "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/email"
 	infraStripe "github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/stripe"
 	bikeCreate "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/create"
 	bikeList "github.com/Bangnus/Bidkan-backend/internal/app/usecase/bike/list"
@@ -23,6 +24,7 @@ import (
 	rideEnd "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/end"
 	rideStart "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/start"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/create"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/email_auth"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/google_login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/logout"
@@ -68,8 +70,11 @@ func NewContainer(
 
 	rankCacheRepo := repository.NewUserRankRedisRepository(rdb)
 	configCacheRepo := repository.NewConfigRedisRepository(rdb)
+	emailVerifyRepo := repository.NewEmailVerificationRedisRepository(rdb)
+	emailProvider := infraEmail.NewProviderFromEnv()
 
 	createService := create.NewService(userRepo)
+	emailAuthService := email_auth.NewService(userRepo, tenantRepo, emailVerifyRepo, emailProvider, secCfg, sessions)
 	verifyFirebaseService := verify_firebase.NewService(userRepo, smsProvider)
 	loginService := login.NewService(userRepo, secCfg, sessions)
 	googleLoginService := google_login.NewService(userRepo, tenantRepo, secCfg, sessions)
@@ -109,6 +114,7 @@ func NewContainer(
 		UserRepo:                userRepo,
 		TenantRepo:              tenantRepo,
 		CreateUserHandler:       create.NewHandler(createService),
+		EmailAuthHandler:        email_auth.NewHandler(emailAuthService),
 		VerifyFirebaseHandler:   verify_firebase.NewHandler(verifyFirebaseService),
 		LoginHandler:            login.NewHandler(loginService),
 		GoogleLoginHandler:      google_login.NewHandler(googleLoginService),

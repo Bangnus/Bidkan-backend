@@ -19,6 +19,7 @@ import (
 	rideEnd "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/end"
 	rideStart "github.com/Bangnus/Bidkan-backend/internal/app/usecase/ride/start"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/create"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/email_auth"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/google_login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/logout"
@@ -43,6 +44,7 @@ type Container struct {
 
 	// User
 	CreateUserHandler     create.Handler
+	EmailAuthHandler      email_auth.Handler
 	VerifyFirebaseHandler verify_firebase.Handler
 	LoginHandler          login.Handler
 	GoogleLoginHandler    google_login.Handler

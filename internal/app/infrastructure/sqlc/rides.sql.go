@@ -97,7 +97,7 @@ func (q *Queries) EndRide(ctx context.Context, arg EndRideParams) error {
 }
 
 const getActiveRideByUser = `-- name: GetActiveRideByUser :one
-SELECT id, user_id, bike_id, tenant_id, start_lat, start_lon, end_lat, end_lon, distance_km, unlock_fee, rate_per_minute, total_fare, platform_fee, partner_earnings, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE user_id = $1 AND status = 'ongoing' LIMIT 1
+SELECT id, user_id, bike_id, tenant_id, start_lat, start_lon, end_lat, end_lon, distance_km, unlock_fee, rate_per_minute, total_fare, platform_fee, partner_earnings, status, type, start_time, end_time, created_at, updated_at, parking_penalty, penalty_status, dispute_reason, refund_amount, refunded_at FROM rides WHERE user_id = $1 AND status = 'ongoing' LIMIT 1
 `
 
 func (q *Queries) GetActiveRideByUser(ctx context.Context, userID uuid.UUID) (Ride, error) {
@@ -124,12 +124,17 @@ func (q *Queries) GetActiveRideByUser(ctx context.Context, userID uuid.UUID) (Ri
 		&i.EndTime,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ParkingPenalty,
+		&i.PenaltyStatus,
+		&i.DisputeReason,
+		&i.RefundAmount,
+		&i.RefundedAt,
 	)
 	return i, err
 }
 
 const getRide = `-- name: GetRide :one
-SELECT id, user_id, bike_id, tenant_id, start_lat, start_lon, end_lat, end_lon, distance_km, unlock_fee, rate_per_minute, total_fare, platform_fee, partner_earnings, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE id = $1
+SELECT id, user_id, bike_id, tenant_id, start_lat, start_lon, end_lat, end_lon, distance_km, unlock_fee, rate_per_minute, total_fare, platform_fee, partner_earnings, status, type, start_time, end_time, created_at, updated_at, parking_penalty, penalty_status, dispute_reason, refund_amount, refunded_at FROM rides WHERE id = $1
 `
 
 func (q *Queries) GetRide(ctx context.Context, id uuid.UUID) (Ride, error) {
@@ -156,6 +161,11 @@ func (q *Queries) GetRide(ctx context.Context, id uuid.UUID) (Ride, error) {
 		&i.EndTime,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ParkingPenalty,
+		&i.PenaltyStatus,
+		&i.DisputeReason,
+		&i.RefundAmount,
+		&i.RefundedAt,
 	)
 	return i, err
 }
@@ -299,7 +309,7 @@ func (q *Queries) GetTenantUnsettledStats(ctx context.Context, tenantID uuid.UUI
 }
 
 const listRidesByTenant = `-- name: ListRidesByTenant :many
-SELECT id, user_id, bike_id, tenant_id, start_lat, start_lon, end_lat, end_lon, distance_km, unlock_fee, rate_per_minute, total_fare, platform_fee, partner_earnings, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE tenant_id = $1 ORDER BY start_time DESC
+SELECT id, user_id, bike_id, tenant_id, start_lat, start_lon, end_lat, end_lon, distance_km, unlock_fee, rate_per_minute, total_fare, platform_fee, partner_earnings, status, type, start_time, end_time, created_at, updated_at, parking_penalty, penalty_status, dispute_reason, refund_amount, refunded_at FROM rides WHERE tenant_id = $1 ORDER BY start_time DESC
 `
 
 func (q *Queries) ListRidesByTenant(ctx context.Context, tenantID uuid.UUID) ([]Ride, error) {
@@ -332,6 +342,11 @@ func (q *Queries) ListRidesByTenant(ctx context.Context, tenantID uuid.UUID) ([]
 			&i.EndTime,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ParkingPenalty,
+			&i.PenaltyStatus,
+			&i.DisputeReason,
+			&i.RefundAmount,
+			&i.RefundedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -475,7 +490,7 @@ func (q *Queries) ListRidesByTenantWithUserPaged(ctx context.Context, arg ListRi
 }
 
 const listRidesByUser = `-- name: ListRidesByUser :many
-SELECT id, user_id, bike_id, tenant_id, start_lat, start_lon, end_lat, end_lon, distance_km, unlock_fee, rate_per_minute, total_fare, platform_fee, partner_earnings, status, type, start_time, end_time, created_at, updated_at FROM rides WHERE user_id = $1 ORDER BY start_time DESC
+SELECT id, user_id, bike_id, tenant_id, start_lat, start_lon, end_lat, end_lon, distance_km, unlock_fee, rate_per_minute, total_fare, platform_fee, partner_earnings, status, type, start_time, end_time, created_at, updated_at, parking_penalty, penalty_status, dispute_reason, refund_amount, refunded_at FROM rides WHERE user_id = $1 ORDER BY start_time DESC
 `
 
 func (q *Queries) ListRidesByUser(ctx context.Context, userID uuid.UUID) ([]Ride, error) {
@@ -508,6 +523,11 @@ func (q *Queries) ListRidesByUser(ctx context.Context, userID uuid.UUID) ([]Ride
 			&i.EndTime,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ParkingPenalty,
+			&i.PenaltyStatus,
+			&i.DisputeReason,
+			&i.RefundAmount,
+			&i.RefundedAt,
 		); err != nil {
 			return nil, err
 		}

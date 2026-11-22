@@ -15,8 +15,9 @@ type User struct {
 	Username       string     `json:"username"`
 	Password       string     `json:"-"`
 	WalletBalance  string     `json:"wallet_balance"`
-	Role           string     `json:"role"`
-	Status         string     `json:"status"`
+	Role            string     `json:"role"`
+	Status          string     `json:"status"`
+	EmailVerified   bool       `json:"email_verified"`
 	ImageURL        string     `json:"image_url"`
 	FcmToken        string     `json:"fcm_token,omitempty"`
 	IsStudent       bool       `json:"is_student"`

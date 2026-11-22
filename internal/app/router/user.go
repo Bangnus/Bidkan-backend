@@ -6,6 +6,7 @@ import (
 	"github.com/Bangnus/Bidkan-backend/internal/app/infrastructure/security"
 	"github.com/Bangnus/Bidkan-backend/internal/app/middleware"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/create"
+	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/email_auth"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/google_login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/login"
 	"github.com/Bangnus/Bidkan-backend/internal/app/usecase/user/logout"
@@ -23,6 +24,7 @@ func SetupUserRoutes(
 	authMW fiber.Handler,
 	sessions security.SessionStore,
 	createHandler create.Handler,
+	emailAuthHandler email_auth.Handler,
 	loginHandler login.Handler,
 	googleLoginHandler google_login.Handler,
 	refreshHandler refresh.Handler,
@@ -37,6 +39,9 @@ func SetupUserRoutes(
 
 	// Public Routes with rate limits
 	v1.Post("/users", middleware.AuthRateLimiter(sessions, "user_register", 15, time.Minute), createHandler.Handle)
+	v1.Post("/users/register", middleware.AuthRateLimiter(sessions, "user_email_register", 10, time.Minute), emailAuthHandler.HandleRegister)
+	v1.Post("/users/verify-email", middleware.AuthRateLimiter(sessions, "user_email_verify", 15, time.Minute), emailAuthHandler.HandleVerifyEmail)
+	v1.Post("/users/resend-verification", middleware.AuthRateLimiter(sessions, "user_email_resend", 10, time.Minute), emailAuthHandler.HandleResendVerification)
 	v1.Post("/users/verify/firebase", middleware.AuthRateLimiter(sessions, "user_verify", 15, time.Minute), verifyFirebaseHandler.Handle)
 	v1.Post("/users/login", middleware.AuthRateLimiter(sessions, "user_login", 30, time.Minute), loginHandler.Handle)
 	v1.Post("/users/google-login", middleware.AuthRateLimiter(sessions, "user_google", 30, time.Minute), googleLoginHandler.Handle)
