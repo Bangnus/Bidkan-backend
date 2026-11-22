@@ -67,11 +67,11 @@ func OrgSlugGuard(orgRepo domainRepo.OrganizationRepository) fiber.Handler {
 	}
 }
 
-// TenantAdminOnly อนุญาตเฉพาะ Org Admin หรือ Tenant Admin ของมหาวิทยาลัย (ไม่อนุญาต Super Admin)
+// TenantAdminOnly อนุญาต Super Admin (Partner View), Org Admin หรือ Tenant Admin ของมหาวิทยาลัย
 func TenantAdminOnly() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		role := GetAuthRole(c)
-		if role != "org_admin" && role != "tenant_admin" {
+		if role != "super_admin" && role != "org_admin" && role != "tenant_admin" {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"error": "Forbidden: Campus or Organization Admin access required",
 			})
@@ -80,11 +80,11 @@ func TenantAdminOnly() fiber.Handler {
 	}
 }
 
-// TenantStaffOrAdmin อนุญาต Staff, Tenant Admin และ Org Admin (ไม่อนุญาต Super Admin)
+// TenantStaffOrAdmin อนุญาต Super Admin (Partner View), Staff, Tenant Admin และ Org Admin
 func TenantStaffOrAdmin() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		role := GetAuthRole(c)
-		if role != "org_admin" && role != "tenant_admin" && role != "tenant_staff" {
+		if role != "super_admin" && role != "org_admin" && role != "tenant_admin" && role != "tenant_staff" {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"error": "Forbidden: Staff or Campus Admin access required",
 			})
@@ -93,7 +93,7 @@ func TenantStaffOrAdmin() fiber.Handler {
 	}
 }
 
-// CampusSlugGuard บังคับขอบเขตการเข้าถึงข้อมูลวิทยาเขตตามสิทธิ์ (บล็อก super_admin เด็ดขาด)
+// CampusSlugGuard บังคับขอบเขตการเข้าถึงข้อมูลวิทยาเขตตามสิทธิ์ (อนุญาต super_admin สำหรับ Partner View)
 func CampusSlugGuard(tenantRepo domainRepo.TenantRepository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		role := GetAuthRole(c)
@@ -109,6 +109,10 @@ func CampusSlugGuard(tenantRepo domainRepo.TenantRepository) fiber.Handler {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "campus tenant not found",
 			})
+		}
+
+		if role == "super_admin" {
+			return c.Next()
 		}
 
 		userOrgID := GetAuthOrgID(c)
